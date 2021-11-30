@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+.DS_Store
+
+# bloxlink specific stuff
+slash_creator.py
+run.py
