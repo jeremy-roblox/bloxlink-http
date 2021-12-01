@@ -1,5 +1,7 @@
-MONGO_URL  = "mongodb://localhost"
-DISCORD_PUBLIC_KEY = "1b646a3056e2db6a02dffaaa5c3537505f4d40c2f61bad1e85db4ac9fe4b9c87"
+MODULE_DIR = [
+	"src/resources/modules",
+	"src/commands",
+]
 
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
