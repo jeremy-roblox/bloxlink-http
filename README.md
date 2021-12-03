@@ -2,7 +2,7 @@
 
 **WARNING: the code here is a WORK-IN-PROGRESS and is NOT done.**
 
-This repository will contain the code for the upcoming HTTP interactions.
+This repository will contain the code for the upcoming HTTP interactions which will replace how Bloxlink handles commands in the future. This is accomplished by running a web server that handles all interaction commands instead of the gateway, which is what the current version of Bloxlink does.
 
 ## Instructions
 Running this is relatively simple, but is different depending on whether you're running it on your own computer (local) or in a production environment.
