@@ -48,6 +48,13 @@ class Bloxlink(snowfin.Client):
         return new_module
 
     @staticmethod
+    def command(command_class):
+        command_obj = command_class()
+        snowfin.slash_command(name=str(command_obj))(command_obj.__execute__)
+
+        return command_class
+
+    @staticmethod
     def get_module(dir_name, *, name_override=None, name_override_pattern="", path="resources.modules", attrs=None):
         save_as  = f"{name_override_pattern.lower()}{(dir_name).lower()}"
         modules  = loaded_modules.get(save_as)
