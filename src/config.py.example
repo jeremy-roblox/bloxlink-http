@@ -1,0 +1,3 @@
+MONGO_URL  = "mongodb://localhost"
+DISCORD_PUBLIC_KEY = "MODIFY ME"
+
