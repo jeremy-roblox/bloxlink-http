@@ -133,3 +133,4 @@ dmypy.json
 # bloxlink specific stuff
 slash_creator.py
 run.py
+src/config.py
