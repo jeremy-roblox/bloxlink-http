@@ -9,5 +9,5 @@ class PingCommand(Command):
 
         self.some_data = "oooooooof"
 
-    async def __execute__(self, interaction):
+    async def __execute__(self, client, interaction):
         return MessageResponse("pong, data=" + self.some_data)
