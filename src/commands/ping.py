@@ -1,13 +1,11 @@
-from snowfin.response import MessageResponse
-from resources.structures import Bloxlink, Command
+from snowfin import Module, slash_command, MessageResponse, Interaction
+from resources.structures import Bloxlink
 
-@Bloxlink.command
-class PingCommand(Command):
+class PingCommand(Module):
+    """A module that responds to ping commands"""
 
-    def __init__(self):
-        super().__init__(self)
+    @slash_command("ping")
+    async def ping(self, ctx: Interaction):
+        """measure the latency between the bot and Discord"""
 
-        self.some_data = "oooooooof"
-
-    async def __execute__(self, client, interaction):
-        return MessageResponse("pong, data=" + self.some_data)
+        return MessageResponse(f"pong! {0}ms", ephemeral=True)
