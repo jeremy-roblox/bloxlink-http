@@ -1,5 +1,5 @@
 from snowfin import Module, slash_command, MessageResponse, Interaction
-from resources.structures import Bloxlink
+from resources.bloxlink import Bloxlink
 
 class BindCommand(Module):
 

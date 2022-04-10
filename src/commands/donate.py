@@ -1,6 +1,6 @@
 from attr import field
 from snowfin import Module, slash_command, Embed, Interaction, EmbedField, Button, Components, EmbedFooter
-from resources.structures import Bloxlink
+from resources.bloxlink import Bloxlink
 from resources.constants import LIMITS
 
 PREMIUM_PERKS = "\n".join([
