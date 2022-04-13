@@ -23,4 +23,4 @@ if __name__ == "__main__":
                 continue
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
-    bot.run(SERVER_HOST, SERVER_PORT, debug=True)
+    bot.run(env.get("HOST", SERVER_HOST), env.get("PORT", SERVER_PORT), debug=True)
