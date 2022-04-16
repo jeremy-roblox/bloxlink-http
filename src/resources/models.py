@@ -34,3 +34,9 @@ class PartialBloxlinkUser(BloxlinkUser, PartialMixin):
 @dataclass(slots=True)
 class PartialBloxlinkGuild(BloxlinkGuild, PartialMixin):
     pass
+
+
+@dataclass(slots=True)
+class RobloxAccount:
+    id: int
+    username: str
