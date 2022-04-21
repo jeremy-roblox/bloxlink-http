@@ -6,6 +6,11 @@ from secrets import PROXY_URL
 from exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from json import loads
 
+__all__ = (
+    "fetch",
+    "ReturnType"
+)
+
 session = None
 
 class ReturnType(Enum):

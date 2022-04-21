@@ -5,6 +5,12 @@ from utils import fetch
 from bloxlink import instance as bot
 from exceptions import RobloxNotFound
 
+__all__ = (
+    "get_roblox_id",
+    "get_roblox_username",
+    "validate_code",
+)
+
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")

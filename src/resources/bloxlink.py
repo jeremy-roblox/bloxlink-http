@@ -11,6 +11,8 @@ instance: 'Bloxlink' = None
 
 class Bloxlink(snowfin.Client):
     def __init__(self, *args, **kwargs):
+        global instance
+        
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
