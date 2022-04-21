@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Callable
 import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,14 +13,20 @@ instance: 'Bloxlink' = None
 class Bloxlink(snowfin.Client):
     def __init__(self, *args, **kwargs):
         global instance
-        
+
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
         self.redis: StrictRedis = StrictRedis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD)
 
+        self.started_at = datetime.utcnow()
+
         instance = self
         # self.cache = benedict(keypath_separator=":")
+
+    @property
+    def uptime(self) -> timedelta:
+        return datetime.utcnow() - self.started_at
 
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str) -> object:
         """
