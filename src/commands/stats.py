@@ -41,9 +41,5 @@ class StatsCommand(Module):
                         "\n\n [**Repository**](https://github.com/bloxlink/bloxlink-http)",
                     inline=False
                 )
-            ],
-            author=EmbedAuthor(
-                name="Bloxlink",
-                icon_url=self.client.user.avatar_url
-            ),
+            ]
         )
