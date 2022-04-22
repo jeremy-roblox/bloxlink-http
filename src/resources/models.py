@@ -2,6 +2,13 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
+__all__ = (
+    "BloxlinkUser",
+    "BloxlinkGuild",
+    "PartialBloxlinkGuild",
+    "PartialBloxlinkUser",
+    "RobloxAccount",
+)
 
 class PartialMixin:
 
@@ -34,3 +41,9 @@ class PartialBloxlinkUser(BloxlinkUser, PartialMixin):
 @dataclass(slots=True)
 class PartialBloxlinkGuild(BloxlinkGuild, PartialMixin):
     pass
+
+
+@dataclass(slots=True)
+class RobloxAccount:
+    id: int
+    username: str

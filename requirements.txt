@@ -4,3 +4,4 @@ aioredis==1.3
 dnspython==2.2.1
 aredis==1.1.8
 python-benedict==0.25.0
+psutil==5.9.0

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Callable
 import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -5,16 +6,27 @@ from aredis import StrictRedis
 from benedict import benedict
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD
-from .models import BloxlinkUser, BloxlinkGuild, PartialBloxlinkGuild, PartialBloxlinkUser
+from .models import BloxlinkUser, BloxlinkGuild, PartialBloxlinkGuild, PartialBloxlinkUser, RobloxAccount
+
+instance: 'Bloxlink' = None
 
 class Bloxlink(snowfin.Client):
     def __init__(self, *args, **kwargs):
+        global instance
+
         super().__init__(*args, **kwargs)
 
-        self.mongo = AsyncIOMotorClient(MONGO_URL)
-        self.redis = StrictRedis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD)
+        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
+        self.redis: StrictRedis = StrictRedis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD)
 
+        self.started_at = datetime.utcnow()
+
+        instance = self
         # self.cache = benedict(keypath_separator=":")
+
+    @property
+    def uptime(self) -> timedelta:
+        return datetime.utcnow() - self.started_at
 
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str) -> object:
         """
@@ -56,6 +68,13 @@ class Bloxlink(snowfin.Client):
         """
         return self.fetch_item("guilds", BloxlinkGuild, guild_id)
 
+    async def fetch_roblox_account(self, roblox_id: str) -> RobloxAccount:
+        """
+        Fetch a Roblox account from local cache, then redis, then database.
+        Will populate caches for later access
+        """
+        return self.fetch_item("roblox_accounts", RobloxAccount, roblox_id)
+
     async def update_user(self, user_id: str, **aspects) -> None:
         """
         Update a user's aspects in local cache, redis, and database.
@@ -68,4 +87,9 @@ class Bloxlink(snowfin.Client):
         """
         return self.update_item("guilds", guild_id, **aspects)
 
+    async def update_roblox_account(self, roblox_id: str, **aspects) -> None:
+        """
+        Update a Roblox account's aspects in local cache, redis, and database.
+        """
+        return self.update_item("roblox_accounts", roblox_id, **aspects)
         
