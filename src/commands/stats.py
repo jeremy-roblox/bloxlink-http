@@ -16,7 +16,7 @@ class StatsCommand(Module):
         hours = int((all_seconds % 86400) // 3600); all_seconds %= 3600
         minutes = int((all_seconds % 3600) // 60); all_seconds %= 60
 
-        uptime_str = f"{(str(days)+'d ') and days > 0}{hours}h {minutes}m {all_seconds}s"
+        uptime_str = f"{(str(days)+'d ') if days > 0 else ''}{hours}h {minutes}m {all_seconds}s"
 
         process = Process(getpid())
         process_mem = math.floor(process.memory_info()[0] / float(2 ** 20))
