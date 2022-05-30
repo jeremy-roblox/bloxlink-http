@@ -6,7 +6,9 @@ class DonateCommand(Module):
 
     @slash_command("donate")
     async def donate(self, ctx: Interaction):
-        """learn how to receive Bloxlink Premium"""
+        """subscribe to premium and receive great perks!"""
+
+        guild_id = ctx.guild_id
 
         embed = Embed(
             title="Bloxlink Premium",
@@ -20,5 +22,5 @@ class DonateCommand(Module):
             color=0xdb2323
         )
 
-        return embed, Button("Click for Server Premium", url="https://blox.link/premium")
-           
+        return embed, Button("Click for Server Premium", url=f"https://blox.link/dashboard/guilds/{guild_id}/premium")
+
