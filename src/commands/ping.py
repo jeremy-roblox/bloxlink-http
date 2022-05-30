@@ -9,6 +9,6 @@ class PingCommand(Module):
 
     @slash_command("ping")
     async def ping(self, ctx: Interaction):
-        """measure the latency between the bot and Discord"""
+        """check if the bot is alive"""
 
-        return MessageResponse(f"pong! {0}ms", ephemeral=True)
+        return MessageResponse(f"Pong!", ephemeral=True)
