@@ -3,7 +3,6 @@ from typing import Callable
 import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
 from aredis import StrictRedis
-from benedict import benedict
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD
 from .models import BloxlinkUser, BloxlinkGuild, PartialBloxlinkGuild, PartialBloxlinkUser, RobloxAccount
@@ -92,4 +91,3 @@ class Bloxlink(snowfin.Client):
         Update a Roblox account's aspects in local cache, redis, and database.
         """
         return self.update_item("roblox_accounts", roblox_id, **aspects)
-        
