@@ -36,7 +36,7 @@ class Bloxlink(snowfin.Client):
         # should check local cache but for now just fetch from redis
         if aspects:
             item = await self.redis.hmget(f"{domain}:{item_id}", *aspects)
-            item = {x: y for x, y in zip(aspects, item)}
+            item = {x: y for x, y in zip(aspects, item) if y is not None}
         else:
             item = await self.redis.hgetall(f"{domain}:{item_id}")
 
@@ -45,7 +45,7 @@ class Bloxlink(snowfin.Client):
 
             if item:
                 if aspects:
-                    await self.redis.hmset(f"{domain}:{item_id}", {x:item[x] for x in aspects})
+                    await self.redis.hmset(f"{domain}:{item_id}", {x:item[x] for x in aspects if not isinstance(item[x], dict)})
                 else:
                     await self.redis.hmset(f"{domain}:{item_id}", item)
 
