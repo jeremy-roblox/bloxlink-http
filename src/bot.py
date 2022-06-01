@@ -2,9 +2,7 @@ from os import environ as env, listdir
 from resources.constants import SERVER_HOST, SERVER_PORT, MODULES
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
-import asyncio
 
-loop = asyncio.get_event_loop()
 
 if __name__ == "__main__":
     bot = Bloxlink(
