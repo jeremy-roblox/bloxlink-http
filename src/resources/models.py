@@ -1,6 +1,7 @@
 from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
+import copy
 
 __all__ = (
     "BloxlinkUser",
@@ -9,6 +10,9 @@ __all__ = (
     "PartialBloxlinkUser",
     "RobloxAccount",
 )
+
+def default_field(obj):
+    return field(default_factory=lambda: copy.copy(obj))
 
 class PartialMixin:
 
@@ -24,8 +28,10 @@ class PartialMixin:
 
 
 @dataclass(slots=True)
-class BloxlinkUser:
+class BloxlinkUser(PartialMixin):
     id: int
+    robloxID: str = None
+    robloxAccounts: dict = default_field({"accounts":[], "guilds": {}})
 
 
 @dataclass(slots=True)
@@ -33,14 +39,16 @@ class BloxlinkGuild:
     id: int
 
 
-@dataclass(slots=True)
-class PartialBloxlinkUser(BloxlinkUser, PartialMixin):
-    pass
-    
+# @dataclass(slots=True)
+# class PartialBloxlinkUser(BloxlinkUser, PartialMixin):
+#     id: int
+#     robloxID: str
+#     robloxAccounts: list = field(default_factory=list)
 
-@dataclass(slots=True)
-class PartialBloxlinkGuild(BloxlinkGuild, PartialMixin):
-    pass
+
+# @dataclass(slots=True)
+# class PartialBloxlinkGuild(BloxlinkGuild, PartialMixin):
+#     pass
 
 
 @dataclass(slots=True)

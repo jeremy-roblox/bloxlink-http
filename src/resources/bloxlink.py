@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from typing import Callable
 import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
-from aredis import StrictRedis
+from redis import asyncio as redis
+import asyncio
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD
-from .models import BloxlinkUser, BloxlinkGuild, PartialBloxlinkGuild, PartialBloxlinkUser, RobloxAccount
+from .models import BloxlinkUser, BloxlinkGuild
 
 instance: 'Bloxlink' = None
 
@@ -15,8 +16,8 @@ class Bloxlink(snowfin.Client):
 
         super().__init__(*args, **kwargs)
 
-        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
-        self.redis: StrictRedis = StrictRedis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD)
+        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
+        self.redis: redis.Redis = redis.Redis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD, decode_responses=True)
 
         self.started_at = datetime.utcnow()
 
@@ -27,19 +28,31 @@ class Bloxlink(snowfin.Client):
     def uptime(self) -> timedelta:
         return datetime.utcnow() - self.started_at
 
-    async def fetch_item(self, domain: str, constructor: Callable, item_id: str) -> object:
+    async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
         """
         Fetch an item from local cache, then redis, then database.
         Will populate caches for later access
         """
         # should check local cache but for now just fetch from redis
-        item = await self.redis.hgetall(f"{domain}:{item_id}")
+        if aspects:
+            item = await self.redis.hmget(f"{domain}:{item_id}", *aspects)
+            item = {x: y for x, y in zip(aspects, item)}
+        else:
+            item = await self.redis.hgetall(f"{domain}:{item_id}")
 
         if not item:
-            item = await self.mongo.bloxlink[domain].find_one({"_id": item_id})
+            item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
 
             if item:
-                await self.redis.hmset(f"{domain}:{item_id}", item)
+                if aspects:
+                    await self.redis.hmset(f"{domain}:{item_id}", {x:item[x] for x in aspects})
+                else:
+                    await self.redis.hmset(f"{domain}:{item_id}", item)
+
+        if item.get("_id"):
+            item.pop("_id")
+
+        item["id"] = item_id
 
         return constructor(**item)
 
@@ -53,41 +66,41 @@ class Bloxlink(snowfin.Client):
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects})
 
-    async def fetch_user(self, user_id: str) -> BloxlinkUser:
+    async def fetch_user(self, user_id: str, *aspects) -> BloxlinkUser:
         """
         Fetch a full user from local cache, then redis, then database.
         Will populate caches for later access
         """
-        return self.fetch_item("users", BloxlinkUser, user_id)
+        return await self.fetch_item("users", BloxlinkUser, user_id, *aspects)
 
     async def fetch_guild(self, guild_id: str) -> BloxlinkGuild:
         """
         Fetch a full guild from local cache, then redis, then database.
         Will populate caches for later access
         """
-        return self.fetch_item("guilds", BloxlinkGuild, guild_id)
+        return await self.fetch_item("guilds", BloxlinkGuild, guild_id)
 
-    async def fetch_roblox_account(self, roblox_id: str) -> RobloxAccount:
-        """
-        Fetch a Roblox account from local cache, then redis, then database.
-        Will populate caches for later access
-        """
-        return self.fetch_item("roblox_accounts", RobloxAccount, roblox_id)
+    # async def fetch_roblox_account(self, roblox_id: str) -> RobloxAccount:
+    #     """
+    #     Fetch a Roblox account from local cache, then redis, then database.
+    #     Will populate caches for later access
+    #     """
+    #     return self.fetch_item("roblox_accounts", RobloxAccount, roblox_id)
 
     async def update_user(self, user_id: str, **aspects) -> None:
         """
         Update a user's aspects in local cache, redis, and database.
         """
-        return self.update_item("users", user_id, **aspects)
+        return await self.update_item("users", user_id, **aspects)
 
     async def update_guild(self, guild_id: str, **aspects) -> None:
         """
         Update a guild's aspects in local cache, redis, and database.
         """
-        return self.update_item("guilds", guild_id, **aspects)
+        return await self.update_item("guilds", guild_id, **aspects)
 
-    async def update_roblox_account(self, roblox_id: str, **aspects) -> None:
-        """
-        Update a Roblox account's aspects in local cache, redis, and database.
-        """
-        return self.update_item("roblox_accounts", roblox_id, **aspects)
+    # async def update_roblox_account(self, roblox_id: str, **aspects) -> None:
+    #     """
+    #     Update a Roblox account's aspects in local cache, redis, and database.
+    #     """
+    #     return self.update_item("roblox_accounts", roblox_id, **aspects)
