@@ -11,6 +11,7 @@ hiredis = "^2.0.0"
 redis = "^4.3.3"
 dnspython = "^2.2.1"
 psutil = "^5.9.1"
+snowfin = "^0.1.0"
 
 [tool.poetry.dev-dependencies]
 
