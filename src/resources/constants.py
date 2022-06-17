@@ -16,3 +16,5 @@ LIMITS = {
         "PREMIUM": 250
     }
 }
+
+ALL_USER_API_SCOPES = ["groups", "badges"]

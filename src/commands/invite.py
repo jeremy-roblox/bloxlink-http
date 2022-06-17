@@ -11,6 +11,9 @@ class InviteCommand(Module):
     async def invite(self, ctx: Interaction):
         """invite the bot to your server"""
 
+        print(dir(self.client.user))
+        print(self.client.user)
+
         return (
             Embed(
                 title="Invite Bloxlink",

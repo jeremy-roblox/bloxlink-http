@@ -4,3 +4,4 @@ hiredis
 redis>=4.2.0rc1
 dnspython==2.2.1
 psutil==5.9.0
+python-dateutil==2.8.2

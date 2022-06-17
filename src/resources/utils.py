@@ -1,9 +1,9 @@
 from enum import Enum
 import aiohttp, asyncio
 
-from urllib import unquote
-from secrets import PROXY_URL
-from exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
+from requests.utils import requote_uri
+from .secrets import PROXY_URL
+from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from json import loads
 
 __all__ = (
@@ -19,7 +19,6 @@ class ReturnType(Enum):
     BYTES = 3
 
 async def fetch(
-    self,
     url: str,
     method: str = "GET",
     params: dict = None,
@@ -35,17 +34,10 @@ async def fetch(
     new_json = {}
     proxied = False
 
-    if not self.loop:
-        self.loop = asyncio.get_event_loop()
+    global session
 
-    if not self.timeout:
-        self.timeout = aiohttp.ClientTimeout(total=20)
-
-    if not self.session:
-        self.session = aiohttp.ClientSession(timeout=self.timeout, loop=self.loop)
-
-    if text or bytes:
-        json = False
+    if not session:
+        session = aiohttp.ClientSession()
 
     if proxy and PROXY_URL and "roblox.com" in url:
         old_url = url
@@ -59,14 +51,14 @@ async def fetch(
         new_json = body
         old_url = url
 
-    url = unquote(url)
+    url = requote_uri(url)
 
     for k, v in params.items():
         if isinstance(v, bool):
             params[k] = "true" if v else "false"
 
     try:
-        async with self.session.request(method, url, json=new_json, params=params, headers=headers, timeout=self.timeout) as response:
+        async with session.request(method, url, json=new_json, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None) as response:
             if proxied:
                 try:
                     response_json = await response.json()

@@ -73,12 +73,12 @@ class Bloxlink(snowfin.Client):
         """
         return await self.fetch_item("users", BloxlinkUser, user_id, *aspects)
 
-    async def fetch_guild(self, guild_id: str) -> BloxlinkGuild:
+    async def fetch_guild(self, guild_id: str, *aspects) -> BloxlinkGuild:
         """
         Fetch a full guild from local cache, then redis, then database.
         Will populate caches for later access
         """
-        return await self.fetch_item("guilds", BloxlinkGuild, guild_id)
+        return await self.fetch_item("guilds", BloxlinkGuild, guild_id, *aspects)
 
     # async def fetch_roblox_account(self, roblox_id: str) -> RobloxAccount:
     #     """
