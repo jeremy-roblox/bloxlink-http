@@ -1,6 +1,7 @@
 from snowfin import Module, slash_command, slash_option, Interaction, Button, Choice, DeferredResponse, MessageResponse
 from resources.bloxlink import Bloxlink
-from resources.users import get_user
+import resources.binds as binds
+import resources.users as users
 from resources.exceptions import UserNotVerified
 
 
@@ -15,15 +16,15 @@ class VerifyCommand(Module):
 
     async def on_verify_defer(self, client: Bloxlink, ctx: Interaction):
         try:
-            roblox_account = await get_user(ctx.author)
+            roblox_account = await users.get_user_account(ctx.author)
         except UserNotVerified:
             return (
                 "To verify with Bloxlink, click the link below",
-                Button("Verify with Bloxlink", url="https://blox.link/dashboard/verifications/verify?page=username", emoji="🔗"),
+                Button("Verify with Bloxlink",  url="https://blox.link/dashboard/verifications/verify?page=username", emoji="🔗"),
                 Button("Stuck? See a Tutorial", url="https://www.youtube.com/watch?v=0SH3n8rY9Fg&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=2", emoji="❔")
             )
 
-        return MessageResponse(roblox_account.id)
+        await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
 
     # @slash_command("verifyall")
     # @slash_option("update", "Would you like to update member's roles, nicknames, or both?", type=3,

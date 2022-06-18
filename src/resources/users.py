@@ -2,7 +2,7 @@ from .models import BloxlinkUser, PartialMixin
 from snowfin import User
 from .bloxlink import instance as bloxlink
 from .exceptions import UserNotVerified
-from .binds import get_linked_group_ids
+import resources.binds as binds
 from .constants import ALL_USER_API_SCOPES
 from datetime import datetime
 import math
@@ -83,7 +83,7 @@ class RobloxAccount(PartialMixin):
         if self.groups is None:
             await self.sync(includes=["groups"])
 
-        linked_groups = await get_linked_group_ids(guild)
+        linked_groups = await binds.get_linked_group_ids(guild)
 
         for group_id in linked_groups:
             group = self.groups.get(group_id)

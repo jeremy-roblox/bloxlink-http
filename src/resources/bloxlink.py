@@ -45,7 +45,9 @@ class Bloxlink(snowfin.Client):
 
             if item:
                 if aspects:
-                    await self.redis.hmset(f"{domain}:{item_id}", {x:item[x] for x in aspects if not isinstance(item[x], dict)})
+                    items = {x:item[x] for x in aspects if item.get(x) and not isinstance(item[x], dict)}
+                    if items:
+                        await self.redis.hmset(f"{domain}:{item_id}", items)
                 else:
                     await self.redis.hmset(f"{domain}:{item_id}", item)
 
