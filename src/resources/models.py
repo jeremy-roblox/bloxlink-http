@@ -37,8 +37,7 @@ class BloxlinkUser(PartialMixin):
 @dataclass(slots=True)
 class BloxlinkGuild:
     id: int
-    roleBinds: dict = default_field({}) # FIXME
-    groupIDs: dict = default_field({}) # FIXME
+    binds: list = default_field([]) # FIXME
 
 
 # @dataclass(slots=True)
