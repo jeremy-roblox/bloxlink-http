@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
 
-from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD
+from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from .models import BloxlinkUser, BloxlinkGuild
 
 instance: 'Bloxlink' = None
@@ -20,6 +20,7 @@ class Bloxlink(snowfin.Client):
         self.redis: redis.Redis = redis.Redis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD, decode_responses=True)
 
         self.started_at = datetime.utcnow()
+        # self.http = snowfin.http.HTTP(DISCORD_APPLICATION_ID, token=DISCORD_TOKEN)
 
         instance = self
         # self.cache = benedict(keypath_separator=":")
@@ -83,13 +84,6 @@ class Bloxlink(snowfin.Client):
         """
         return await self.fetch_item("guilds", BloxlinkGuild, guild_id, *aspects)
 
-    # async def fetch_roblox_account(self, roblox_id: str) -> RobloxAccount:
-    #     """
-    #     Fetch a Roblox account from local cache, then redis, then database.
-    #     Will populate caches for later access
-    #     """
-    #     return self.fetch_item("roblox_accounts", RobloxAccount, roblox_id)
-
     async def update_user(self, user_id: str, **aspects) -> None:
         """
         Update a user's aspects in local cache, redis, and database.
@@ -102,8 +96,16 @@ class Bloxlink(snowfin.Client):
         """
         return await self.update_item("guilds", guild_id, **aspects)
 
-    # async def update_roblox_account(self, roblox_id: str, **aspects) -> None:
-    #     """
-    #     Update a Roblox account's aspects in local cache, redis, and database.
-    #     """
-    #     return self.update_item("roblox_accounts", roblox_id, **aspects)
+    async def fetch_roles(self, guild_id: str) -> list:
+        """
+        Fetch the guild's roles. Not cached.
+        """
+
+        r = snowfin.http.Route(
+            "GET",
+            "/guilds/{guild_id}/roles",
+            guild_id=guild_id,
+            auth=True
+        )
+
+        return await self.http.request(r)

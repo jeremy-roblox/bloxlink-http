@@ -6,9 +6,9 @@ from resources.bloxlink import Bloxlink
 
 if __name__ == "__main__":
     bot = Bloxlink(
-        env.get("DISCORD_PUBLIC_KEY", DISCORD_PUBLIC_KEY),
-        env.get("DISCORD_APPLICATION_ID", DISCORD_APPLICATION_ID),
-        token=env.get("DISCORD_TOKEN", DISCORD_TOKEN),
+        DISCORD_PUBLIC_KEY,
+        DISCORD_APPLICATION_ID,
+        token=DISCORD_TOKEN,
         sync_commands=True,
         auto_defer=True
     )

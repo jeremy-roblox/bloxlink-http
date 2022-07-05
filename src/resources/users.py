@@ -3,6 +3,7 @@ from snowfin import User
 from .bloxlink import instance as bloxlink
 from .exceptions import UserNotVerified
 import resources.binds as binds
+import resources.groups as groups
 from .constants import ALL_USER_API_SCOPES
 from datetime import datetime
 import math
@@ -145,8 +146,8 @@ class RobloxAccount(PartialMixin):
             group_meta = group_data.get("group")
             group_role = group_data.get("role")
 
-            # group = Group(group_meta, group_role)
-            # self.groups[group.id] = group
+            group: groups.RobloxGroup = groups.RobloxGroup(id=str(group_meta["id"]), name=group_meta["name"], my_role=group_role)
+            self.groups[group.id] = group
 
 
 

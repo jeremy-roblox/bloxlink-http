@@ -38,16 +38,3 @@ class BloxlinkUser(PartialMixin):
 class BloxlinkGuild:
     id: int
     binds: list = default_field([]) # FIXME
-
-
-# @dataclass(slots=True)
-# class PartialBloxlinkUser(BloxlinkUser, PartialMixin):
-#     id: int
-#     robloxID: str
-#     robloxAccounts: list = field(default_factory=list)
-
-
-# @dataclass(slots=True)
-# class PartialBloxlinkGuild(BloxlinkGuild, PartialMixin):
-#     pass
-
