@@ -34,6 +34,7 @@ class Bloxlink(snowfin.Client):
         Will populate caches for later access
         """
         # should check local cache but for now just fetch from redis
+
         if aspects:
             item = await self.redis.hmget(f"{domain}:{item_id}", *aspects)
             item = {x: y for x, y in zip(aspects, item) if y is not None}
@@ -43,13 +44,13 @@ class Bloxlink(snowfin.Client):
         if not item:
             item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
 
-            if item:
+            if item and not isinstance(item, (list, dict)):
                 if aspects:
                     items = {x:item[x] for x in aspects if item.get(x) and not isinstance(item[x], dict)}
                     if items:
-                        await self.redis.hmset(f"{domain}:{item_id}", items)
+                        await self.redis.hset(f"{domain}:{item_id}", items)
                 else:
-                    await self.redis.hmset(f"{domain}:{item_id}", item)
+                    await self.redis.hset(f"{domain}:{item_id}", item)
 
         if item.get("_id"):
             item.pop("_id")

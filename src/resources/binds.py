@@ -2,7 +2,6 @@ from .models import BloxlinkGuild
 import resources.users as users
 from .bloxlink import instance as bloxlink
 from snowfin import User
-from typing import Union
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
@@ -14,7 +13,7 @@ async def get_linked_group_ids(guild_id: int) -> set:
     return set(group_ids.keys()).union(set(role_binds.get("groups", {}).keys()))
 
 
-async def check_bind_for(roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> bool:
+def check_bind_for(roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> bool:
     if bind_type == "group":
         if bind_data.get("roleset"):
             pass
@@ -30,7 +29,7 @@ async def check_bind_for(roblox_account: users.RobloxAccount, bind_type: str, bi
     return False
 
 async def get_binds_for(user: User, guild_id: int, roblox_account: users.RobloxAccount = None) -> dict:
-    guild_binds = await bloxlink.fetch_guild(str(guild_id), "roleBinds", "groupIDs")
+    guild_binds = await bloxlink.fetch_guild(str(guild_id), "binds")
 
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
@@ -61,7 +60,8 @@ async def get_binds_for(user: User, guild_id: int, roblox_account: users.RobloxA
                     #check_bind_for()
                     pass
             else:
-                success: bool = check_bind_for(bind_type, bind_id)
+                success: bool = check_bind_for(roblox_account, bind_type, bind_id)
+
 
 
 
