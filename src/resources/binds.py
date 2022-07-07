@@ -3,7 +3,7 @@ import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
 from snowfin import Member
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
@@ -16,8 +16,8 @@ async def get_linked_group_ids(guild_id: int) -> set:
 
 
 def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> Tuple[bool, set, set]:
-    bind_roles   = set()
-    remove_roles = set()
+    bind_roles: set   = set()
+    remove_roles: set = set()
 
     # success = False
 
@@ -57,15 +57,15 @@ def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_
     return False, bind_roles, remove_roles
 
 async def get_binds_for(member: Member, guild_id: int, roblox_account: users.RobloxAccount = None) -> dict:
-    guild_binds = await bloxlink.fetch_guild(str(guild_id), "binds")
-    role_binds = guild_binds.binds or []
+    guild_binds: dict = await bloxlink.fetch_guild(str(guild_id), "binds")
+    role_binds: list  = guild_binds.binds or []
 
     user_binds = {
         "optional": [],
         "required": [],
     }
 
-    guild_roles = await bloxlink.fetch_roles(guild_id)
+    guild_roles: list = await bloxlink.fetch_roles(guild_id)
     # print(guild_roles)
 
     if roblox_account and roblox_account.groups is None:
@@ -77,12 +77,12 @@ async def get_binds_for(member: Member, guild_id: int, roblox_account: users.Rob
     if roblox_account:
         for bind_data in role_binds:
             # bind_nickname     = bind_data.get("nickname") or None
-            role_bind         = bind_data.get("bind") or {}
-            bind_criteria     = bind_data.get("criteria") or []
-            bind_required     = not bind_data.get("optional", False)
+            role_bind: dict      = bind_data.get("bind") or {}
+            bind_criteria: list  = bind_data.get("criteria") or []
+            bind_required: bool  = not bind_data.get("optional", False)
 
-            bind_type         = role_bind.get("type")
-            bind_id           = role_bind.get("id") or None
+            bind_type: str         = role_bind.get("type")
+            bind_id: Optional[str] = role_bind.get("id") or None
 
             success: bool = False
             bind_roles: list = []
@@ -108,14 +108,14 @@ async def get_binds_for(member: Member, guild_id: int, roblox_account: users.Rob
 
 
 async def apply_binds(member: Member, guild_id: int, roblox_account: users.RobloxAccount, *, moderate_user=False) -> None:
-    user_binds = await get_binds_for(member, guild_id, roblox_account)
+    user_binds: dict = await get_binds_for(member, guild_id, roblox_account)
 
     print(user_binds)
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
 
-    add_roles    = set()
-    remove_roles = set()
+    add_roles:    set = set()
+    remove_roles: set = set()
 
     for required_bind in user_binds["required"]:
         add_roles.update(required_bind[1])
