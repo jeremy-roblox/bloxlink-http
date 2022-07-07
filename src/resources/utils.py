@@ -82,22 +82,22 @@ async def fetch(
 
             if raise_on_failure:
                 if response_status == 503:
-                    raise RobloxDown
+                    raise RobloxDown()
                 elif response_status == 404:
-                    raise RobloxNotFound
+                    raise RobloxNotFound()
                 elif response_status >= 400:
                     if proxied:
                         print(old_url, response_body, flush=True)
                     else:
                         print(old_url, await response.text(), flush=True)
-                    raise RobloxAPIError
+                    raise RobloxAPIError()
 
                 if return_data is ReturnType.JSON:
                     if not proxied:
                         try:
                             response_body = await response.json()
                         except aiohttp.client_exceptions.ContentTypeError:
-                            raise RobloxAPIError
+                            raise RobloxAPIError()
 
                     if isinstance(response_body, dict):
                         return response_body, response
@@ -118,7 +118,7 @@ async def fetch(
                         print("Roblox API Error: ", old_url, type(response_body), response_body, flush=True)
 
                         if raise_on_failure:
-                            raise RobloxAPIError
+                            raise RobloxAPIError()
 
                     return response_body, response
 
@@ -138,4 +138,4 @@ async def fetch(
 
     except asyncio.TimeoutError:
         print(f"URL {old_url} timed out", flush=True)
-        raise RobloxDown
+        raise RobloxDown()
