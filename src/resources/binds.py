@@ -3,7 +3,7 @@ import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
 from snowfin import Member
-from typing import Tuple, Optional
+from typing import Optional
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
@@ -15,7 +15,7 @@ async def get_linked_group_ids(guild_id: int) -> set:
     return set(group_ids.keys()).union(set(role_binds.get("groups", {}).keys()))
 
 
-def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> Tuple[bool, set, set]:
+def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set]:
     bind_roles: set   = set()
     remove_roles: set = set()
 
