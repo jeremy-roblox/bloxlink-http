@@ -63,7 +63,7 @@ class RobloxAccount(PartialMixin):
             self.display_name = user_json_data.get("displayName", self.display_name)
             self.created = user_json_data.get("created", self.created)
 
-            self.parse_groups(user_json_data.get("groups"))
+            await self.parse_groups(user_json_data.get("groups"))
 
             if self.badges and self.groups and not no_flag_check:
                 await self.parse_flags()
@@ -136,7 +136,7 @@ class RobloxAccount(PartialMixin):
         # self.flags = flags
         # self.overlay = self.flags & RBX_STAFF or self.flags & RBX_STAFF or self.flags & RBX_STAR
 
-    def parse_groups(self, group_json):
+    async def parse_groups(self, group_json):
         if group_json is None:
             return
 
@@ -147,6 +147,7 @@ class RobloxAccount(PartialMixin):
             group_role = group_data.get("role")
 
             group: groups.RobloxGroup = groups.RobloxGroup(id=str(group_meta["id"]), name=group_meta["name"], my_role=group_role)
+            await group.sync()
             self.groups[group.id] = group
 
 
