@@ -147,4 +147,4 @@ class Bloxlink(snowfin.Client):
 
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 
-        await self.edit_user(member, guild_id, roles=new_roles, reason=reason or "")
+        return await self.edit_user(member, guild_id, roles=new_roles, reason=reason or "")
