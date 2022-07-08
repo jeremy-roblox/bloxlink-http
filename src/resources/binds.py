@@ -2,7 +2,7 @@ from .models import BloxlinkGuild
 import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
-from snowfin import Member
+from snowfin import Member, Embed, EmbedField
 from typing import Optional
 
 
@@ -16,10 +16,10 @@ async def get_linked_group_ids(guild_id: int) -> set:
 
 
 def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set]:
-    bind_roles: set   = set()
-    remove_roles: set = set()
+    bind_roles:   set  = set()
+    remove_roles: set  = set()
 
-    # success = False
+    success: bool = False
 
     if bind_type == "group":
         if bind_data.get("roleset"):
@@ -37,24 +37,15 @@ def check_bind_for(guild_roles: list, roblox_account: users.RobloxAccount, bind_
                             bind_roles.add(role["id"])
                             break
 
-                    return True, bind_roles, remove_roles
+                    success = True
 
-    # if success:
-        # parse for valid roles
-        # if bind_data.get("removeRoles") or bind_data.get("roles"):
-        #     for role in guild_roles:
-        #         if role["managed"] == False:
-        #             if bind_data.get("removeRoles"):
-        #                 for remove_role in bind_data["removeRoles"]:
-        #                     if str(role["id"]) == remove_role:
-        #                         remove_roles.remove(remove_role)
 
-        #             if bind_data.get("roles"):
-        #                 for remove_role in bind_data["roles"]:
-        #                     if role["id"] == remove_role:
-        #                         remove_roles.remove(remove_role)
+    if success:
+        # add in the remove roles
+        if bind_data.get("removeRoles"):
+            remove_roles.update(bind_data["removeRoles"])
 
-    return False, bind_roles, remove_roles
+    return success, bind_roles, remove_roles
 
 async def get_binds_for(member: Member, guild_id: int, roblox_account: users.RobloxAccount = None) -> dict:
     guild_binds: dict = await bloxlink.fetch_guild(str(guild_id), "binds")
@@ -107,7 +98,7 @@ async def get_binds_for(member: Member, guild_id: int, roblox_account: users.Rob
 
 
 
-async def apply_binds(member: Member, guild_id: int, roblox_account: users.RobloxAccount, *, moderate_user=False) -> None:
+async def apply_binds(member: Member, guild_id: int, roblox_account: users.RobloxAccount, *, moderate_user=False) -> dict:
     user_binds: dict = await get_binds_for(member, guild_id, roblox_account)
 
     print(user_binds)
@@ -121,7 +112,28 @@ async def apply_binds(member: Member, guild_id: int, roblox_account: users.Roblo
         add_roles.update(required_bind[1])
         remove_roles.update(required_bind[2])
 
+    if user_binds.get("optional"):
+        raise NotImplementedError()
+
     remove_roles = remove_roles.difference(add_roles) # added roles get priority
     add_roles    = add_roles.difference(set([str(r) for r in member.roles])) # remove roles that are already on the user
 
-    return add_roles
+    if add_roles or remove_roles:
+        await bloxlink.edit_user_roles(member, guild_id, add_roles=add_roles, remove_roles=remove_roles)
+
+        embed = Embed(
+            description="this is temp until we add profile cards back"
+        )
+
+        if add_roles:
+            embed.add_field(name="Added Roles", value=",".join([f"<@&{r}>" for r in add_roles]))
+
+        if remove_roles:
+            embed.add_field(name="Removed Roles", value=",".join([f"<@&{r}>" for r in remove_roles]))
+
+    else:
+        embed = Embed(
+            description="You're already up-to-date with the roles for this server. No changes were made."
+        )
+
+    return embed

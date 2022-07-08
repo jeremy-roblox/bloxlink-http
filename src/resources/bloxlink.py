@@ -4,6 +4,7 @@ import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
+from typing import Any
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from .models import BloxlinkUser, BloxlinkGuild
@@ -109,3 +110,41 @@ class Bloxlink(snowfin.Client):
         )
 
         return await self.http.request(r)
+
+    async def edit_user(self, member: snowfin.Member, guild_id: int, *, roles: list = None, mute: bool = None, deaf: bool = None, reason: str = "") -> Any:
+        """
+        Edit a member's roles and mute/deaf status.
+        """
+
+        r = snowfin.http.Route(
+            "PATCH",
+            "/guilds/{guild_id}/members/{user_id}",
+            guild_id=guild_id,
+            user_id=member.user.id,
+            auth=True,
+        )
+
+        data = {}
+
+        if roles is not None:
+            data["roles"] = roles
+
+        if mute is not None:
+            data["mute"] = mute
+
+        if deaf is not None:
+            data["deaf"] = deaf
+
+        if not data:
+            raise RuntimeError("edit_user() requires at least one aspect to be changed")
+
+        return await self.http.request(r, data=data, headers={"X-Audit-Log-Reason": reason or ""})
+
+    async def edit_user_roles(self, member: snowfin.Member, guild_id: int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> Any:
+        """
+        Adds or remove roles from a member.
+        """
+
+        new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
+
+        await self.edit_user(member, guild_id, roles=new_roles, reason=reason or "")

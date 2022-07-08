@@ -24,7 +24,9 @@ class VerifyCommand(Module):
                 Button("Stuck? See a Tutorial", url="https://www.youtube.com/watch?v=0SH3n8rY9Fg&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=2", emoji="❔")
             )
 
-        await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
+        embed = await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
+
+        return MessageResponse(embed=embed)
 
     # @slash_command("verifyall")
     # @slash_option("update", "Would you like to update member's roles, nicknames, or both?", type=3,
