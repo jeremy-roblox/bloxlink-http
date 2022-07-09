@@ -10,9 +10,10 @@ Running this is relatively simple, but is different depending on whether you're 
 First, make sure you created a Discord application and noted down the Public Key.
 
 ### Local
-* Rename `config.py.example` to `config.py`. Modify the config file with your Discord Public Key.
+* Install the dependencies with `python3.10 -m pip install -r requirements.txt`. Install Python 3.10 if you don't have it already.
+* Rename `config.py.example` to `config.py`. Modify the config file with your Discord Public Key, Discord token, and database information. https://www.mongodb.com/ has a free MongoDB instance that you can use for your local environment.
 * Run the SSH command: `ssh -R 80:localhost:8000 localhost.run`. This will tunnel your local traffic from the bot and spit out an https domain name that you will use.
-* Run the web server: `python3.8 src/bot.py`
+* Run the web server: `python3.10 src/bot.py`
 * Put the https domain name found from step 2 in your [Developer Dashboard](https://discord.com/developers/applications) Application under the "Interactions Endpoint Url" option.
 
 **Disclaimer:** https://localhost.run is a great service that can quickly tunnel your local traffic, but their free plan will periodically change your domain name, requiring you to change the domain name in your [Developer Dashboard](https://discord.com/developers/applications) each time. As such, it's recommended to subscribe to their premium plan to use a static domain, or you can find another tunneling service.
