@@ -4,10 +4,10 @@ import snowfin
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
-from typing import Any
+from typing import Any, Optional
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
-from .models import BloxlinkUser, BloxlinkGuild
+from .models import BloxlinkUser, BloxlinkGuild, MISSING
 
 instance: 'Bloxlink' = None
 
@@ -97,7 +97,7 @@ class Bloxlink(snowfin.Client):
         """
         return await self.update_item("guilds", guild_id, **aspects)
 
-    async def fetch_roles(self, guild_id: str) -> list:
+    async def fetch_roles(self, guild_id: str) -> dict[str, dict]:
         """
         Fetch the guild's roles. Not cached.
         """
@@ -109,9 +109,9 @@ class Bloxlink(snowfin.Client):
             auth=True
         )
 
-        return await self.http.request(r)
+        return {r["id"]: r for r in await self.http.request(r)} # so we can do fast ID lookups
 
-    async def edit_user(self, member: snowfin.Member, guild_id: int, *, roles: list = None, mute: bool = None, deaf: bool = None, reason: str = "") -> Any:
+    async def edit_user(self, member: snowfin.Member, guild_id: int, *, roles: Optional[list] = MISSING, nick: Optional[str] = MISSING, mute: Optional[bool] = MISSING, deaf: Optional[bool] = MISSING, reason: str = "") -> Any:
         """
         Edit a member's roles and mute/deaf status.
         """
@@ -126,13 +126,16 @@ class Bloxlink(snowfin.Client):
 
         data = {}
 
-        if roles is not None:
+        if roles is not MISSING:
             data["roles"] = roles
 
-        if mute is not None:
+        if nick is not MISSING:
+            data["nick"] = nick
+
+        if mute is not MISSING:
             data["mute"] = mute
 
-        if deaf is not None:
+        if deaf is not MISSING:
             data["deaf"] = deaf
 
         if not data:

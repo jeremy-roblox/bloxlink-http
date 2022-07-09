@@ -38,3 +38,15 @@ class BloxlinkUser(PartialMixin):
 class BloxlinkGuild:
     id: int
     binds: list = default_field([]) # FIXME
+
+    verifiedRoleEnabled: bool = True
+    verifiedRoleName: str = "Verified" # deprecated
+    verifiedRole: str = None
+
+    unverifiedRoleEnabled: bool = True
+    unverifiedRoleName: str = "Unverified" # deprecated
+    unverifiedRole: str = None
+
+
+class MISSING:
+    pass

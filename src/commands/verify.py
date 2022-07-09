@@ -15,16 +15,19 @@ class VerifyCommand(Module):
         return DeferredResponse(self.on_verify_defer)
 
     async def on_verify_defer(self, client: Bloxlink, ctx: Interaction):
-        try:
-            roblox_account = await users.get_user_account(ctx.author)
-        except UserNotVerified:
-            return (
-                "To verify with Bloxlink, click the link below",
-                Button("Verify with Bloxlink",  url="https://blox.link/dashboard/verifications/verify?page=username", emoji="🔗"),
-                Button("Stuck? See a Tutorial", url="https://www.youtube.com/watch?v=0SH3n8rY9Fg&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=2", emoji="❔")
-            )
+        roblox_account = await users.get_user_account(ctx.author, raise_errors=False)
 
         embed = await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
+
+        if not roblox_account:
+            return MessageResponse(
+                "To verify with Bloxlink, click the link below",
+                components=[
+                    Button("Verify with Bloxlink",  url="https://blox.link/dashboard/verifications/verify?page=username", emoji="🔗"),
+                    Button("Stuck? See a Tutorial", url="https://www.youtube.com/watch?v=0SH3n8rY9Fg&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=2", emoji="❔")
+                ]
+            )
+
 
         return MessageResponse(embed=embed)
 

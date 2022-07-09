@@ -153,7 +153,7 @@ class RobloxAccount(PartialMixin):
 
 
 
-async def get_user_account(user: User, guild_id: int = None) -> RobloxAccount:
+async def get_user_account(user: User, guild_id: int = None, raise_errors=True) -> RobloxAccount | None:
     """get a user's linked Roblox account"""
 
     bloxlink_user: BloxlinkUser = await bloxlink.fetch_user(str(user.user.id), "robloxID", "robloxAccounts")
@@ -167,7 +167,10 @@ async def get_user_account(user: User, guild_id: int = None) -> RobloxAccount:
     if bloxlink_user.robloxID:
         return RobloxAccount(id=bloxlink_user.robloxID)
 
-    raise UserNotVerified()
+    if raise_errors:
+        raise UserNotVerified()
+    else:
+        return None
 
 
 async def get_user(user: User = None, includes: list = None, *, roblox_username: str = None, roblox_id: int = None, guild_id: int = None) -> RobloxAccount:
