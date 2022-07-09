@@ -7,7 +7,7 @@ import asyncio
 from typing import Any, Optional
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
-from .models import BloxlinkUser, BloxlinkGuild, MISSING
+from .models import UserData, GuildData, MISSING
 
 instance: 'Bloxlink' = None
 
@@ -71,27 +71,27 @@ class Bloxlink(snowfin.Client):
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects})
 
-    async def fetch_user(self, user_id: str, *aspects) -> BloxlinkUser:
+    async def fetch_user(self, user_id: str, *aspects) -> UserData:
         """
         Fetch a full user from local cache, then redis, then database.
         Will populate caches for later access
         """
-        return await self.fetch_item("users", BloxlinkUser, user_id, *aspects)
+        return await self.fetch_item("users", UserData, user_id, *aspects)
 
-    async def fetch_guild(self, guild_id: str, *aspects) -> BloxlinkGuild:
+    async def fetch_guild_data(self, guild_id: str, *aspects) -> GuildData:
         """
         Fetch a full guild from local cache, then redis, then database.
         Will populate caches for later access
         """
-        return await self.fetch_item("guilds", BloxlinkGuild, guild_id, *aspects)
+        return await self.fetch_item("guilds", GuildData, guild_id, *aspects)
 
-    async def update_user(self, user_id: str, **aspects) -> None:
+    async def update_user_data(self, user_id: str, **aspects) -> None:
         """
         Update a user's aspects in local cache, redis, and database.
         """
         return await self.update_item("users", user_id, **aspects)
 
-    async def update_guild(self, guild_id: str, **aspects) -> None:
+    async def update_guild_data(self, guild_id: str, **aspects) -> None:
         """
         Update a guild's aspects in local cache, redis, and database.
         """

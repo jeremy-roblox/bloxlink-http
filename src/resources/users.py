@@ -1,4 +1,4 @@
-from .models import BloxlinkUser, PartialMixin
+from .models import UserData, PartialMixin
 from snowfin import User
 from .bloxlink import instance as bloxlink
 from .exceptions import UserNotVerified
@@ -156,7 +156,7 @@ class RobloxAccount(PartialMixin):
 async def get_user_account(user: User, guild_id: int = None, raise_errors=True) -> RobloxAccount | None:
     """get a user's linked Roblox account"""
 
-    bloxlink_user: BloxlinkUser = await bloxlink.fetch_user(str(user.user.id), "robloxID", "robloxAccounts")
+    bloxlink_user: UserData = await bloxlink.fetch_user(str(user.user.id), "robloxID", "robloxAccounts")
 
     if guild_id:
         guild_account = (bloxlink_user.robloxAccounts or {}).get(str(guild_id))

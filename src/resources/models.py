@@ -4,10 +4,8 @@ from typing import Any
 import copy
 
 __all__ = (
-    "BloxlinkUser",
-    "BloxlinkGuild",
-    "PartialBloxlinkGuild",
-    "PartialBloxlinkUser",
+    "UserData",
+    "GuildData",
     "RobloxAccount",
 )
 
@@ -28,14 +26,14 @@ class PartialMixin:
 
 
 @dataclass(slots=True)
-class BloxlinkUser(PartialMixin):
+class UserData(PartialMixin):
     id: int
     robloxID: str = None
     robloxAccounts: dict = default_field({"accounts":[], "guilds": {}})
 
 
 @dataclass(slots=True)
-class BloxlinkGuild:
+class GuildData:
     id: int
     binds: list = default_field([]) # FIXME
 

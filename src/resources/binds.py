@@ -1,4 +1,4 @@
-from .models import BloxlinkGuild
+from .models import GuildData
 import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
@@ -7,7 +7,7 @@ from typing import Optional, Any
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
-    guild: BloxlinkGuild = await bloxlink.fetch_guild(str(guild_id), "roleBinds", "groupIDs")
+    guild: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "roleBinds", "groupIDs")
 
     role_binds: dict  = guild.roleBinds or {}
     group_ids:  dict  = guild.groupIDs or {}
@@ -19,7 +19,7 @@ async def get_default_verified_role(guild_id: int, guild_roles: dict[str, dict[s
     if not guild_roles:
         guild_roles: list = await bloxlink.fetch_roles(guild_id)
 
-    guild_data: BloxlinkGuild = await bloxlink.fetch_guild(str(guild_id), "verifiedRoleEnabled", "verifiedRole", "verifiedRoleName", "unverifiedRoleEnabled", "unverifiedRole", "unverifiedRoleName")
+    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "verifiedRoleEnabled", "verifiedRole", "verifiedRoleName", "unverifiedRoleEnabled", "unverifiedRole", "unverifiedRoleName")
 
     verified_role:   Optional[str] = None
     unverified_role: Optional[str] = None
@@ -48,7 +48,7 @@ def flatten_binds(role_binds: list) -> list:
 
     return all_binds
 
-def has_verified_roles(role_binds: list) -> tuple[bool, bool]:
+def has_custom_verified_roles(role_binds: list) -> tuple[bool, bool]:
     has_verified_role: bool = False
     has_unverified_role: bool = False
 
@@ -108,7 +108,7 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
     return success, bind_roles, remove_roles
 
 async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: users.RobloxAccount = None) -> dict:
-    guild_data: BloxlinkGuild = await bloxlink.fetch_guild(str(guild_id), "binds")
+    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
 
     role_binds: list = guild_data.binds or []
 
@@ -149,7 +149,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
                 user_binds["optional"].append([bind_data, bind_roles, bind_remove_roles])
 
     # for when they didn't save their own [un]verified roles
-    has_verified_role, has_unverified_role = has_verified_roles(role_binds)
+    has_verified_role, has_unverified_role = has_custom_verified_roles(role_binds)
 
     if not (has_verified_role and has_unverified_role):
         # no? then we can check for the default [un]verified roles
