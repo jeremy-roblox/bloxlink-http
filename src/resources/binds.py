@@ -3,7 +3,7 @@ import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
 import snowfin
-from typing import Optional, Any
+from typing import Any
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
@@ -21,11 +21,11 @@ async def get_default_verified_role(guild_id: int, guild_roles: dict[str, dict[s
 
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "verifiedRoleEnabled", "verifiedRole", "verifiedRoleName", "unverifiedRoleEnabled", "unverifiedRole", "unverifiedRoleName")
 
-    verified_role:   Optional[str] = None
-    unverified_role: Optional[str] = None
+    verified_role:   str | None = None
+    unverified_role: str | None = None
 
-    verified_role_name   = None if guild_data.verifiedRole else guild_data.verifiedRoleName or "Verified"
-    unverified_role_name = None if guild_data.unverifiedRole else guild_data.unverifiedRoleName or "Unverified"
+    verified_role_name:   str | None  = None if guild_data.verifiedRole else guild_data.verifiedRoleName or "Verified"
+    unverified_role_name: str | None  = None if guild_data.unverifiedRole else guild_data.unverifiedRoleName or "Unverified"
 
     if guild_data.verifiedRoleEnabled or guild_data.unverifiedRoleEnabled:
         for role in guild_roles.values():
@@ -49,10 +49,10 @@ def flatten_binds(role_binds: list) -> list:
     return all_binds
 
 def has_custom_verified_roles(role_binds: list) -> tuple[bool, bool]:
-    has_verified_role: bool = False
+    has_verified_role:   bool = False
     has_unverified_role: bool = False
 
-    all_binds = flatten_binds(role_binds)
+    all_binds: list = flatten_binds(role_binds)
 
     for bind in all_binds:
         if bind.get("type") == "verified":
@@ -152,7 +152,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         bind_required: bool  = not bind_data.get("optional", False)
 
         bind_type: str         = role_bind.get("type")
-        bind_id: Optional[str] = role_bind.get("id") or None
+        bind_id:   str | None  = role_bind.get("id") or None
 
         success: bool = False
         bind_roles: list = []
