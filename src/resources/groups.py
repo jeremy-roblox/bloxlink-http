@@ -10,13 +10,13 @@ GROUP_API = "https://groups.roblox.com/v1/groups"
 class RobloxGroup(PartialMixin):
     id: str
     name: str = None
-    rolesets: dict = None
-    my_role: dict = None
+    rolesets: dict[str, int] = None
+    my_role: dict[str, int] = None
 
     async def sync(self):
         if self.rolesets is None:
             json_data, _ = await fetch(f"{GROUP_API}/{self.id}/roles")
 
             self.rolesets = {
-                roleset["name"].strip(): roleset["rank"] for roleset in json_data["roles"]
+                roleset["name"].strip(): int(roleset["rank"]) for roleset in json_data["roles"]
             }

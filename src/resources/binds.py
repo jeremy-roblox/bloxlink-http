@@ -67,25 +67,31 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
     remove_roles: set  = set()
 
     success: bool = False
+    entire_group_bind: bool = "roles" not in bind_data # find a role matching their roleset
+    user_group: groups.RobloxGroup | None = roblox_account.groups.get(bind_id) if roblox_account else None
 
     if bind_type == "group":
         if roblox_account:
-            if bind_data.get("roleset"):
-                pass
-            else:
-                # entire group bind, find role in server with same name as their roleset
-                user_group: groups.RobloxGroup = roblox_account.groups.get(bind_id)
+            user_group: groups.RobloxGroup = roblox_account.groups.get(bind_id)
 
-                if user_group:
-                    if bind_data.get("min") and bind_data.get("max"):
-                        raise NotImplementedError()
-                    else:
-                        for role in guild_roles.values():
-                            if role["managed"] == False and user_group.rolesets.get(role["name"]):
-                                bind_roles.add(role["id"])
-                                break
+            if user_group:
+                if bind_data.get("roleset"):
+                    bind_roleset = bind_data["roleset"]
 
+                    if bind_roleset == user_group.my_role["rank"] or (bind_roleset < 0 and abs(bind_roleset) <= user_group.my_role["rank"]):
                         success = True
+
+                elif bind_data.get("min") and bind_data.get("max"):
+                    if int(bind_data["min"]) <= user_group.my_role["rank"] <= int(bind_data["max"]):
+                        success = True
+
+                elif bind_data.get("everyone"):
+                    success = True
+
+            else:
+                # check if guest bind (not in group)
+                if bind_data.get("guest"):
+                    success = True
 
     elif bind_type in ("verified", "unverified"):
         if bind_type == "verified" and roblox_account:
@@ -101,9 +107,26 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
                     bind_roles.add(bind_role_id)
 
     if success:
+        if entire_group_bind and not (roblox_account and user_group):
+            raise RuntimeError("Bad bind: this bind must have roles if the user does not have a Roblox account.")
+
         # add in the remove roles
         if bind_data.get("removeRoles"):
             remove_roles.update(bind_data["removeRoles"])
+
+        if entire_group_bind:
+            # find role that matches their roleset
+            for role in guild_roles.values():
+                if role["managed"] == False and user_group.my_role["name"] == role["name"]:
+                    bind_roles.add(role["id"])
+
+                    break
+        else:
+            # just add in the bind roles
+            bind_roles.update(bind_data["roles"])
+
+        if bind_data.get("roles"):
+            bind_roles.update(bind_data["roles"])
 
     return success, bind_roles, remove_roles
 
@@ -140,7 +163,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
                 #check_bind_for()
                 raise NotImplementedError()
         else:
-            success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **bind_data)
+            success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
 
         if success:
             if bind_required:
