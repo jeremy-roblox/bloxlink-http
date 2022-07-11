@@ -85,8 +85,11 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
                     if int(bind_data["min"]) <= user_group.my_role["rank"] <= int(bind_data["max"]):
                         success = True
 
-                elif bind_data.get("everyone"):
+                # elif bind_data.get("everyone"):
+                #     success = True
+                else:
                     success = True
+
 
             else:
                 # check if guest bind (not in group)
@@ -148,24 +151,29 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
     for bind_data in role_binds:
         # bind_nickname     = bind_data.get("nickname") or None
         role_bind: dict      = bind_data.get("bind") or {}
-        bind_criteria: list  = bind_data.get("criteria") or []
         bind_required: bool  = not bind_data.get("optional", False)
 
         bind_type: str         = role_bind.get("type")
         bind_id:   str | None  = role_bind.get("id") or None
+        bind_criteria: list  = role_bind.get("criteria") or []
 
-        success: bool = False
+        bind_success: bool = None
         bind_roles: list = []
         bind_remove_roles: list = []
 
         if bind_criteria:
-            for bind_ in bind_criteria:
-                #check_bind_for()
-                raise NotImplementedError()
-        else:
-            success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
+            for criterion in bind_criteria:
+                criterion_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, criterion["type"], criterion["id"], **bind_data, **criterion)
 
-        if success:
+                if bind_type == "requireAll":
+                    if bind_success is None and criterion_success is True:
+                        bind_success = True
+                    elif bind_success is True and criterion_success is False:
+                        bind_success = False
+        else:
+            bind_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
+
+        if bind_success:
             if bind_required:
                 user_binds["required"].append([bind_data, bind_roles, bind_remove_roles])
             else:
