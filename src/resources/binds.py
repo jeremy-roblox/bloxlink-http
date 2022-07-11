@@ -202,7 +202,7 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
 
-    add_roles:    set = set()
+    add_roles:    set = set() # used exclusively for display purposes
     remove_roles: set = set()
 
     for required_bind in user_binds["required"]:
@@ -212,12 +212,13 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
     if user_binds.get("optional"):
         raise NotImplementedError()
 
-    remove_roles = remove_roles.difference(add_roles) # added roles get priority
-    add_roles    = add_roles.difference(set([str(r) for r in member.roles])) # remove roles that are already on the user
+    remove_roles   = remove_roles.difference(add_roles) # added roles get priority
+    real_add_roles = add_roles.difference(set([str(r) for r in member.roles])) # remove roles that are already on the user, also new variable so we can achieve idempotence
 
-    if add_roles or remove_roles:
+    if real_add_roles or remove_roles:
         await bloxlink.edit_user_roles(member, guild_id, add_roles=add_roles, remove_roles=remove_roles)
 
+    if add_roles or remove_roles:
         embed = snowfin.Embed(
             description="this is temp until we add profile cards back"
         )
@@ -236,7 +237,7 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
 
     else:
         embed = snowfin.Embed(
-            description="You're already up-to-date with the roles for this server. No changes were made."
+            description="No binds apply to you!"
         )
 
     return embed
