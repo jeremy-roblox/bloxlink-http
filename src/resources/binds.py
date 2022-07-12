@@ -124,6 +124,13 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
                     bind_roles.add(role["id"])
 
                     break
+            else:
+                # role was not found in server, so we need to create it
+                # TODO: check for dynamic roles?
+                # TODO: check for permissions
+                role = await bloxlink.create_role(guild_id, user_group.my_role["name"])
+                bind_roles.add(role["id"])
+
         else:
             # just add in the bind roles
             bind_roles.update(bind_data["roles"])

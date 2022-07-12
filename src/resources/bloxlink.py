@@ -97,7 +97,7 @@ class Bloxlink(snowfin.Client):
         """
         return await self.update_item("guilds", guild_id, **aspects)
 
-    async def fetch_roles(self, guild_id: str) -> dict[str, dict]:
+    async def fetch_roles(self, guild_id: str | int) -> dict[str, dict]:
         """
         Fetch the guild's roles. Not cached.
         """
@@ -111,7 +111,40 @@ class Bloxlink(snowfin.Client):
 
         return {r["id"]: r for r in await self.http.request(r)} # so we can do fast ID lookups
 
-    async def edit_user(self, member: snowfin.Member, guild_id: int, *, roles: Optional[list] = MISSING, nick: Optional[str] = MISSING, mute: Optional[bool] = MISSING, deaf: Optional[bool] = MISSING, reason: str = "") -> Any:
+    async def create_role(self, guild_id: str | int, name: str, reason: str = "") -> dict[str, dict]:
+        """
+        Create a new role. Not cached.
+        """
+
+        r = snowfin.http.Route(
+            "POST",
+            "/guilds/{guild_id}/roles",
+            guild_id=guild_id,
+            auth=True
+        )
+
+        data = {
+            "name": name
+        }
+
+        return await self.http.request(r, data=data, headers={"X-Audit-Log-Reason": reason or ""})
+
+    async def delete_role(self, guild_id: str | int, role_id: str | int, reason: str = "") -> dict[str, dict]:
+        """
+        Deletes a role.
+        """
+
+        r = snowfin.http.Route(
+            "DELETE",
+            "/guilds/{guild_id}/roles/{role_id}",
+            guild_id=guild_id,
+            role_id=role_id,
+            auth=True
+        )
+
+        return await self.http.request(r, headers={"X-Audit-Log-Reason": reason or ""})
+
+    async def edit_user(self, member: snowfin.Member, guild_id: str | int, *, roles: Optional[list] = MISSING, nick: Optional[str] = MISSING, mute: Optional[bool] = MISSING, deaf: Optional[bool] = MISSING, reason: str = "") -> Any:
         """
         Edit a member's roles and mute/deaf status.
         """
@@ -143,7 +176,7 @@ class Bloxlink(snowfin.Client):
 
         return await self.http.request(r, data=data, headers={"X-Audit-Log-Reason": reason or ""})
 
-    async def edit_user_roles(self, member: snowfin.Member, guild_id: int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> Any:
+    async def edit_user_roles(self, member: snowfin.Member, guild_id: str | int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> Any:
         """
         Adds or remove roles from a member.
         """
