@@ -180,13 +180,14 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
                         bind_success = True
                     elif bind_success is None and criterion_success is False:
                         bind_success = False
-                        break
                     elif bind_success is True and criterion_success is False:
                         bind_success = False
 
                     if criterion_success:
                         criteria_add_roles.update(criterion_roles)
                         criteria_remove_roles.update(criterion_remove_roles)
+                    else:
+                        break
 
         else:
             bind_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
