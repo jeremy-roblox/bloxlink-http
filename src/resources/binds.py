@@ -168,23 +168,37 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         bind_roles: list = []
         bind_remove_roles: list = []
 
+        criteria_add_roles: set = set() # keep track of roles from the criteria
+        criteria_remove_roles: set = set() # keep track of roles from the criteria
+
         if bind_criteria:
             for criterion in bind_criteria:
-                criterion_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, criterion["type"], criterion["id"], **bind_data, **criterion)
+                criterion_success, criterion_roles, criterion_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, criterion["type"], criterion["id"], **bind_data, **criterion)
 
                 if bind_type == "requireAll":
                     if bind_success is None and criterion_success is True:
                         bind_success = True
+                    elif bind_success is None and criterion_success is False:
+                        bind_success = False
+                        break
                     elif bind_success is True and criterion_success is False:
                         bind_success = False
+
+                    if criterion_success:
+                        criteria_add_roles.update(criterion_roles)
+                        criteria_remove_roles.update(criterion_remove_roles)
+
         else:
             bind_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
 
         if bind_success:
+            append_roles = criteria_add_roles or bind_roles # whether we append all roles from the criteria or just from the one bind
+            remove_roles = criteria_remove_roles or bind_remove_roles # whether we append all roles from the criteria or just from the one bind
+
             if bind_required:
-                user_binds["required"].append([bind_data, bind_roles, bind_remove_roles])
+                user_binds["required"].append([bind_data, append_roles, bind_remove_roles])
             else:
-                user_binds["optional"].append([bind_data, bind_roles, bind_remove_roles])
+                user_binds["optional"].append([bind_data, append_roles, remove_roles])
 
     # for when they didn't save their own [un]verified roles
     has_verified_role, has_unverified_role = has_custom_verified_roles(role_binds)
@@ -223,7 +237,7 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
     real_add_roles = add_roles.difference(set([str(r) for r in member.roles])) # remove roles that are already on the user, also new variable so we can achieve idempotence
 
     if real_add_roles or remove_roles:
-        await bloxlink.edit_user_roles(member, guild_id, add_roles=add_roles, remove_roles=remove_roles)
+        await bloxlink.edit_user_roles(member, guild_id, add_roles=real_add_roles, remove_roles=remove_roles)
 
     if add_roles or remove_roles:
         embed = snowfin.Embed(
