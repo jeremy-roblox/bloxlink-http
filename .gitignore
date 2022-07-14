@@ -134,3 +134,4 @@ dmypy.json
 slash_creator.py
 run.py
 src/config.py
+src/commands/cleanup.py
