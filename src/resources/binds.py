@@ -66,6 +66,8 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
     bind_roles:   set  = set()
     remove_roles: set  = set()
 
+    bind_explanations: dict[str, list] = {"success": [], "failure": []}
+
     success: bool = False
     entire_group_bind: bool = "roles" not in bind_data # find a role matching their roleset
     user_group: groups.RobloxGroup | None = roblox_account.groups.get(bind_id) if roblox_account else None
@@ -78,23 +80,39 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
                 if bind_data.get("roleset"):
                     bind_roleset = bind_data["roleset"]
 
-                    if bind_roleset == user_group.my_role["rank"] or (bind_roleset < 0 and abs(bind_roleset) <= user_group.my_role["rank"]):
+                    if bind_roleset < 0 and abs(bind_roleset) <= user_group.my_role["rank"]:
                         success = True
+                        bind_explanations["success"].append(f"Your rank is equal to or greater than {bind_roleset}.")
+                    else:
+                        bind_explanations["failure"].append(f"This bind requires your rank, {user_group.my_role['rank']}, to be higher than {bind_roleset}.")
+
+                    if bind_roleset == user_group.my_role["rank"]:
+                        success = True
+                        bind_explanations["success"].append(f"Your rank is equal to {bind_roleset}.")
+                    else:
+                        bind_explanations["failure"].append(f"This bind requires your rank, {user_group.my_role['rank']}, to be equal to {bind_roleset}.")
 
                 elif bind_data.get("min") and bind_data.get("max"):
                     if int(bind_data["min"]) <= user_group.my_role["rank"] <= int(bind_data["max"]):
                         success = True
+                        bind_explanations["success"].append(f"Your rank is between {bind_data['min']} and {bind_data['max']}.")
+                    else:
+                        bind_explanations["failure"].append(f"This bind requires your rank to be between {bind_data['min']} and {bind_data['max']}; however, your rank is {user_group.my_role['rank']}.")
 
                 # elif bind_data.get("everyone"):
                 #     success = True
                 else:
                     success = True
-
+                    bind_explanations["success"].append(f"You are in this group.")
 
             else:
                 # check if guest bind (not in group)
                 if bind_data.get("guest"):
                     success = True
+                    bind_explanations["success"].append("You are not in this group.")
+                else:
+                    bind_explanations["failure"].append(f"This bind requires you to be in the group {bind_id}.")
+
 
     elif bind_type in ("verified", "unverified"):
         if bind_type == "verified" and roblox_account:
@@ -138,7 +156,7 @@ async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, 
         if bind_data.get("roles"):
             bind_roles.update(bind_data["roles"])
 
-    return success, bind_roles, remove_roles
+    return success, bind_roles, remove_roles, bind_explanations
 
 async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: users.RobloxAccount = None) -> dict:
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
@@ -148,7 +166,10 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
     user_binds = {
         "optional": [],
         "required": [],
+        "explanations": {"success": [], "failure": [], "criteria": []},
     }
+
+    # explanations: list = []
 
     guild_roles: dict[str, dict[str, Any]] = await bloxlink.fetch_roles(guild_id)
 
@@ -172,8 +193,10 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         criteria_remove_roles: set = set() # keep track of roles from the criteria
 
         if bind_criteria:
+            criteria_explanations: dict[str, list | str] = {"criteriaType": bind_type, "success": [], "failure": []}
+
             for criterion in bind_criteria:
-                criterion_success, criterion_roles, criterion_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, criterion["type"], criterion["id"], **bind_data, **criterion)
+                criterion_success, criterion_roles, criterion_remove_roles, criterion_explanations = await check_bind_for(guild_roles, guild_id, roblox_account, criterion["type"], criterion["id"], **bind_data, **criterion)
 
                 if bind_type == "requireAll":
                     if bind_success is None and criterion_success is True:
@@ -186,11 +209,19 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
                     if criterion_success:
                         criteria_add_roles.update(criterion_roles)
                         criteria_remove_roles.update(criterion_remove_roles)
+                        criteria_explanations["success"] += criterion_explanations["success"]
                     else:
-                        break
+                        criteria_explanations["failure"] += criterion_explanations["failure"]
+                        # break
+
+            user_binds["explanations"]["criteria"].append(criteria_explanations)
 
         else:
-            bind_success, bind_roles, bind_remove_roles = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
+            bind_success, bind_roles, bind_remove_roles, bind_explanations = await check_bind_for(guild_roles, guild_id, roblox_account, bind_type, bind_id, **role_bind, **bind_data)
+
+            if bind_explanations:
+                user_binds["explanations"]["success"] += bind_explanations["success"]
+                user_binds["explanations"]["failure"] += bind_explanations["failure"]
 
         if bind_success:
             append_roles = criteria_add_roles or bind_roles # whether we append all roles from the criteria or just from the one bind
@@ -214,6 +245,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         if not has_unverified_role and unverified_role and not roblox_account:
             user_binds["required"].append([{"type": "unverified"}, [unverified_role], [verified_role] if verified_role and verified_role in member.roles else []])
 
+    print(user_binds)
 
     return user_binds
 
