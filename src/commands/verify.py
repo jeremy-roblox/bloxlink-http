@@ -17,7 +17,7 @@ class VerifyCommand(Module):
     async def on_verify_defer(self, client: Bloxlink, ctx: Interaction):
         roblox_account = await users.get_user_account(ctx.author, raise_errors=False)
 
-        embed = await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
+        message_response: MessageResponse = await binds.apply_binds(ctx.author, ctx.guild_id, roblox_account, moderate_user=True)
 
         if not roblox_account:
             return MessageResponse(
@@ -29,7 +29,7 @@ class VerifyCommand(Module):
             )
 
 
-        return MessageResponse(embed=embed)
+        return message_response
 
     # @slash_command("verifyall")
     # @slash_option("update", "Would you like to update member's roles, nicknames, or both?", type=3,

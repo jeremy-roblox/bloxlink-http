@@ -62,7 +62,7 @@ def has_custom_verified_roles(role_binds: list) -> tuple[bool, bool]:
 
     return has_verified_role, has_unverified_role
 
-async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set]:
+async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set, dict]:
     bind_roles:   set  = set()
     remove_roles: set  = set()
 
@@ -201,9 +201,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
                 if bind_type == "requireAll":
                     if bind_success is None and criterion_success is True:
                         bind_success = True
-                    elif bind_success is None and criterion_success is False:
-                        bind_success = False
-                    elif bind_success is True and criterion_success is False:
+                    elif (bind_success is True and criterion_success is False) or (bind_success is None and criterion_success is False):
                         bind_success = False
 
                     if criterion_success:
@@ -251,7 +249,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
 
 
 
-async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: users.RobloxAccount, *, moderate_user=False) -> dict:
+async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: users.RobloxAccount, *, moderate_user=False) -> snowfin.MessageResponse:
     user_binds: dict = await get_binds_for(member, guild_id, roblox_account)
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
@@ -294,4 +292,4 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
             description="No binds apply to you!"
         )
 
-    return embed
+    return snowfin.MessageResponse(embed=embed)
