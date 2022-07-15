@@ -226,7 +226,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
             remove_roles = criteria_remove_roles or bind_remove_roles # whether we append all roles from the criteria or just from the one bind
 
             if bind_required:
-                user_binds["required"].append([bind_data, append_roles, bind_remove_roles])
+                user_binds["required"].append([bind_data, append_roles, remove_roles])
             else:
                 user_binds["optional"].append([bind_data, append_roles, remove_roles])
 
