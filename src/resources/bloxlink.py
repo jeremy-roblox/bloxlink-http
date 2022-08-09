@@ -5,6 +5,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
 from typing import Any, Optional
+from inspect import iscoroutinefunction
+import logging
+import importlib
+
+logger = logging.getLogger()
 
 from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from .models import UserData, GuildData, MISSING
@@ -184,3 +189,29 @@ class Bloxlink(snowfin.Client):
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 
         return await self.edit_user(member, guild_id, roles=new_roles, reason=reason or "")
+
+    @staticmethod
+    def load_module(import_name: str) -> None:
+        try:
+            module = importlib.import_module(import_name)
+
+        except (ImportError, ModuleNotFoundError) as e:
+            logger.error(f"Failed to import {import_name}: {e}")
+            raise e
+
+        except Exception as e:
+            logger.error(f"Module {import_name} errored: {e}")
+            raise e
+
+        if hasattr(module, "__setup__"):
+            try:
+                if iscoroutinefunction(module.__setup__):
+                    asyncio.run(module.__setup__())
+                else:
+                    module.__setup__()
+
+            except Exception as e:
+                logger.error(f"Module {import_name} errored: {e}")
+                raise e
+
+        print(f"Loaded module {import_name}")

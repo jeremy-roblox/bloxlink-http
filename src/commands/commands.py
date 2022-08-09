@@ -1,5 +1,4 @@
 import math
-from unicodedata import category
 from snowfin import Module, EmbedFooter, slash_command, slash_option, Embed, Interaction, Button, EmbedField, Select, SelectOption, select_callback, button_callback, Components, EditResponse, MessageResponse
 
 CMDS_PER_PAGE = 8
@@ -17,7 +16,7 @@ class CommandsCommand(Module):
 
         if not category:
             category = "Miscellaneous"
-        
+
         all_cats = []
         for cmd in self.client.commands:
             if cmd.module.category == category:
@@ -88,4 +87,4 @@ class CommandsCommand(Module):
                 ),
             ]
         )
-           
+

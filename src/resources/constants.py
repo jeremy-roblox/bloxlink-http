@@ -1,5 +1,6 @@
 MODULES = [
 	'commands',
+    'resources'
 ]
 
 SERVER_HOST = "0.0.0.0"

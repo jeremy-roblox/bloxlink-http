@@ -2,6 +2,12 @@ from os import environ as env, listdir
 from resources.constants import SERVER_HOST, SERVER_PORT, MODULES
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
+import logging
+
+logger = logging.getLogger()
+logging.basicConfig(level=logging.WARNING)
+
+
 
 
 if __name__ == "__main__":
@@ -19,6 +25,7 @@ if __name__ == "__main__":
         for filename in [f.replace(".py", "") for f in files]:
             if filename in ('bot', '__init__'):
                 continue
+
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
     bot.run(env.get("HOST", SERVER_HOST), env.get("PORT", SERVER_PORT), debug=True, auto_reload=True)
