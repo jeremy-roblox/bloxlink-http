@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Callable
-import snowfin
+from resources.commands import new_command
+import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
@@ -8,6 +9,7 @@ from typing import Any, Optional
 from inspect import iscoroutinefunction
 import logging
 import importlib
+import snowfin # FIXME: temporary
 
 logger = logging.getLogger()
 
@@ -16,7 +18,7 @@ from .models import UserData, GuildData, MISSING
 
 instance: 'Bloxlink' = None
 
-class Bloxlink(snowfin.Client):
+class Bloxlink(hikari.RESTBot):
     def __init__(self, *args, **kwargs):
         global instance
 
@@ -214,4 +216,11 @@ class Bloxlink(snowfin.Client):
                 logger.error(f"Module {import_name} errored: {e}")
                 raise e
 
-        print(f"Loaded module {import_name}")
+        logging.info(f"Loaded module {import_name}")
+
+    @staticmethod
+    def command(**command_attrs):
+        def wrapper(*args, **kwargs):
+            return new_command(*args, **kwargs)
+
+        return wrapper

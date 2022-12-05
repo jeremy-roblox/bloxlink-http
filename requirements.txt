@@ -1,4 +1,4 @@
-snowfin
+hikari[speedups, server]
 motor==2.3
 hiredis
 redis>=4.2.0rc1

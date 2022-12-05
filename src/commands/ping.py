@@ -1,14 +1,18 @@
-from unicodedata import category
-from snowfin import Module, slash_command, MessageResponse, Interaction
-from resources.bloxlink import Bloxlink
+from resources.bloxlink import instance as bloxlink
+from resources.models import CommandContext
 
-class PingCommand(Module):
+
+@bloxlink.command(
+    category="Miscellaneous"
+)
+class PingCommand():
     """A module that responds to ping commands"""
 
-    category = "Miscellaneous"
-
-    @slash_command("ping")
-    async def ping(self, ctx: Interaction):
+    async def __main__(self, ctx: CommandContext):
         """check if the bot is alive"""
 
-        return MessageResponse(f"Pong!", ephemeral=True)
+        print("ping command called")
+
+        await ctx.response.send("pong")
+        await ctx.response.send("pong")
+

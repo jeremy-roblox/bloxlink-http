@@ -1,22 +1,23 @@
 from os import environ as env, listdir
-from resources.constants import SERVER_HOST, SERVER_PORT, MODULES
+from resources.constants import MODULES
+from config import SERVER_HOST, SERVER_PORT
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
+from resources.commands import handle_command
 import logging
+import hikari
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 
 
 
 
 if __name__ == "__main__":
     bot = Bloxlink(
-        DISCORD_PUBLIC_KEY,
-        DISCORD_APPLICATION_ID,
+        public_key=DISCORD_PUBLIC_KEY,
         token=DISCORD_TOKEN,
-        sync_commands=True,
-        auto_defer=True
+        token_type=hikari.TokenType.BOT,
     )
 
     for directory in MODULES:
@@ -28,4 +29,5 @@ if __name__ == "__main__":
 
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
-    bot.run(env.get("HOST", SERVER_HOST), env.get("PORT", SERVER_PORT), debug=True, auto_reload=True)
+    bot.set_listener(hikari.CommandInteraction, handle_command)
+    bot.run(host=env.get("HOST", SERVER_HOST), port=env.get("PORT", SERVER_PORT))

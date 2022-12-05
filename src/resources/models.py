@@ -2,11 +2,17 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 import copy
+import hikari
+from .response import Response
+
+
 
 __all__ = (
     "UserData",
     "GuildData",
     "RobloxAccount",
+    "CommandContext",
+    "MISSING"
 )
 
 def default_field(obj):
@@ -44,6 +50,16 @@ class GuildData:
     unverifiedRoleEnabled: bool = True
     unverifiedRoleName: str = "Unverified" # deprecated
     unverifiedRole: str = None
+
+
+@dataclass(slots=True)
+class CommandContext:
+    command_name: str
+    command_id: int
+    guild_id: int
+    member: hikari.InteractionMember
+
+    response: Response
 
 
 class MISSING:

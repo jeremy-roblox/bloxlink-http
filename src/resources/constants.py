@@ -3,9 +3,6 @@ MODULES = [
     'resources'
 ]
 
-SERVER_HOST = "0.0.0.0"
-SERVER_PORT = 8000
-
 LIMITS = {
     "BINDS": {
         "FREE": 60,
