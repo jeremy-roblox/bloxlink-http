@@ -221,6 +221,6 @@ class Bloxlink(hikari.RESTBot):
     @staticmethod
     def command(**command_attrs):
         def wrapper(*args, **kwargs):
-            return new_command(*args, **kwargs)
+            return new_command(*args, **kwargs, **command_attrs)
 
         return wrapper
