@@ -1,9 +1,11 @@
+from __future__ import annotations
 import re
 import logging
 import hikari
 from .models import CommandContext
 from .response import Response
-
+from config import DISCORD_APPLICATION_ID
+from typing import Any
 
 
 command_name_pattern = re.compile("(.+)Command")
@@ -49,7 +51,7 @@ async def handle_command(interaction:hikari.CommandInteraction):
     else:
         return interaction.build_response() # basically don't respond to the webhook
 
-def new_command(command, **kwargs):
+def new_command(command: Any, **kwargs):
     new_command_class = command()
 
     command_name = command_name_pattern.search(command.__name__).group(1).lower()
@@ -59,21 +61,40 @@ def new_command(command, **kwargs):
                           command_fn,
                           kwargs.get("category", "Miscellaneous"),
                           kwargs.get("permissions", None),
-                          kwargs.get("defer", False))
+                          kwargs.get("defer", False),
+                          new_command_class.__doc__
+                          )
 
     slash_commands[command_name] = new_command
 
     logging.info(f"Registered command {command_name}")
 
 
+async def sync_commands(bot: hikari.RESTBot):
+    from resources.bloxlink import instance as bloxlink
+
+    commands = [
+        bloxlink.rest.slash_command_builder(c.name, c.description)
+            for c in slash_commands.values()
+    ]
+
+    await bloxlink.rest.set_application_commands(
+        application=DISCORD_APPLICATION_ID,
+        commands=commands,
+    )
+
+    logging.info(f"Registered {len(slash_commands)} slash commands.")
+
+
 
 class Command:
-    def __init__(self, command_name, fn, category="Miscellaneous", permissions=None, defer=False):
+    def __init__(self, command_name, fn, category="Miscellaneous", permissions=None, defer=False, description=None):
         self.name = command_name
         self.fn = fn
         self.category = category
         self.permissions = permissions
         self.defer = defer
+        self.description = description
 
     async def execute(self, ctx: CommandContext):
         # TODO: check for permissions
