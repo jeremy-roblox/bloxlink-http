@@ -1,9 +1,11 @@
+from __future__ import annotations
 from .models import GuildData
 import resources.users as users
 import resources.groups as groups
 from .bloxlink import instance as bloxlink
 import snowfin
 from typing import Any
+
 
 
 async def get_linked_group_ids(guild_id: int) -> set:
@@ -62,7 +64,7 @@ def has_custom_verified_roles(role_binds: list) -> tuple[bool, bool]:
 
     return has_verified_role, has_unverified_role
 
-async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, roblox_account: users.RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set, dict]:
+async def check_bind_for(guild_roles: dict[str, dict[str, Any]], guild_id: int, roblox_account: RobloxAccount, bind_type: str, bind_id: str, **bind_data) -> tuple[bool, set, set, dict]:
     bind_roles:   set  = set()
     remove_roles: set  = set()
 
@@ -169,8 +171,6 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         "explanations": {"success": [], "failure": [], "criteria": []},
     }
 
-    # explanations: list = []
-
     guild_roles: dict[str, dict[str, Any]] = await bloxlink.fetch_roles(guild_id)
 
     if roblox_account and roblox_account.groups is None:
@@ -225,10 +225,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
             append_roles = criteria_add_roles or bind_roles # whether we append all roles from the criteria or just from the one bind
             remove_roles = criteria_remove_roles or bind_remove_roles # whether we append all roles from the criteria or just from the one bind
 
-            if bind_required:
-                user_binds["required"].append([bind_data, append_roles, remove_roles])
-            else:
-                user_binds["optional"].append([bind_data, append_roles, remove_roles])
+            user_binds["required" if bind_required else "optional"].append([bind_data, append_roles, remove_roles])
 
     # for when they didn't save their own [un]verified roles
     has_verified_role, has_unverified_role = has_custom_verified_roles(role_binds)
@@ -243,7 +240,7 @@ async def get_binds_for(member: snowfin.Member, guild_id: int, roblox_account: u
         if not has_unverified_role and unverified_role and not roblox_account:
             user_binds["required"].append([{"type": "unverified"}, [unverified_role], [verified_role] if verified_role and verified_role in member.roles else []])
 
-    print(user_binds)
+    # print(user_binds)
 
     return user_binds
 
@@ -257,12 +254,31 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
     add_roles:    set = set() # used exclusively for display purposes
     remove_roles: set = set()
 
+    components = []
+
     for required_bind in user_binds["required"]:
         add_roles.update(required_bind[1])
         remove_roles.update(required_bind[2])
 
     if user_binds.get("optional"):
-        raise NotImplementedError()
+        optional_roles = [r for b in user_binds["optional"] for r in b[1]]
+        print(optional_roles)
+        # print(user_binds["optional"])
+        components = snowfin.Components(
+            snowfin.Select(
+                custom_id="test:yeah",
+                options=[
+                    snowfin.SelectOption(
+                        label=r,
+                        value=r,
+
+                    ) for r in optional_roles
+                ],
+            ),
+            snowfin.Button("Test", custom_id=f"test"),
+            # Button("Next", custom_id=f"command_list_page:{category}:{page + 1}", disabled=page * CMDS_PER_PAGE >= len(commands)),
+        )
+
 
     remove_roles   = remove_roles.difference(add_roles) # added roles get priority
     real_add_roles = add_roles.difference(set([str(r) for r in member.roles])) # remove roles that are already on the user, also new variable so we can achieve idempotence
@@ -292,4 +308,4 @@ async def apply_binds(member: snowfin.Member, guild_id: int, roblox_account: use
             description="No binds apply to you!"
         )
 
-    return snowfin.MessageResponse(embed=embed)
+    return snowfin.MessageResponse(embed=embed, components=components)

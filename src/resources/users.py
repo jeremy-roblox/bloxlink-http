@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .models import UserData, PartialMixin
 from snowfin import User
 from .bloxlink import instance as bloxlink
@@ -10,6 +11,7 @@ import math
 from .utils import fetch, ReturnType
 import dateutil.parser as parser
 from dataclasses import dataclass
+
 
 
 @dataclass(slots=True)
