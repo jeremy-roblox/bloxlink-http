@@ -6,7 +6,7 @@ class Response:
     def __init__(self, interaction: hikari.CommandInteraction):
         self.interaction = interaction
         self._responded = False
-        self._responded_once = False # if True, we respond to Discord with the content
+        self.responded_once = False # if True, we respond to Discord with the content
         self.responded_once_content: dict | None = None # we respond to Discord with this
 
 
