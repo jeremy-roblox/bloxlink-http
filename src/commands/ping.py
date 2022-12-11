@@ -6,7 +6,7 @@ from resources.models import CommandContext
     category="Miscellaneous",
     defer=True
 )
-class PingCommand():
+class PingCommand:
     """check if the bot is alive"""
 
     async def __main__(self, ctx: CommandContext):

@@ -97,7 +97,16 @@ async def sync_commands(bot: hikari.RESTBot):
 
 
 class Command:
-    def __init__(self, command_name: str, fn: Callable, category: str="Miscellaneous", permissions=None, defer:bool=False, description:str=None, options:list[hikari.commands.CommandOptions]=None):
+    def __init__(
+            self,
+            command_name: str,
+            fn: Callable,
+            category: str="Miscellaneous",
+            permissions=None,
+            defer:bool=False,
+            description:str=None,
+            options:list[hikari.commands.CommandOptions]=None
+        ):
         self.name = command_name
         self.fn = fn
         self.category = category

@@ -4,7 +4,7 @@ from hikari import Embed, EmbedField
 
 
 @bloxlink.command()
-class InviteCommand():
+class InviteCommand:
     """invite the bot to your server"""
 
     async def __main__(self, ctx: CommandContext):
