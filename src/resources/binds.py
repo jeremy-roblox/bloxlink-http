@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .models import GuildData, MISSING
 import resources.users as users
 import resources.groups as groups
@@ -204,6 +205,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             if role := guild.roles.get(bind_remove_id):
                 remove_roles.add(role)
 
+    print(add_roles)
 
     remove_roles   = remove_roles.difference(add_roles) # added roles get priority
     real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence

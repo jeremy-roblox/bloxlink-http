@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .models import UserData, PartialMixin
 from .bloxlink import instance as bloxlink
 from .exceptions import UserNotVerified
