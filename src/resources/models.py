@@ -59,6 +59,7 @@ class CommandContext:
     guild_id: int
     member: hikari.InteractionMember
     user: hikari.User
+    resolved: hikari.ResolvedOptionData
 
     response: Response
 
