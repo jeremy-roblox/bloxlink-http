@@ -1,6 +1,4 @@
-from __future__ import annotations
 from .models import UserData, PartialMixin
-from snowfin import User
 from .bloxlink import instance as bloxlink
 from .exceptions import UserNotVerified
 import resources.binds as binds
@@ -10,8 +8,8 @@ from datetime import datetime
 import math
 from .utils import fetch, ReturnType
 import dateutil.parser as parser
-from dataclasses import dataclass
-
+from dataclasses import dataclass, field
+import hikari
 
 
 @dataclass(slots=True)
@@ -32,6 +30,8 @@ class RobloxAccount(PartialMixin):
     overlay: int = None
 
     complete: bool = False
+
+    _data: dict = field(default_factory=lambda: {})
 
 
     async def sync(self, includes=None, *, cache=True, no_flag_check=False):
@@ -54,7 +54,7 @@ class RobloxAccount(PartialMixin):
 
         includes = ",".join(includes)
 
-        user_json_data, user_data_response = await fetch(f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?id={self.id}&include={includes}", return_data=ReturnType.JSON)
+        user_json_data, user_data_response = await fetch("GET", f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?id={self.id}&include={includes}", return_data=ReturnType.JSON)
 
         if user_data_response.status == 200:
             self.description = user_json_data.get("description", self.description)
@@ -64,6 +64,8 @@ class RobloxAccount(PartialMixin):
             self.badges = user_json_data.get("badges", self.badges)
             self.display_name = user_json_data.get("displayName", self.display_name)
             self.created = user_json_data.get("created", self.created)
+
+            self._data.update(user_json_data)
 
             await self.parse_groups(user_json_data.get("groups"))
 
@@ -75,12 +77,12 @@ class RobloxAccount(PartialMixin):
             avatar = user_json_data.get("avatar")
 
             if avatar:
-                avatar_url, avatar_response = await fetch(avatar["bustThumbnail"])
+                avatar_url, avatar_response = await fetch("GET", avatar["bustThumbnail"])
 
                 if avatar_response.status == 200:
                     self.avatar = avatar_url.get("data", [{}])[0].get("imageUrl")
 
-    async def get_group_ranks(self, guild):
+    async def get_group_ranks(self, guild) -> dict:
         group_ranks = {}
 
         if self.groups is None:
@@ -138,7 +140,7 @@ class RobloxAccount(PartialMixin):
         # self.flags = flags
         # self.overlay = self.flags & RBX_STAFF or self.flags & RBX_STAFF or self.flags & RBX_STAR
 
-    async def parse_groups(self, group_json):
+    async def parse_groups(self, group_json: dict | None):
         if group_json is None:
             return
 
@@ -154,13 +156,14 @@ class RobloxAccount(PartialMixin):
             await group.sync()
             self.groups[group.id] = group
 
+    def to_dict(self):
+        return self._data
 
 
-
-async def get_user_account(user: User, guild_id: int = None, raise_errors=True) -> RobloxAccount | None:
+async def get_user_account(user: hikari.User, guild_id: int = None, raise_errors=True) -> RobloxAccount | None:
     """get a user's linked Roblox account"""
 
-    bloxlink_user: UserData = await bloxlink.fetch_user(str(user.user.id), "robloxID", "robloxAccounts")
+    bloxlink_user: UserData = await bloxlink.fetch_user_data(str(user.id), "robloxID", "robloxAccounts")
 
     if guild_id:
         guild_account = (bloxlink_user.robloxAccounts or {}).get(str(guild_id))
@@ -177,7 +180,7 @@ async def get_user_account(user: User, guild_id: int = None, raise_errors=True) 
         return None
 
 
-async def get_user(user: User = None, includes: list = None, *, roblox_username: str = None, roblox_id: int = None, guild_id: int = None) -> RobloxAccount:
+async def get_user(user: hikari.User = None, includes: list = None, *, roblox_username: str = None, roblox_id: int = None, guild_id: int = None) -> RobloxAccount:
     """get a Roblox account"""
 
     roblox_account: RobloxAccount = None
@@ -191,3 +194,20 @@ async def get_user(user: User = None, includes: list = None, *, roblox_username:
         await roblox_account.sync(includes)
 
     return roblox_account
+
+async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) -> hikari.Embed:
+    await roblox_account.sync()
+
+    embed = hikari.Embed(
+        title=str(user) if user else roblox_account.display_name,
+        url=roblox_account.profile_link,
+    )
+
+    embed.add_field(name="Username", value=f"@{roblox_account.username}", inline=True)
+    embed.add_field(name="ID", value=roblox_account.id, inline=True)
+    embed.add_field(name="Description", value=roblox_account.description[:500], inline=False)
+
+    embed.set_thumbnail(url=roblox_account.avatar)
+
+    return embed
+

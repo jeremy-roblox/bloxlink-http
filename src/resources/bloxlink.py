@@ -5,16 +5,15 @@ import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
-from typing import Any, Optional
 from inspect import iscoroutinefunction
 import logging
 import importlib
-import snowfin # FIXME: temporary
+import hikari
 
 logger = logging.getLogger()
 
-from .secrets import MONGO_URL, REDISHOST, REDISPORT, REDISPASSWORD, DISCORD_APPLICATION_ID, DISCORD_TOKEN
-from .models import UserData, GuildData, MISSING
+from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+from .models import UserData, GuildData
 
 instance: 'Bloxlink' = None
 
@@ -25,10 +24,9 @@ class Bloxlink(hikari.RESTBot):
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
-        self.redis: redis.Redis = redis.Redis(host=REDISHOST, port=REDISPORT, password=REDISPASSWORD, decode_responses=True)
+        self.redis: redis.Redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
 
         self.started_at = datetime.utcnow()
-        # self.http = snowfin.http.HTTP(DISCORD_APPLICATION_ID, token=DISCORD_TOKEN)
 
         instance = self
         # self.cache = benedict(keypath_separator=":")
@@ -72,125 +70,82 @@ class Bloxlink(hikari.RESTBot):
         """
         Update an item's aspects in local cache, redis, and database.
         """
-        # update redis cache
-        await self.redis.hmset(f"{domain}:{item_id}", aspects)
+        # # update redis cache
+        # redis_aspects: dict = None
+        # if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
+        #     redis_aspects = dict(aspects)
+
+        #     for aspect_name, aspect_value in dict(aspects).items():
+        #         if isinstance(aspect_value, (dict, list)):
+        #             redis_aspects.pop(aspect_name)
+
+        # await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
 
         # update database
-        await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects})
+        await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
 
-    async def fetch_user(self, user_id: str, *aspects) -> UserData:
+    async def fetch_user_data(self, user: hikari.User | hikari.Member | str, *aspects) -> UserData:
         """
         Fetch a full user from local cache, then redis, then database.
         Will populate caches for later access
         """
+
+        if isinstance(user, (hikari.User, hikari.Member)):
+            user_id = str(user.id)
+        else:
+            user_id = user
+
         return await self.fetch_item("users", UserData, user_id, *aspects)
 
-    async def fetch_guild_data(self, guild_id: str, *aspects) -> GuildData:
+    async def fetch_guild_data(self, guild: hikari.Guild | str, *aspects) -> GuildData:
         """
         Fetch a full guild from local cache, then redis, then database.
         Will populate caches for later access
         """
+
+        if isinstance(guild, hikari.Guild):
+            guild_id = str(guild.id)
+        else:
+            guild_id = guild
+
         return await self.fetch_item("guilds", GuildData, guild_id, *aspects)
 
-    async def update_user_data(self, user_id: str, **aspects) -> None:
+    async def update_user_data(self, user: hikari.User | hikari.Member, **aspects) -> None:
         """
         Update a user's aspects in local cache, redis, and database.
         """
+
+        if isinstance(user, (hikari.User, hikari.Member)):
+            user_id = str(user.id)
+        else:
+            user_id = user
+
         return await self.update_item("users", user_id, **aspects)
 
-    async def update_guild_data(self, guild_id: str, **aspects) -> None:
+    async def update_guild_data(self, guild: hikari.Guild | str, **aspects) -> None:
         """
         Update a guild's aspects in local cache, redis, and database.
         """
+
+        if isinstance(guild, hikari.Guild):
+            guild_id = str(guild.id)
+        else:
+            guild_id = guild
+
+        for aspect_name, aspect in aspects.items(): # allow Discord objects to save by ID only
+            if hasattr(aspect, "id"):
+                aspects[aspect_name] = str(aspect.id)
+
         return await self.update_item("guilds", guild_id, **aspects)
 
-    async def fetch_roles(self, guild_id: str | int) -> dict[str, dict]:
-        """
-        Fetch the guild's roles. Not cached.
-        """
-
-        r = snowfin.http.Route(
-            "GET",
-            "/guilds/{guild_id}/roles",
-            guild_id=guild_id,
-            auth=True
-        )
-
-        return {r["id"]: r for r in await self.http.request(r)} # so we can do fast ID lookups
-
-    async def create_role(self, guild_id: str | int, name: str, reason: str = "") -> dict[str, dict]:
-        """
-        Create a new role. Not cached.
-        """
-
-        r = snowfin.http.Route(
-            "POST",
-            "/guilds/{guild_id}/roles",
-            guild_id=guild_id,
-            auth=True
-        )
-
-        data = {
-            "name": name
-        }
-
-        return await self.http.request(r, data=data, headers={"X-Audit-Log-Reason": reason or ""})
-
-    async def delete_role(self, guild_id: str | int, role_id: str | int, reason: str = "") -> dict[str, dict]:
-        """
-        Deletes a role.
-        """
-
-        r = snowfin.http.Route(
-            "DELETE",
-            "/guilds/{guild_id}/roles/{role_id}",
-            guild_id=guild_id,
-            role_id=role_id,
-            auth=True
-        )
-
-        return await self.http.request(r, headers={"X-Audit-Log-Reason": reason or ""})
-
-    async def edit_user(self, member: snowfin.Member, guild_id: str | int, *, roles: Optional[list] = MISSING, nick: Optional[str] = MISSING, mute: Optional[bool] = MISSING, deaf: Optional[bool] = MISSING, reason: str = "") -> Any:
-        """
-        Edit a member's roles and mute/deaf status.
-        """
-
-        r = snowfin.http.Route(
-            "PATCH",
-            "/guilds/{guild_id}/members/{user_id}",
-            guild_id=guild_id,
-            user_id=member.user.id,
-            auth=True,
-        )
-
-        data = {}
-
-        if roles is not MISSING:
-            data["roles"] = roles
-
-        if nick is not MISSING:
-            data["nick"] = nick
-
-        if mute is not MISSING:
-            data["mute"] = mute
-
-        if deaf is not MISSING:
-            data["deaf"] = deaf
-
-        if not data:
-            raise RuntimeError("edit_user() requires at least one aspect to be changed")
-
-        return await self.http.request(r, data=data, headers={"X-Audit-Log-Reason": reason or ""})
-
-    async def edit_user_roles(self, member: snowfin.Member, guild_id: str | int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> Any:
+    async def edit_user_roles(self, member: hikari.Member, guild_id: str | int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> hikari.Member:
         """
         Adds or remove roles from a member.
         """
 
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 
-        return await self.edit_user(member, guild_id, roles=new_roles, reason=reason or "")
+        return await self.rest.edit_member(user=member, guild=guild_id, roles=new_roles, reason=reason or "")
 
     @staticmethod
     def load_module(import_name: str) -> None:

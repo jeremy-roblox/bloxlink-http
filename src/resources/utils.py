@@ -19,8 +19,8 @@ class ReturnType(Enum):
     BYTES = 3
 
 async def fetch(
+    method: str,
     url: str,
-    method: str = "GET",
     params: dict = None,
     headers: dict = None,
     body: dict = None,

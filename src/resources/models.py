@@ -58,6 +58,7 @@ class CommandContext:
     command_id: int
     guild_id: int
     member: hikari.InteractionMember
+    user: hikari.User
 
     response: Response
 

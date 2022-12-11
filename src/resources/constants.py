@@ -1,7 +1,13 @@
 MODULES = [
-	'commands',
-    'resources'
+	"commands",
+    "resources"
 ]
+
+ALL_USER_API_SCOPES = ["groups", "badges"]
+
+DEFAULTS = {
+    "nicknameTemplate": "{smart-name}"
+}
 
 LIMITS = {
     "BINDS": {
@@ -16,3 +22,6 @@ LIMITS = {
 }
 
 ALL_USER_API_SCOPES = ["groups", "badges"]
+
+RED_COLOR       = 0xdb2323
+INVISIBLE_COLOR = 0x36393E

@@ -1,7 +1,7 @@
 from os import environ as env, listdir
 from resources.constants import MODULES
 from config import SERVER_HOST, SERVER_PORT
-from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_TOKEN
+from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
 from resources.commands import handle_command, sync_commands
 import logging

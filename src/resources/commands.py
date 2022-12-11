@@ -36,6 +36,7 @@ async def handle_command(interaction:hikari.CommandInteraction):
         command_id=interaction.command_id,
         guild_id=interaction.guild_id,
         member=interaction.member,
+        user=interaction.user,
         response=response
     )
 
@@ -62,8 +63,7 @@ def new_command(command: Any, **kwargs):
                           kwargs.get("category", "Miscellaneous"),
                           kwargs.get("permissions", None),
                           kwargs.get("defer", False),
-                          new_command_class.__doc__
-                          )
+                          new_command_class.__doc__)
 
     slash_commands[command_name] = new_command
 
