@@ -46,13 +46,7 @@ async def handle_command(interaction:hikari.CommandInteraction):
 
     await try_command(command.execute(ctx), response)
 
-    if response.responded_once:
-        # if the command only sends one response, then we can
-        # respond with that to Discord
-        return interaction.build_response() \
-               .set_content(response.responded_once_content.get("content"))
-    else:
-        return interaction.build_response() # basically don't respond to the webhook
+    return interaction.build_response() # basically don't respond to the webhook
 
 def new_command(command: Any, **kwargs):
     new_command_class = command()
