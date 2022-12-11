@@ -4,6 +4,7 @@ import logging
 import hikari
 from .models import CommandContext
 from .response import Response
+from .exceptions import try_command
 from config import DISCORD_APPLICATION_ID
 from typing import Any, Callable
 
@@ -14,7 +15,7 @@ slash_commands = {}
 
 
 async def handle_command(interaction:hikari.CommandInteraction):
-    print(dir(interaction))
+    #print(dir(interaction))
 
     command_name = interaction.command_name
     command_type = interaction.command_type
@@ -37,12 +38,13 @@ async def handle_command(interaction:hikari.CommandInteraction):
         guild_id=interaction.guild_id,
         member=interaction.member,
         user=interaction.user,
-        response=response
+        response=response,
+        resolved=interaction.resolved
     )
 
     print(ctx)
 
-    await command.execute(ctx)
+    await try_command(command.execute(ctx), response)
 
     if response.responded_once:
         # if the command only sends one response, then we can
