@@ -5,7 +5,7 @@ import hikari
 from .models import CommandContext
 from .response import Response
 from config import DISCORD_APPLICATION_ID
-from typing import Any
+from typing import Any, Callable
 
 
 command_name_pattern = re.compile("(.+)Command")
@@ -63,7 +63,8 @@ def new_command(command: Any, **kwargs):
                           kwargs.get("category", "Miscellaneous"),
                           kwargs.get("permissions", None),
                           kwargs.get("defer", False),
-                          new_command_class.__doc__)
+                          new_command_class.__doc__,
+                          kwargs.get("options"))
 
     slash_commands[command_name] = new_command
 
@@ -73,10 +74,18 @@ def new_command(command: Any, **kwargs):
 async def sync_commands(bot: hikari.RESTBot):
     from resources.bloxlink import instance as bloxlink
 
-    commands = [
-        bloxlink.rest.slash_command_builder(c.name, c.description)
-            for c in slash_commands.values()
-    ]
+    commands = []
+
+    for new_command_data in slash_commands.values():
+        command: hikari.commands.SlashCommandBuilder = bloxlink.rest.slash_command_builder(
+            new_command_data.name, new_command_data.description)
+
+        if new_command_data.options:
+            for option in new_command_data.options:
+                command.add_option(option)
+
+        commands.append(command)
+
 
     await bloxlink.rest.set_application_commands(
         application=DISCORD_APPLICATION_ID,
@@ -88,13 +97,14 @@ async def sync_commands(bot: hikari.RESTBot):
 
 
 class Command:
-    def __init__(self, command_name, fn, category="Miscellaneous", permissions=None, defer=False, description=None):
+    def __init__(self, command_name: str, fn: Callable, category: str="Miscellaneous", permissions=None, defer:bool=False, description:str=None, options:list[hikari.commands.CommandOptions]=None):
         self.name = command_name
         self.fn = fn
         self.category = category
         self.permissions = permissions
         self.defer = defer
         self.description = description
+        self.options = options
 
     async def execute(self, ctx: CommandContext):
         # TODO: check for permissions
