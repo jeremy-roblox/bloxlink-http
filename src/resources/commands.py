@@ -32,6 +32,9 @@ async def handle_command(interaction:hikari.CommandInteraction):
 
     response = Response(interaction)
 
+    if command.defer:
+        await response.defer()
+
     ctx = CommandContext(
         command_name=interaction.command_name,
         command_id=interaction.command_id,
@@ -99,9 +102,9 @@ class Command:
             fn: Callable,
             category: str="Miscellaneous",
             permissions=None,
-            defer:bool=False,
-            description:str=None,
-            options:list[hikari.commands.CommandOptions]=None
+            defer: bool=False,
+            description: str=None,
+            options: list[hikari.commands.CommandOptions]=None
         ):
         self.name = command_name
         self.fn = fn
