@@ -15,12 +15,15 @@ class Response:
 
             await self.interaction.create_initial_response(
                 hikari.ResponseType.MESSAGE_CREATE,
-                content, embed=embed, **kwargs)
+                content, embed=embed, **kwargs
+            )
 
     async def defer(self):
         if self._responded:
             raise RuntimeError("Cannot defer if the interaction has been responded to!")
 
         self._responded = True
+
         await self.interaction.create_initial_response(
-            hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
+            hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+        )

@@ -3,13 +3,10 @@ from resources.models import CommandContext
 
 
 @bloxlink.command(
-    category="Miscellaneous",
-    defer=True
+    category="Miscellaneous"
 )
 class PingCommand:
     """check if the bot is alive"""
 
     async def __main__(self, ctx: CommandContext):
         await ctx.response.send("pong")
-        await ctx.response.send("pong")
-

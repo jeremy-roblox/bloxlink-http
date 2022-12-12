@@ -1,7 +1,7 @@
 from resources.bloxlink import instance as bloxlink
 import resources.users as users
 from resources.models import CommandContext
-from resources.exceptions import UserNotVerified, Message
+from resources.exceptions import UserNotVerified
 from hikari.commands import CommandOption, OptionType
 
 
@@ -13,7 +13,7 @@ from hikari.commands import CommandOption, OptionType
         CommandOption(
             type=OptionType.USER,
             name="user",
-            description="Retrieve the Roblox information of a specific user",
+            description="Retrieve the Roblox information of this user",
             is_required=False
         )
     ]

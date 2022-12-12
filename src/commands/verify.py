@@ -1,7 +1,6 @@
 
 import resources.binds as binds
 import resources.users as users
-from resources.exceptions import UserNotVerified
 from resources.bloxlink import instance as bloxlink
 from resources.models import CommandContext
 
@@ -18,4 +17,4 @@ class VerifyCommand:
         message_response = await binds.apply_binds(ctx.member, ctx.guild_id, roblox_account, moderate_user=True)
 
         if not roblox_account:
-            print("not verified")
+            await ctx.response.send("not verified")

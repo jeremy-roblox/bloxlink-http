@@ -45,8 +45,6 @@ async def handle_command(interaction:hikari.CommandInteraction):
         resolved=interaction.resolved
     )
 
-    print(ctx)
-
     await try_command(command.execute(ctx), response)
 
     return interaction.build_response() # basically don't respond to the webhook
