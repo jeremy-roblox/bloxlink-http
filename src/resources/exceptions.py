@@ -1,5 +1,6 @@
 from typing import Callable
 from .response import Response
+import hikari
 
 
 class BloxlinkException(Exception):
@@ -49,3 +50,5 @@ async def try_command(fn: Callable, response: Response):
         await fn
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!")
+    except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
+        await response.send(str(message) or "I have encountered a permission error! Please make sure I have the appropriate permissions.")

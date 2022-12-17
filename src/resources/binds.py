@@ -19,13 +19,11 @@ bracket_search          = re.compile(r"\[(.*)\]")
 
 
 
-async def parse_nickname(member: hikari.Member, template: str, roblox_user=MISSING, group: groups.RobloxGroup=MISSING, is_nickname: bool=True) -> str | None:
+async def parse_nickname(member: hikari.Member, guild: hikari.Guild, template: str, roblox_user=MISSING, group: groups.RobloxGroup=MISSING, is_nickname: bool=True) -> str | None:
     template = template or DEFAULTS.get("nicknameTemplate") or ""
 
     if template == "{disable-nicknaming}":
         return
-
-    guild = member.guild
 
     group_id = None
     group    = None
@@ -97,12 +95,14 @@ async def parse_nickname(member: hikari.Member, template: str, roblox_user=MISSI
             if template == "{disable-nicknaming}":
                 return
 
+    print(dir(member))
+
     template = template.replace(
-        "discord-name", member.name
-    # ).replace(
-    #     "discord-nick", user.display_name
+        "discord-name", member.user.username
     ).replace(
-        "discord-mention", member.mention
+        "discord-nick", member.display_name
+    ).replace(
+        "discord-mention", member.user.mention
     ).replace(
         "discord-id", str(member.id)
     ).replace(
@@ -191,11 +191,15 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
     chosen_nickname = None
     applied_nickname = None
 
+    print(guild.roles)
+
     for required_bind in user_binds["required"]:
         # find valid roles from the server
 
         for bind_add_id in required_bind[1]:
-            if role := guild.roles.get(bind_add_id):
+            print(bind_add_id)
+
+            if role := guild.roles.get(int(bind_add_id)):
                 add_roles.add(role)
 
                 if required_bind[3]:
@@ -207,8 +211,10 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
 
     print(add_roles)
 
-    remove_roles   = remove_roles.difference(add_roles) # added roles get priority
-    real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
+    real_add_roles = add_roles
+
+    # remove_roles   = remove_roles.difference(add_roles) # added roles get priority
+    # real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
 
     # if real_add_roles or remove_roles:
     #     await bloxlink.edit_user_roles(member, guild_id, add_roles=real_add_roles, remove_roles=remove_roles)
@@ -225,7 +231,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
                 chosen_nickname = highest_role[0][1]
 
         if chosen_nickname:
-            chosen_nickname = await parse_nickname(member, chosen_nickname, roblox_account)
+            chosen_nickname = await parse_nickname(member, guild, chosen_nickname, roblox_account)
             # chosen_nickname_http, nickname_response = await fetch(f"{BOT_API}/nickname/parse/", headers={"Authorization":BOT_API_AUTH}, body={
             #     "user_id": member.id,
             #     "template": chosen_nickname,
@@ -242,8 +248,8 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             else:
 
                 try:
-                    await member.set_nickname(chosen_nickname)
-                except hikari.errors.Forbidden:
+                    await member.edit(nickname=chosen_nickname)
+                except hikari.errors.ForbiddenError:
                     raise BloxlinkForbidden("I don't have permission to change the nickname of this user.")
                 else:
                     applied_nickname = chosen_nickname
