@@ -43,12 +43,3 @@ class CancelCommand(BloxlinkException):
 class BadArgument(BloxlinkException):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-
-async def try_command(fn: Callable, response: Response):
-    try:
-        await fn
-    except UserNotVerified as message:
-        await response.send(str(message) or "This user is not verified with Bloxlink!")
-    except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
-        await response.send(str(message) or "I have encountered a permission error! Please make sure I have the appropriate permissions.")

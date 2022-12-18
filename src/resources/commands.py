@@ -4,7 +4,7 @@ import logging
 import hikari
 from .models import CommandContext
 from .response import Response
-from .exceptions import try_command
+from .exceptions import *
 from config import DISCORD_APPLICATION_ID
 from typing import Any, Callable
 
@@ -91,6 +91,14 @@ async def sync_commands(bot: hikari.RESTBot):
 
     logging.info(f"Registered {len(slash_commands)} slash commands.")
 
+
+async def try_command(fn: Callable, response: Response):
+    try:
+        await fn
+    except UserNotVerified as message:
+        await response.send(str(message) or "This user is not verified with Bloxlink!")
+    except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
+        await response.send(str(message) or "I have encountered a permission error! Please make sure I have the appropriate permissions.")
 
 
 class Command:
