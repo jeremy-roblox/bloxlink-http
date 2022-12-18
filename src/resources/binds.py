@@ -158,7 +158,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             member_roles[role.id] = {
                 "id": role.id,
                 "name": role.name,
-                "managed": role.bot_id is None
+                "managed": bool(role.bot_id) and role.name != "@everyone"
             }
 
     user_binds, user_binds_response = await fetch("POST", f"{BOT_API}/binds/{member.id}", headers={"Authorization":BOT_API_AUTH}, body={
@@ -167,7 +167,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             "roles": [{
                 "id": r.id,
                 "name": r.name,
-                "managed": r.bot_id is None
+                "managed": bool(r.bot_id) and role.name != "@everyone"
             } for r in guild.roles.values()]
         },
         "member": {
@@ -184,34 +184,32 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
 
-    add_roles:    set = set() # used exclusively for display purposes
-    remove_roles: set = set()
+    #add_roles:    set = set() # used exclusively for display purposes
+    add_roles:    list = []
+    remove_roles: list = []
     possible_nicknames: list[list[hikari.Role | str]] = []
     warnings: list[str] = []
     chosen_nickname = None
     applied_nickname = None
 
-    print(guild.roles)
 
     for required_bind in user_binds["required"]:
         # find valid roles from the server
 
         for bind_add_id in required_bind[1]:
-            print(bind_add_id)
-
             if role := guild.roles.get(int(bind_add_id)):
-                add_roles.add(role)
+                add_roles.append(role)
 
                 if required_bind[3]:
                     possible_nicknames.append([role, required_bind[3]])
 
         for bind_remove_id in required_bind[2]:
             if role := guild.roles.get(bind_remove_id):
-                remove_roles.add(role)
+                remove_roles.append(role)
 
-    print(add_roles)
 
-    real_add_roles = add_roles
+    # real_add_roles = add_roles
+
 
     # remove_roles   = remove_roles.difference(add_roles) # added roles get priority
     # real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
@@ -254,11 +252,14 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
                 else:
                     applied_nickname = chosen_nickname
 
-    if real_add_roles:
-        await member.add_roles(*real_add_roles)
+    try:
+        if add_roles or remove_roles:
+            # since this overwrites their roles, we need to add in their current roles
+            # then, we remove the remove_roles from the set
+            await member.edit(roles=set(getattr(r, "id", r) for r in add_roles + member.role_ids).difference([r.id for r in remove_roles]))
 
-    if remove_roles:
-        await member.remove_roles(*remove_roles)
+    except hikari.errors.ForbiddenError:
+        raise BloxlinkForbidden("I don't have permission to add roles to this user.")
 
     if add_roles or remove_roles or warnings:
         embed = hikari.Embed(
