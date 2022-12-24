@@ -18,3 +18,6 @@ class VerifyCommand:
 
         if not roblox_account:
             await ctx.response.send("not verified")
+            return
+
+        await ctx.response.send(embed=message_response)

@@ -18,7 +18,8 @@ import hikari
             is_required=True
         )
     ],
-    permissions=hikari.Permissions.MANAGE_GUILD
+    permissions=hikari.Permissions.MANAGE_GUILD |
+                hikari.Permissions.MANAGE_ROLES
 
 )
 class UpdateCommand:

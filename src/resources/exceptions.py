@@ -1,6 +1,4 @@
-from typing import Callable
 from .response import Response
-import hikari
 
 
 class BloxlinkException(Exception):
