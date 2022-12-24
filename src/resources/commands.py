@@ -31,7 +31,7 @@ async def handle_command(interaction:hikari.CommandInteraction):
 
         # subcommand checking
         subcommand_option: list[hikari.CommandInteractionOption] = list(filter(lambda o: o.type==hikari.OptionType.SUB_COMMAND, interaction.options or []))
-        subcommand_name = subcommand_option[0].name
+        subcommand_name = subcommand_option[0].name if subcommand_option else None
 
     else:
         raise NotImplementedError()
