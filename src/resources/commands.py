@@ -77,6 +77,9 @@ async def sync_commands(bot: hikari.RESTBot):
         command: hikari.commands.SlashCommandBuilder = bloxlink.rest.slash_command_builder(
             new_command_data.name, new_command_data.description)
 
+        if new_command_data.permissions:
+            command.set_default_member_permissions(new_command_data.permissions)
+
         if new_command_data.options:
             for option in new_command_data.options:
                 command.add_option(option)
