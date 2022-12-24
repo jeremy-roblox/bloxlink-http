@@ -9,6 +9,7 @@ from inspect import iscoroutinefunction
 import logging
 import importlib
 import hikari
+import functools
 
 logger = logging.getLogger()
 
@@ -179,3 +180,17 @@ class Bloxlink(hikari.RESTBot):
             return new_command(*args, **kwargs, **command_attrs)
 
         return wrapper
+
+    @staticmethod
+    def subcommand(**kwargs):
+        def decorator(f):
+            f.__issubcommand__ = True
+            f.__subcommandattrs__ = kwargs
+
+            @functools.wraps(f)
+            def wrapper(self, *args):
+                return f(self, *args)
+
+            return wrapper
+
+        return decorator
