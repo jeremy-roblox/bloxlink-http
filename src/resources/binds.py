@@ -146,7 +146,7 @@ async def parse_nickname(member: hikari.Member, guild: hikari.Guild, template: s
     return template[:32] if is_nickname else template
 
 
-async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_account: users.RobloxAccount, *, moderate_user=False) -> hikari.Embed:
+async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_account: users.RobloxAccount=None, *, moderate_user=False) -> hikari.Embed:
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
@@ -174,7 +174,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             "id": member.id,
             "roles": member_roles
         },
-        "roblox_account": roblox_account.to_dict()
+        "roblox_account": roblox_account.to_dict() if roblox_account else None
     })
 
     if user_binds_response.status == 200:
@@ -185,8 +185,8 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
     # first apply the required binds, then ask the user if they want to apply the optional binds
 
     #add_roles:    set = set() # used exclusively for display purposes
-    add_roles:    list = []
-    remove_roles: list = []
+    add_roles:    list[hikari.Role] = []
+    remove_roles: list[hikari.Role] = []
     possible_nicknames: list[list[hikari.Role | str]] = []
     warnings: list[str] = []
     chosen_nickname = None
@@ -244,11 +244,10 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
             if guild.owner_id == member.id:
                 warnings.append(f"Since you're the Server Owner, I cannot modify your nickname.\nNickname: {chosen_nickname}")
             else:
-
                 try:
                     await member.edit(nickname=chosen_nickname)
                 except hikari.errors.ForbiddenError:
-                    raise BloxlinkForbidden("I don't have permission to change the nickname of this user.")
+                    warnings.append("I don't have permission to change the nickname of this user.")
                 else:
                     applied_nickname = chosen_nickname
 
@@ -256,7 +255,9 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
         if add_roles or remove_roles:
             # since this overwrites their roles, we need to add in their current roles
             # then, we remove the remove_roles from the set
-            await member.edit(roles=set(getattr(r, "id", r) for r in add_roles + member.role_ids).difference([r.id for r in remove_roles]))
+            await member.edit(roles=set(getattr(r, "id", r)
+                                for r in add_roles + member.role_ids) \
+                                    .difference([r.id for r in remove_roles]))
 
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.")
@@ -265,6 +266,10 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
         embed = hikari.Embed(
             title="Member Updated",
         )
+        embed.set_author(name=str(member),
+                        icon=member.display_avatar_url.url,
+                        url=roblox_account.profile_link if roblox_account else None)
+
 
         if add_roles:
             embed.add_field(
@@ -286,7 +291,7 @@ async def apply_binds(member: hikari.Member, guild_id: hikari.Snowflake, roblox_
 
         if warnings:
             embed.add_field(
-                name="Warning(s)",
+                name=f"Warning{'s' if len(warnings) >= 2 else ''}",
                 value="\n".join(warnings)
             )
 
