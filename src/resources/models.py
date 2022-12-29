@@ -60,6 +60,7 @@ class CommandContext:
     member: hikari.InteractionMember
     user: hikari.User
     resolved: hikari.ResolvedOptionData
+    options: dict[str, str | int]
 
     response: Response
 

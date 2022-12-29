@@ -41,6 +41,10 @@ class RobloxGroup(PartialMixin):
 
 async def get_group(group_id: str) -> RobloxGroup:
     group: RobloxGroup = RobloxGroup(id=group_id)
-    await group.sync() # this will raise if the group doesn't exist
+
+    try:
+        await group.sync() # this will raise if the group doesn't exist
+    except RobloxAPIError:
+        raise RobloxNotFound("This group does not exist.")
 
     return group

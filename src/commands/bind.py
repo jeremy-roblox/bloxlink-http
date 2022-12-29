@@ -1,8 +1,8 @@
 from resources.bloxlink import instance as bloxlink
-import resources.binds as binds
-import resources.users as users
+from resources.groups import get_group
 from resources.models import CommandContext
-from resources.exceptions import UserNotVerified, Message
+from hikari.commands import CommandOption, OptionType
+from hikari import ButtonStyle
 import hikari
 
 
@@ -15,9 +15,55 @@ import hikari
 class BindCommand:
     """bind Discord role(s) to Roblox entities"""
 
-    @bloxlink.subcommand()
+    @bloxlink.subcommand(
+        options=[
+            CommandOption(
+                type=OptionType.INTEGER,
+                name="group_id",
+                description="What is your group ID?",
+                is_required=True,
+            ),
+            CommandOption(
+                type=OptionType.STRING,
+                name="bind_mode",
+                description="How should we merge your group with Discord?",
+                choices=[
+                    hikari.CommandChoice(
+                        name="Bind all current and future group roles", value="entire_group"),
+                    hikari.CommandChoice(
+                        name="Choose specific group roles", value="specific_roles")
+                ],
+                is_required=True
+            )
+        ]
+    )
     async def group(self, ctx: CommandContext):
         """bind a group to your server"""
 
-        print("group subcommand")
-        await ctx.response.send("from group subcommand")
+        group_id  = ctx.options["group_id"]
+        bind_mode = ctx.options["bind_mode"]
+
+        group = await get_group(group_id)
+
+        if bind_mode == "specific_roles":
+            embed = hikari.Embed(
+                title="New Group Bind"
+            )
+
+            button_menu = (
+                bloxlink.rest.build_action_row()
+                .add_button(ButtonStyle.PRIMARY, "Add roles")
+                    .set_label("Add roles")
+                    .add_to_container()
+                .add_button(ButtonStyle.PRIMARY, "Finish")
+                    .set_label("Finish")
+                    .add_to_container()
+            )
+
+
+
+
+            await ctx.response.send(embed=embed, components=button_menu)
+
+
+

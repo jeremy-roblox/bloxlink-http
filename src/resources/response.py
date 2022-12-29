@@ -7,15 +7,21 @@ class Response:
         self.interaction = interaction
         self._responded = False
 
-    async def send(self, content: str | None = None, embed: hikari.Embed | None = None, **kwargs):
+    async def send(
+        self,
+        content: str = None,
+        embed: hikari.Embed = None,
+        components: list = None,
+        **kwargs):
+
         if self._responded:
-            await self.interaction.execute(content, embed=embed, **kwargs)
+            await self.interaction.execute(content, embed=embed, component=components, **kwargs)
         else:
             self._responded = True
 
             await self.interaction.create_initial_response(
                 hikari.ResponseType.MESSAGE_CREATE,
-                content, embed=embed, **kwargs
+                content, embed=embed, component=components, **kwargs
             )
 
     async def defer(self):
