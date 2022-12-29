@@ -69,6 +69,17 @@ async def handle_command(interaction:hikari.CommandInteraction):
 
     return interaction.build_response() # basically don't respond to the webhook
 
+
+async def handle_component(interaction: hikari.ComponentInteraction):
+    custom_id = interaction.custom_id
+
+    # iterate through commands and find the custom_id mapped function
+    for command in slash_commands.values():
+        for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
+            if custom_id.startswith(accepted_custom_id):
+                await custom_id_fn(interaction)
+
+
 def new_command(command: Any, **kwargs):
     new_command_class = command()
 
@@ -97,7 +108,8 @@ def new_command(command: Any, **kwargs):
                           new_command_class.__doc__,
                           kwargs.get("options"),
                           subcommands,
-                          rest_subcommands)
+                          rest_subcommands,
+                          kwargs.get("accepted_custom_ids"))
 
     slash_commands[command_name] = new_command
 
@@ -160,7 +172,8 @@ class Command:
             description: str=None,
             options: list[hikari.commands.CommandOptions]=None,
             subcommands: dict[str, Callable]=None,
-            rest_subcommands: list[hikari.CommandOption]=None
+            rest_subcommands: list[hikari.CommandOption]=None,
+            accepted_custom_ids: list[str] = None
         ):
         self.name = command_name
         self.fn = fn
@@ -171,6 +184,7 @@ class Command:
         self.options = options
         self.subcommands = subcommands
         self.rest_subcommands = rest_subcommands
+        self.accepted_custom_ids = accepted_custom_ids or {}
 
     async def execute(self, ctx: CommandContext, subcommand_name: str=None):
         # TODO: check for permissions

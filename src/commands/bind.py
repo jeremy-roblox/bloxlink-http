@@ -6,11 +6,18 @@ from hikari import ButtonStyle
 import hikari
 
 
+async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
+    print("got add button click")
+
+
 @bloxlink.command(
     category="Administration",
     defer=True,
-    permissions=hikari.Permissions.MANAGE_GUILD
+    permissions=hikari.Permissions.MANAGE_GUILD,
 
+    accepted_custom_ids = {
+        "bind_menu:add_roles": bind_menu_add_role_button
+    },
 )
 class BindCommand:
     """bind Discord role(s) to Roblox entities"""
@@ -52,18 +59,14 @@ class BindCommand:
 
             button_menu = (
                 bloxlink.rest.build_action_row()
-                .add_button(ButtonStyle.PRIMARY, "Add roles")
+                .add_button(ButtonStyle.PRIMARY, "bind_menu:add_roles")
                     .set_label("Add roles")
                     .add_to_container()
-                .add_button(ButtonStyle.PRIMARY, "Finish")
+                .add_button(ButtonStyle.PRIMARY, "bind_menu:finish")
                     .set_label("Finish")
                     .add_to_container()
             )
 
-
-
-
             await ctx.response.send(embed=embed, components=button_menu)
 
-
-
+            # We're done here. Button clicks invoke above functions
