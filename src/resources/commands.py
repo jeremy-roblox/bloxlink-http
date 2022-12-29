@@ -15,14 +15,14 @@ slash_commands = {}
 
 
 async def handle_command(interaction:hikari.CommandInteraction):
-    #print(dir(interaction))
-
     command_name = interaction.command_name
     command_type = interaction.command_type
 
     command = None
     subcommand_name: str = None
+    command_options: dict = None
 
+    # find command
     if command_type == hikari.CommandType.SLASH:
         command: Command = slash_commands.get(command_name)
 
@@ -36,6 +36,19 @@ async def handle_command(interaction:hikari.CommandInteraction):
     else:
         raise NotImplementedError()
 
+    # get options
+    for option in interaction.options:
+        if option.name == subcommand_name:
+            command_options = {
+                o.name:o.value for o in option.options
+            }
+            break
+    else:
+        command_options = {
+            o.name:o.value for o in interaction.options
+        }
+
+
     response = Response(interaction)
 
     if command.defer:
@@ -48,7 +61,8 @@ async def handle_command(interaction:hikari.CommandInteraction):
         member=interaction.member,
         user=interaction.user,
         response=response,
-        resolved=interaction.resolved
+        resolved=interaction.resolved,
+        options=command_options
     )
 
     await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)
@@ -70,7 +84,8 @@ def new_command(command: Any, **kwargs):
             rest_subcommands.append(
                 hikari.CommandOption(type=hikari.OptionType.SUB_COMMAND,
                                      name=attr.__name__,
-                                     description=attr.__doc__)
+                                     description=attr.__doc__,
+                                     options=attr.__subcommandattrs__.get("options"))
             )
             subcommands[attr_name] = attr
 
@@ -127,6 +142,8 @@ async def try_command(fn: Callable, response: Response):
         await response.send(str(message) or "This user is not verified with Bloxlink!")
     except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
         await response.send(str(message) or "I have encountered a permission error! Please make sure I have the appropriate permissions.")
+    except RobloxNotFound as message:
+        await response.send(str(message) or "This Roblox entity does not exist! Please check the ID and try again.")
     except RobloxDown:
         await response.send("Roblox appears to be down, so I was unable to process your command. "
                             "Please try again in a few minutes.")
