@@ -77,7 +77,7 @@ async def handle_component(interaction: hikari.ComponentInteraction):
     for command in slash_commands.values():
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
-                await custom_id_fn(interaction)
+                return await custom_id_fn(interaction)
 
 
 def new_command(command: Any, **kwargs):

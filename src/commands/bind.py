@@ -1,36 +1,51 @@
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
+from resources.component_helper import check_all_modified, set_custom_id_data
 from hikari.commands import CommandOption, OptionType
-from hikari import ButtonStyle
 import hikari
 
 
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
-    custom_id = interaction.custom_id
+    await set_custom_id_data(interaction.message,
+                            "bind_menu:select_menu:add_role:roleset_menu",
+                            6,
+                            interaction.values)
 
+    return interaction.build_deferred_response(hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
+async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
+    await set_custom_id_data(interaction.message,
+                             "bind_menu:select_menu:add_role:role_menu",
+                             6,
+                             interaction.values)
+
+    return interaction.build_deferred_response(hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
+async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
-    for action_row in message.components:
-        for component in action_row.components:
-            if component.custom_id.startswith("bind_menu:select_menu:add_role:roleset_menu"):
-                custom_id_data = component.custom_id.split(":")
-                selected_rolesets = (custom_id_data[3] if len(custom_id_data) >= 4 else "").split(",")
+    await set_custom_id_data(message,
+                             "bind_menu:select_menu:add_role:criteria_menu",
+                             6,
+                             interaction.values)
 
-                for roleset_value in interaction.values:
-                    selected_rolesets.append(roleset_value)
+    all_modified = await check_all_modified(
+        message,
+        "bind_menu:select_menu:add_role:criteria_menu",
+        "bind_menu:select_menu:add_role:role_menu",
+        "bind_menu:select_menu:add_role:roleset_menu"
+    )
 
-                custom_id_data[3] = ",".join(selected_rolesets)
-                component.custom_id = ":".join(custom_id_data)
-
-                await message.edit(components=[a.components])
-
-                print(f"edited with new custom id {component.custom_id}")
-
-                break
+    if all_modified:
+        # add to initial embed
+        initial_message = await interaction.fetch_message()
+        # get custom id segment
+        # get message
 
 
-    return interaction.create_initial_response(hikari.MESSAGE_UPDATE)
+    return interaction.build_deferred_response(hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
 
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     custom_id = interaction.custom_id
@@ -40,6 +55,8 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     member  = interaction.member
     message = interaction.message
+
+    guild = await interaction.fetch_guild()
 
     await interaction.create_initial_response(
         hikari.ResponseType.DEFERRED_MESSAGE_CREATE
@@ -74,25 +91,30 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     )
 
     roleset_menu = (
-        bloxlink.rest.build_action_row().add_select_menu("bind_menu:select_menu:add_role:roleset_menu")
+        bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:roleset_menu:{message.id}")
         .set_placeholder("Bind this Group rank")
     )
 
     for roleset_name, roleset_value in group.rolesets.items():
-        roleset_menu = roleset_menu.add_option(roleset_name, str(roleset_value)).add_to_menu()
+        if len(roleset_menu.options) < 25:
+            roleset_menu = roleset_menu.add_option(roleset_name, str(roleset_value)).add_to_menu()
 
     roleset_menu = roleset_menu.add_to_container()
 
     role_menu = (
-        bloxlink.rest.build_action_row().add_select_menu("bind_menu:select_menu:add_role:role_menu")
+        bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:role_menu:{message.id}")
         .set_placeholder("..to this Discord role")
-        .add_option("test", "test")
-            .add_to_menu()
-        .add_to_container()
     )
 
+    for role_id, role in guild.roles.items():
+        if role.name != "@everyone" and len(role_menu.options) < 25:
+            role_menu = role_menu.add_option(role.name, str(role_id)).add_to_menu()
+
+    role_menu = role_menu.add_to_container()
+
+
     criteria_menu = (
-        bloxlink.rest.build_action_row().add_select_menu("bind_menu:select_menu:add_role:criteria_menu")
+        bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:criteria_menu:{message.id}")
         .set_placeholder("..that meet this condition")
         .add_option("Rank must match exactly", "bind_menu:select_menu:add_role:exact_rank")
             .add_to_menu()
@@ -115,7 +137,9 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     accepted_custom_ids = {
         "bind_menu:add_roles": bind_menu_add_role_button,
-        "bind_menu:select_menu:add_role:roleset_menu": bind_menu_select_roleset
+        "bind_menu:select_menu:add_role:roleset_menu": bind_menu_select_roleset,
+        "bind_menu:select_menu:add_role:role_menu": bind_menu_select_role,
+        "bind_menu:select_menu:add_role:criteria_menu": bind_menu_select_criteria
     },
 )
 class BindCommand:
@@ -158,11 +182,11 @@ class BindCommand:
 
             button_menu = (
                 bloxlink.rest.build_action_row()
-                .add_button(ButtonStyle.PRIMARY, f"bind_menu:add_roles:{group_id}:null")
-                    .set_label("Add roles")
+                .add_button(hikari.ButtonStyle.PRIMARY, f"bind_menu:add_roles:{group_id}:null")
+                    .set_label("Bind new role")
                     .add_to_container()
-                .add_button(ButtonStyle.PRIMARY, "bind_menu:finish")
-                    .set_label("Finish")
+                .add_button(hikari.ButtonStyle.PRIMARY, "bind_menu:finish")
+                    .set_label("Save changes")
                     .add_to_container()
             )
 
