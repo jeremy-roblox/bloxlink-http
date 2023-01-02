@@ -1,6 +1,9 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
 
+
+
+
 async def get_component(message: hikari.Message, custom_id: str):
     for action_row in message.components:
         for component in action_row.components:
@@ -42,6 +45,7 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
 
     await message.edit(embeds=message.embeds, components=new_components)
 
+
 def get_custom_id_data(custom_id: str, segment: int, message: hikari.Message = None) -> str | None:
     if message:
         for action_row in message.components:
@@ -57,6 +61,7 @@ def get_custom_id_data(custom_id: str, segment: int, message: hikari.Message = N
     segment_data   = custom_id_data[segment-1] if len(custom_id_data) >= segment else None
 
     return segment_data
+
 
 async def set_custom_id_data(message: hikari.Message, custom_id: str, segment: int, values: list):
     component = await get_component(message, custom_id=custom_id)
