@@ -1,5 +1,6 @@
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
+from resources.binds import count_binds, get_bind_desc
 from resources.models import CommandContext
 from resources.component_helper import (check_all_modified, set_custom_id_data,
                                         set_components, get_custom_id_data)
@@ -15,11 +16,12 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
     print("select_roleset", interaction.custom_id)
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 5)
+    original_message_id = get_custom_id_data(interaction.custom_id, 3)
+    print("here", original_message_id)
 
     # show discord role menu
     role_menu = (
-        bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:role_menu:{original_message_id}")
+        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_role:{original_message_id}")
         .set_placeholder("Attach this Discord role to the Group Roleset")
     )
 
@@ -47,7 +49,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     print("select_role", interaction.custom_id)
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 5)
+    original_message_id = get_custom_id_data(interaction.custom_id, 3)
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
@@ -74,8 +76,8 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     show_roleset_menu = False
     show_discord_role_menu = False
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 5)
-    group_id = get_custom_id_data(interaction.custom_id, 6)
+    original_message_id = get_custom_id_data(interaction.custom_id, 3)
+    group_id = get_custom_id_data(interaction.custom_id, 4)
 
     if choice in ("exact_rank"):
         show_roleset_menu = True
@@ -88,7 +90,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         group = await get_group(group_id)
 
         roleset_menu = (
-            bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:roleset_menu:{original_message_id}")
+            bloxlink.rest.build_action_row().add_select_menu(f"bind:select_roleset:{original_message_id}")
             .set_placeholder("Bind this Group rank")
         )
 
@@ -175,7 +177,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
 
     criteria_menu = (
-        bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:criteria_menu:{message.id}:{group_id}")
+        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_criteria:{message.id}:{group_id}")
         .set_placeholder("Choose condition")
         .add_option("Rank must match exactly...", "exact_rank")
             .add_to_menu()
@@ -202,9 +204,9 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     accepted_custom_ids = {
         "bind_menu:add_roles": bind_menu_add_role_button,
-        "bind_menu:select_menu:add_role:roleset_menu": bind_menu_select_roleset,
-        "bind_menu:select_menu:add_role:role_menu": bind_menu_select_role,
-        "bind_menu:select_menu:add_role:criteria_menu": bind_menu_select_criteria
+        "bind:select_roleset": bind_menu_select_roleset,
+        "bind:select_role": bind_menu_select_role,
+        "bind:select_criteria": bind_menu_select_criteria
     },
 )
 class BindCommand:
@@ -240,10 +242,13 @@ class BindCommand:
 
         group = await get_group(group_id)
 
+        bind_count = await count_binds(ctx.guild_id, group.id)
+
         if bind_mode == "specific_roles":
             embed = hikari.Embed(
                 title="New Group Bind",
                 description="No binds exist for this group! Click the button below to create your first bind."
+                                if bind_count == 0 else await get_bind_desc(ctx.guild_id, group.id)
             )
 
             button_menu = (
