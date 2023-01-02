@@ -94,7 +94,7 @@ class Bloxlink(hikari.RESTBot):
         if isinstance(user, (hikari.User, hikari.Member)):
             user_id = str(user.id)
         else:
-            user_id = user
+            user_id = str(user)
 
         return await self.fetch_item("users", UserData, user_id, *aspects)
 
@@ -107,7 +107,7 @@ class Bloxlink(hikari.RESTBot):
         if isinstance(guild, hikari.Guild):
             guild_id = str(guild.id)
         else:
-            guild_id = guild
+            guild_id = str(guild)
 
         return await self.fetch_item("guilds", GuildData, guild_id, *aspects)
 
@@ -119,7 +119,7 @@ class Bloxlink(hikari.RESTBot):
         if isinstance(user, (hikari.User, hikari.Member)):
             user_id = str(user.id)
         else:
-            user_id = user
+            user_id = str(user)
 
         return await self.update_item("users", user_id, **aspects)
 
@@ -131,7 +131,7 @@ class Bloxlink(hikari.RESTBot):
         if isinstance(guild, hikari.Guild):
             guild_id = str(guild.id)
         else:
-            guild_id = guild
+            guild_id = str(guild)
 
         for aspect_name, aspect in aspects.items(): # allow Discord objects to save by ID only
             if hasattr(aspect, "id"):

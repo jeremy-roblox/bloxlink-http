@@ -37,16 +37,17 @@ async def handle_command(interaction:hikari.CommandInteraction):
         raise NotImplementedError()
 
     # get options
-    for option in interaction.options:
-        if option.name == subcommand_name:
+    if interaction.options:
+        for option in interaction.options:
+            if option.name == subcommand_name:
+                command_options = {
+                    o.name:o.value for o in option.options
+                }
+                break
+        else:
             command_options = {
-                o.name:o.value for o in option.options
+                o.name:o.value for o in interaction.options
             }
-            break
-    else:
-        command_options = {
-            o.name:o.value for o in interaction.options
-        }
 
 
     response = Response(interaction)
