@@ -25,7 +25,7 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
     return len(guild_data.binds) if not group_id else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id)) or 0
 
 async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
-    return "TODO"
+    return "TODO: show existing binds"
 
 async def parse_nickname(member: hikari.Member, guild: hikari.Guild, template: str, roblox_user=MISSING, group: groups.RobloxGroup=MISSING, is_nickname: bool=True) -> str | None:
     template = template or DEFAULTS.get("nicknameTemplate") or ""

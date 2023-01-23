@@ -8,64 +8,8 @@ from hikari.commands import CommandOption, OptionType
 import hikari
 
 
-async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
-    message = interaction.message
-    choice = interaction.values[0]
-
-    guild = await interaction.fetch_guild()
-
-    print("select_roleset", interaction.custom_id)
-
-    original_message_id = get_custom_id_data(interaction.custom_id, 3)
-    print("here", original_message_id)
-
-    # show discord role menu
-    role_menu = (
-        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_role:{original_message_id}")
-        .set_placeholder("Attach this Discord role to the Group Roleset")
-    )
-
-    for role_id, role in guild.roles.items():
-        if role.name != "@everyone" and len(role_menu.options) < 25:
-            role_menu = role_menu.add_option(role.name, str(role_id)).add_to_menu()
-
-    role_menu = role_menu.add_to_container()
-
-    message.embeds[0].description = ("Finally, choose the role from your "
-                                     "server that you want members to receive "
-                                     "who qualify for the bind.\nNo existing role? "
-                                     "No problem! Click the 'Create Role' button above!")
-
-    original_message_id = get_custom_id_data(interaction.id, 5)
-
-    await set_components(message, components=[role_menu])
 
 
-    return interaction.build_deferred_response(
-        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
-
-async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
-    message = interaction.message
-
-    print("select_role", interaction.custom_id)
-
-    original_message_id = get_custom_id_data(interaction.custom_id, 3)
-
-    channel = await interaction.fetch_channel()
-    original_message = await channel.fetch_message(original_message_id)
-
-    new_embed = hikari.Embed(
-        title="New Group Bind [UNSAVED CHANGES]",
-        description=(#original_message.embeds[0].description or "" +
-                    "\nPending changes:\n_People with roleset oof will receive roleset oof_"))
-
-    await original_message.edit(embed=new_embed)
-    await message.delete()
-
-    return (interaction.build_response(
-        hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
-        .set_content(f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id}) "
-                     " and click the 'Save' button to save the bind to your server!"))
 
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     message = interaction.message
@@ -96,7 +40,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
         for roleset_name, roleset_value in group.rolesets.items():
             if roleset_name != "Guest" and len(roleset_menu.options) < 25:
-                roleset_menu = roleset_menu.add_option(roleset_name, str(roleset_value)).add_to_menu()
+                roleset_menu = roleset_menu.add_option(roleset_name, f"{roleset_name}BLOXLINK_SPLIT{str(roleset_value)}").add_to_menu()
 
         roleset_menu = roleset_menu.add_to_container()
 
@@ -109,6 +53,77 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
+
+async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
+    message = interaction.message
+    roleset_choice = interaction.values[0]
+
+    guild = await interaction.fetch_guild()
+
+    print("select_roleset", interaction.custom_id)
+
+    original_message_id = get_custom_id_data(interaction.custom_id, 3)
+    print("here", original_message_id)
+
+    # show discord role menu
+    role_menu = (
+        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_role:{original_message_id}:{roleset_choice}")
+        .set_placeholder("Attach this Discord role to the Group Roleset")
+    )
+
+    for role_id, role in guild.roles.items():
+        if role.name != "@everyone" and len(role_menu.options) < 25:
+            role_menu = role_menu.add_option(role.name, f"{role.name}BLOXLINK_SPLIT{str(role_id)}").add_to_menu()
+
+    role_menu = role_menu.add_to_container()
+
+    message.embeds[0].description = ("Finally, choose the role from your "
+                                     "server that you want members to receive "
+                                     "who qualify for the bind.\nNo existing role? "
+                                     "No problem! Click the 'Create Role' button above!")
+
+    original_message_id = get_custom_id_data(interaction.id, 5)
+
+    await set_components(message, components=[role_menu])
+
+
+    return interaction.build_deferred_response(
+        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
+
+async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
+    message   = interaction.message
+    role_name = interaction.values[0]
+
+    print("select_role", interaction.custom_id)
+
+    original_message_id = get_custom_id_data(interaction.custom_id, 3)
+    roleset_name = get_custom_id_data(interaction.custom_id, 4)
+
+    channel = await interaction.fetch_channel()
+    original_message = await channel.fetch_message(original_message_id)
+
+    new_description = original_message.embeds[0].description.split("\n")
+
+    if "Pending changes:" not in new_description:
+        new_description.append("Pending changes:")
+
+    new_description.append(f"_People with roleset **{roleset_name.split('BLOXLINK_SPLIT')[0]}** will receive role <@&{role_name.split('BLOXLINK_SPLIT')[1]}>_")
+
+
+    new_embed = hikari.Embed(
+        title="New Group Bind [UNSAVED CHANGES]",
+        description="\n".join(new_description)
+    )
+
+    await original_message.edit(embed=new_embed)
+    await message.delete()
+
+    return (interaction.build_response(
+        hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+        .set_content(f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
+                     " and click the Save button to save the bind to your server!"))
 
 
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
