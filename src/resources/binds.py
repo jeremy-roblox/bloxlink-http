@@ -50,7 +50,7 @@ async def parse_nickname(
     if roblox_user is not MISSING:
         await roblox_user.sync(True)
 
-        if group is MISSING:
+        if not group:
             guild_data: GuildData = await bloxlink.fetch_guild_data(guild, "binds")
             group_id = (
                 any(b["bind"]["type"] == "group" for b in guild_data.binds) if guild_data.binds else None
@@ -248,17 +248,25 @@ async def apply_binds(
                 chosen_nickname = highest_role[0][1]
 
         if chosen_nickname:
-            chosen_nickname = await parse_nickname(member, guild, chosen_nickname, roblox_account)
-            # chosen_nickname_http, nickname_response = await fetch(f"{BOT_API}/nickname/parse/", headers={"Authorization":BOT_API_AUTH}, body={
-            #     "user_id": member.id,
-            #     "template": chosen_nickname,
-            #     "roblox_account": roblox_account.to_dict()
-            # })
+            # chosen_nickname = await parse_nickname(member, guild, chosen_nickname, roblox_account)
 
-            # if nickname_response.status == 200:
-            #     chosen_nickname = chosen_nickname_http["nickname"]
-            # else:
-            #     raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
+            chosen_nickname_http, nickname_response = await fetch(
+                "GET",
+                f"{BOT_API}/nickname/parse/",
+                headers={"Authorization": BOT_API_AUTH},
+                body={
+                    "user_data": {"name": member.username, "nick": member.nickname, "id": member.id},
+                    "guild_id": guild.id,
+                    "guild_name": guild.name,
+                    "roblox_account": roblox_account.to_dict() if roblox_account else None,
+                    "template": chosen_nickname,
+                },
+            )
+
+            if nickname_response.status == 200:
+                chosen_nickname = chosen_nickname_http["nickname"]
+            else:
+                raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
 
             if guild.owner_id == member.id:
                 warnings.append(
