@@ -2,6 +2,7 @@ hikari[speedups, server]
 motor==2.3
 hiredis
 redis>=4.2.0rc1
+requests==2.28.2
 dnspython==2.2.1
 psutil==5.9.0
 python-dateutil==2.8.2
