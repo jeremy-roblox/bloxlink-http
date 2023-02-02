@@ -110,6 +110,8 @@ class RobloxAccount(PartialMixin):
         roblox_user_age = parser.parse(self.created).replace(tzinfo=None)
         self.age_days = (today - roblox_user_age).days
 
+        self._data.update({"age_days": self.age_days})
+
         if not self.short_age_string:
             if self.age_days >= 365:
                 years = math.floor(self.age_days / 365)
