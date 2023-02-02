@@ -136,3 +136,6 @@ run.py
 src/config.py
 src/commands/cleanup.py
 archive/
+
+.vscode/
+.devcontainer/
