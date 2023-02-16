@@ -1,4 +1,4 @@
-hikari[speedups, server]
+hikari[speedups, server]==2.0.0.dev116
 motor==2.3
 hiredis
 redis>=4.2.0rc1

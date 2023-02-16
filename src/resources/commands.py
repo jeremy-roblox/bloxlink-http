@@ -53,7 +53,8 @@ async def handle_command(interaction:hikari.CommandInteraction):
     response = Response(interaction)
 
     if command.defer:
-        await response.defer()
+        response.responded = True
+        yield interaction.build_deferred_response()
 
     ctx = CommandContext(
         command_name=interaction.command_name,
@@ -67,8 +68,6 @@ async def handle_command(interaction:hikari.CommandInteraction):
     )
 
     await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)
-
-    return interaction.build_response() # basically don't respond to the webhook
 
 
 async def handle_component(interaction: hikari.ComponentInteraction):
