@@ -34,7 +34,6 @@ class RobloxAccount(PartialMixin):
 
     _data: dict = field(default_factory=lambda: {})
 
-
     async def sync(self, includes=None, *, cache=True, no_flag_check=False):
         if includes is None:
             includes = []
@@ -55,7 +54,11 @@ class RobloxAccount(PartialMixin):
 
         includes = ",".join(includes)
 
-        user_json_data, user_data_response = await fetch("GET", f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?id={self.id}&include={includes}", return_data=ReturnType.JSON)
+        user_json_data, user_data_response = await fetch(
+            "GET",
+            f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?id={self.id}&include={includes}",
+            return_data=ReturnType.JSON,
+        )
 
         if user_data_response.status == 200:
             self.description = user_json_data.get("description", self.description)
@@ -107,9 +110,11 @@ class RobloxAccount(PartialMixin):
         roblox_user_age = parser.parse(self.created).replace(tzinfo=None)
         self.age_days = (today - roblox_user_age).days
 
+        self._data.update({"age_days": self.age_days})
+
         if not self.short_age_string:
             if self.age_days >= 365:
-                years = math.floor(self.age_days/365)
+                years = math.floor(self.age_days / 365)
                 ending = f"yr{((years > 1 or years == 0) and 's') or ''}"
                 self.short_age_string = f"{years} {ending} ago"
             else:
@@ -151,9 +156,11 @@ class RobloxAccount(PartialMixin):
             group_meta = group_data.get("group")
             group_role = group_data.get("role")
 
-            group: groups.RobloxGroup = groups.RobloxGroup(id=str(group_meta["id"]),
-                                                           name=group_meta["name"],
-                                                           my_role={"name": group_role["name"].strip(), "rank": group_role["rank"]}) # seems redundant, but this is so we can switch the endpoint and retain consistency
+            group: groups.RobloxGroup = groups.RobloxGroup(
+                id=str(group_meta["id"]),
+                name=group_meta["name"],
+                my_role={"name": group_role["name"].strip(), "rank": group_role["rank"]},
+            )  # seems redundant, but this is so we can switch the endpoint and retain consistency
             await group.sync()
             self.groups[group.id] = group
 
@@ -161,7 +168,9 @@ class RobloxAccount(PartialMixin):
         return self._data
 
 
-async def get_user_account(user: hikari.User, guild_id: int = None, raise_errors=True) -> RobloxAccount | None:
+async def get_user_account(
+    user: hikari.User, guild_id: int = None, raise_errors=True
+) -> RobloxAccount | None:
     """get a user's linked Roblox account"""
 
     bloxlink_user: UserData = await bloxlink.fetch_user_data(str(user.id), "robloxID", "robloxAccounts")
@@ -181,7 +190,14 @@ async def get_user_account(user: hikari.User, guild_id: int = None, raise_errors
         return None
 
 
-async def get_user(user: hikari.User = None, includes: list = None, *, roblox_username: str = None, roblox_id: int = None, guild_id: int = None) -> RobloxAccount:
+async def get_user(
+    user: hikari.User = None,
+    includes: list = None,
+    *,
+    roblox_username: str = None,
+    roblox_id: int = None,
+    guild_id: int = None,
+) -> RobloxAccount:
     """get a Roblox account"""
 
     roblox_account: RobloxAccount = None
@@ -195,6 +211,7 @@ async def get_user(user: hikari.User = None, includes: list = None, *, roblox_us
         await roblox_account.sync(includes)
 
     return roblox_account
+
 
 async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) -> hikari.Embed:
     await roblox_account.sync()
