@@ -34,7 +34,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         group = await get_group(group_id)
 
         roleset_menu = (
-            bloxlink.rest.build_action_row().add_select_menu(f"bind:select_roleset:{original_message_id}")
+            bloxlink.rest.build_message_action_row().add_select_menu(f"bind:select_roleset:{original_message_id}")
             .set_placeholder("Bind this Group rank")
         )
 
@@ -68,7 +68,7 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
     # show discord role menu
     role_menu = (
-        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_role:{original_message_id}:{roleset_choice}")
+        bloxlink.rest.build_message_action_row().add_select_menu(f"bind:select_role:{original_message_id}:{roleset_choice}")
         .set_placeholder("Attach this Discord role to the Group Roleset")
     )
 
@@ -87,43 +87,55 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
     await set_components(message, components=[role_menu])
 
-
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
 async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     message   = interaction.message
-    role_name = interaction.values[0]
+    role_data = interaction.values[0].split("BLOXLINK_SPLIT")
+
+    role_name, role_id = role_data[0], role_data[1]
 
     print("select_role", interaction.custom_id)
 
     original_message_id = get_custom_id_data(interaction.custom_id, 3)
-    roleset_name = get_custom_id_data(interaction.custom_id, 4)
+    roleset_data = get_custom_id_data(interaction.custom_id, 4)
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
+
+    # roleset_name, roleset_id = roleset_data.split('BLOXLINK_SPLIT')[0], roleset_name.split('BLOXLINK_SPLIT')[1]
 
     new_description = original_message.embeds[0].description.split("\n")
 
     if "Pending changes:" not in new_description:
         new_description.append("Pending changes:")
 
-    new_description.append(f"_People with roleset **{roleset_name.split('BLOXLINK_SPLIT')[0]}** will receive role <@&{role_name.split('BLOXLINK_SPLIT')[1]}>_")
 
+    new_description.append(f"_People with roleset **{roleset_data.split('BLOXLINK_SPLIT')[0]}** will receive role <@&{role_id}>_")
 
     new_embed = hikari.Embed(
         title="New Group Bind [UNSAVED CHANGES]",
         description="\n".join(new_description)
     )
 
+    original_message.embeds[0] = new_embed
+
     await original_message.edit(embed=new_embed)
     await message.delete()
+
+    existing_role_ids = get_custom_id_data("bind_menu:save_button", 4) or []
+    await set_custom_id_data(original_message, "bind_menu:save_button", 4, [role_id] + existing_role_ids or [])
 
     return (interaction.build_response(
         hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
         .set_content(f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
                      " and click the Save button to save the bind to your server!"))
+
+    # await interaction.edit_initial_response(
+    #     f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
+    #     " and click the Save button to save the bind to your server!")
 
 
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
@@ -169,7 +181,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     )
 
     # roleset_menu = (
-    #     bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:roleset_menu:{message.id}")
+    #     bloxlink.rest.build_message_action_row().add_select_menu(f"bind_menu:select_menu:add_role:roleset_menu:{message.id}")
     #     .set_placeholder("Bind this Group rank")
     # )
 
@@ -180,7 +192,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     # roleset_menu = roleset_menu.add_to_container()
 
     # role_menu = (
-    #     bloxlink.rest.build_action_row().add_select_menu(f"bind_menu:select_menu:add_role:role_menu:{message.id}")
+    #     bloxlink.rest.build_message_action_row().add_select_menu(f"bind_menu:select_menu:add_role:role_menu:{message.id}")
     #     .set_placeholder("..to this Discord role")
     # )
 
@@ -192,7 +204,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
 
     criteria_menu = (
-        bloxlink.rest.build_action_row().add_select_menu(f"bind:select_criteria:{message.id}:{group_id}")
+        bloxlink.rest.build_message_action_row().add_select_menu(f"bind:select_criteria:{message.id}:{group_id}")
         .set_placeholder("Choose condition")
         .add_option("Rank must match exactly...", "exact_rank")
             .add_to_menu()
@@ -211,6 +223,24 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     await interaction.execute(embed=embed, components=[criteria_menu])
 
 
+async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
+    message = interaction.message
+    # print(await interaction.fetch_initial_response())
+    # print(await interaction.fetch_parent_message())
+
+    print(interaction.custom_id)
+    # print(message.content)
+    # print(message.make_link(interaction.guild_id))
+
+    # print(await get_custom_id_data(""))
+
+
+
+
+    return (interaction.build_response(
+        hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+        .set_content("saved your binds"))
+
 
 @bloxlink.command(
     category="Administration",
@@ -218,10 +248,13 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     permissions=hikari.Permissions.MANAGE_GUILD,
 
     accepted_custom_ids = {
-        "bind_menu:add_roles": bind_menu_add_role_button,
+        "bind_menu:add_roles_button": bind_menu_add_role_button,
+
         "bind:select_roleset": bind_menu_select_roleset,
         "bind:select_role": bind_menu_select_role,
-        "bind:select_criteria": bind_menu_select_criteria
+        "bind:select_criteria": bind_menu_select_criteria,
+
+        "bind_menu:save_button": bind_menu_save_button
     },
 )
 class BindCommand:
@@ -267,11 +300,11 @@ class BindCommand:
             )
 
             button_menu = (
-                bloxlink.rest.build_action_row()
-                .add_button(hikari.ButtonStyle.PRIMARY, f"bind_menu:add_roles:{group_id}")
+                bloxlink.rest.build_message_action_row()
+                .add_button(hikari.ButtonStyle.PRIMARY, f"bind_menu:add_roles_button:{group_id}")
                     .set_label("Bind new role")
                     .add_to_container()
-                .add_button(hikari.ButtonStyle.SUCCESS, f"bind_menu:save:{group_id}")
+                .add_button(hikari.ButtonStyle.SUCCESS, f"bind_menu:save_button:{group_id}")
                     .set_label("Save changes")
                     .add_to_container()
             )
