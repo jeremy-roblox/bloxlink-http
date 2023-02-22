@@ -33,7 +33,7 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
 
         elif isinstance(component, hikari.SelectMenuComponent):
             new_select_menu = (
-                bloxlink.rest.build_action_row().add_select_menu(component.custom_id)
+                bloxlink.rest.build_message_action_row().add_select_menu(component.custom_id)
                     .set_placeholder(component.placeholder))
 
             for option in component.options:

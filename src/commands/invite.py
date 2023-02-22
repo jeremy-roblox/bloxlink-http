@@ -8,14 +8,7 @@ class InviteCommand:
     """invite the bot to your server"""
 
     async def __main__(self, ctx: CommandContext):
-        await ctx.response.send(embed=
-            Embed(
-                title="Test"
-            )
+        embed = Embed(
+            title="hello"
         )
-
-        await ctx.response.send(embed=
-            Embed(
-                title="Test"
-            )
-        )
+        await ctx.response.send(embed=embed)
