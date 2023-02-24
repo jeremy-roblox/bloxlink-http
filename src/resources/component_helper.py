@@ -21,14 +21,16 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
     iterate_components = []
 
     for action_row_or_component in components or message.components:
-        if hasattr(action_row_or_component, "build") or hasattr(action_row_or_component, "components"):
+
+        if hasattr(action_row_or_component, "build"):
             iterate_components.append(action_row_or_component)
         else:
-            iterate_components.append(action_row_or_component)
+            for component in action_row_or_component.components:
+                iterate_components.append(component)
 
     for component in iterate_components:
+        print("component=", component)
         if hasattr(component, "build"):
-
             new_components.append(component)
 
         elif isinstance(component, hikari.SelectMenuComponent):
@@ -42,6 +44,19 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
             new_select_menu = new_select_menu.add_to_container()
 
             new_components.append(new_select_menu)
+
+        elif isinstance(component, hikari.ButtonComponent):
+            print("new button component", component.custom_id)
+            new_button_menu = (
+                bloxlink.rest.build_message_action_row()
+                .add_button(component.style, component.custom_id)
+                .set_label(component.label)
+            )
+
+            new_button_menu = new_button_menu.add_to_container()
+
+            new_components.append(new_button_menu)
+
 
     await message.edit(embeds=message.embeds, components=new_components)
 
