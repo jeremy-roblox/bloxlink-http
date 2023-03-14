@@ -223,7 +223,7 @@ async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) 
 
     embed.add_field(name="Username", value=f"@{roblox_account.username}", inline=True)
     embed.add_field(name="ID", value=roblox_account.id, inline=True)
-    embed.add_field(name="Description", value=roblox_account.description[:500], inline=False)
+    embed.add_field(name="Description", value= roblox_account.description[:500] if roblox_account.description else "None provided", inline=False)
 
     embed.set_thumbnail(roblox_account.avatar)
 
