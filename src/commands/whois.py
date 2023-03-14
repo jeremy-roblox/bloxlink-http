@@ -17,7 +17,6 @@ from hikari.commands import CommandOption, OptionType
             is_required=False
         )
     ]
-
 )
 class WhoisCommand:
     """retrieve the Roblox information of a user"""
@@ -27,6 +26,7 @@ class WhoisCommand:
 
         try:
             roblox_account = await users.get_user_account(target_user)
+            
         except UserNotVerified:
             if target_user == ctx.member:
                 raise UserNotVerified("You are not verified with Bloxlink!")

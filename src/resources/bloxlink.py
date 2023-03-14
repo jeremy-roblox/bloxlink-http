@@ -1,18 +1,23 @@
 from datetime import datetime, timedelta
-from typing import Callable
-from resources.commands import new_command
+from typing import Callable, Coroutine
 import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
-from inspect import iscoroutinefunction
+from inspect import iscoroutinefunction, isfunction
 import logging
 import importlib
-import hikari
 import functools
+from time import sleep
+from queue import Queue
+from threading import Lock
+import uuid
+import json
 
 logger = logging.getLogger()
 
+from .redis import get_message, send_message
+from .commands import new_command
 from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from .models import UserData, GuildData
 
@@ -25,12 +30,9 @@ class Bloxlink(hikari.RESTBot):
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
-        self.redis: redis.Redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
-
         self.started_at = datetime.utcnow()
-
+    
         instance = self
-        # self.cache = benedict(keypath_separator=":")
 
     @property
     def uptime(self) -> timedelta:
@@ -42,23 +44,7 @@ class Bloxlink(hikari.RESTBot):
         Will populate caches for later access
         """
         # should check local cache but for now just fetch from redis
-
-        if aspects:
-            item = await self.redis.hmget(f"{domain}:{item_id}", *aspects)
-            item = {x: y for x, y in zip(aspects, item) if y is not None}
-        else:
-            item = await self.redis.hgetall(f"{domain}:{item_id}")
-
-        if not item:
-            item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
-
-            if item and not isinstance(item, (list, dict)):
-                if aspects:
-                    items = {x:item[x] for x in aspects if item.get(x) and not isinstance(item[x], dict)}
-                    if items:
-                        await self.redis.hset(f"{domain}:{item_id}", items)
-                else:
-                    await self.redis.hset(f"{domain}:{item_id}", item)
+        item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
 
         if item.get("_id"):
             item.pop("_id")
@@ -84,6 +70,23 @@ class Bloxlink(hikari.RESTBot):
 
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
+
+
+    async def new_fetch_member_data(guild_id: str, user_id: str, *fields) -> dict:
+        nonce = uuid.uuid4()
+        send_message("DEV.CACHE_LOOKUP", nonce, {
+            "query": "guild.member",
+            "data": {
+                "guild_id": guild_id,
+                "user_id": user_id
+            }
+        })
+        msg = await get_message(f"DEV.REPLY.{nonce}", timeout=2)
+        
+        if not msg:
+            raise NotImplementedError()
+        
+        return json.loads(msg["data"])
 
     async def fetch_user_data(self, user: hikari.User | hikari.Member | str, *aspects) -> UserData:
         """
