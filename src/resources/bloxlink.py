@@ -13,10 +13,11 @@ from queue import Queue
 from threading import Lock
 import uuid
 import json
+from typing import Optional
 
 logger = logging.getLogger()
 
-from .redis import get_message, send_message
+from resources.redis import RedisMessageCollector
 from .commands import new_command
 from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from .models import UserData, GuildData
@@ -30,6 +31,8 @@ class Bloxlink(hikari.RESTBot):
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
+        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+        self.redis_messages = RedisMessageCollector(self.redis)
         self.started_at = datetime.utcnow()
     
         instance = self
@@ -38,6 +41,35 @@ class Bloxlink(hikari.RESTBot):
     def uptime(self) -> timedelta:
         return datetime.utcnow() - self.started_at
 
+    async def relay(self, channel: str, nonce: uuid.UUID, payload: Optional[dict]= None, timeout: int = 2) -> dict:
+        await self.redis_messages.pubsub.subscribe(f"REPLY:{nonce}")
+        await self.redis.publish(channel, json.dumps({
+            "nonce": str(nonce),
+            "data": payload
+        }).encode("utf-8"))
+        return await asyncio.wait_for(self.redis_messages.get_message(f"REPLY:{nonce}"), timeout=timeout)
+
+    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
+        nonce = uuid.uuid4()
+        res = await self.relay("CACHE_LOOKUP", nonce, {
+            "query": "guild.member",
+            "data": {
+                "guild_id": guild_id,
+                "user_id": user_id
+            }
+        })        
+        return res["data"]
+    
+    async def fetch_discord_guild(self, guild_id: int) -> dict:
+        nonce = uuid.uuid4()
+        res = await self.relay("CACHE_LOOKUP", nonce, {
+            "query": "guild.data",
+            "data": {
+                "guild_id": guild_id,
+            }
+        })
+        return res["data"]
+    
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
         """
         Fetch an item from local cache, then redis, then database.
@@ -57,36 +89,19 @@ class Bloxlink(hikari.RESTBot):
         """
         Update an item's aspects in local cache, redis, and database.
         """
-        # # update redis cache
-        # redis_aspects: dict = None
-        # if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
-        #     redis_aspects = dict(aspects)
+        # update redis cache
+        redis_aspects: dict = None
+        if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
+            redis_aspects = dict(aspects)
 
-        #     for aspect_name, aspect_value in dict(aspects).items():
-        #         if isinstance(aspect_value, (dict, list)):
-        #             redis_aspects.pop(aspect_name)
+            for aspect_name, aspect_value in dict(aspects).items():
+                if isinstance(aspect_value, (dict, list)):
+                    redis_aspects.pop(aspect_name)
 
-        # await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
+        await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
 
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
-
-
-    async def new_fetch_member_data(guild_id: str, user_id: str, *fields) -> dict:
-        nonce = uuid.uuid4()
-        send_message("DEV.CACHE_LOOKUP", nonce, {
-            "query": "guild.member",
-            "data": {
-                "guild_id": guild_id,
-                "user_id": user_id
-            }
-        })
-        msg = await get_message(f"DEV.REPLY.{nonce}", timeout=2)
-        
-        if not msg:
-            raise NotImplementedError()
-        
-        return json.loads(msg["data"])
 
     async def fetch_user_data(self, user: hikari.User | hikari.Member | str, *aspects) -> UserData:
         """
