@@ -1,5 +1,6 @@
 import resources.binds as binds
 from resources.bloxlink import instance as bloxlink
+from resources.groups import get_group
 from resources.models import CommandContext
 import hikari
 
@@ -63,9 +64,7 @@ class ViewBindsCommand:
         await ctx.response.send(embed=embed)
 
     # Arbitrarily choosing that 10 binds per page should be good.
-    async def build_page(
-        self, ctx: CommandContext, category: str, page_number: int, id_filter: str = None
-    ) -> str:
+    async def build_page(self, ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
         guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
 
         print(guild_data.binds)
@@ -90,7 +89,7 @@ class ViewBindsCommand:
         if not bind_length:
             return ""
 
-        output = []
+        output = {"linked_group": [], "group_roles": {}, "asset": [], "badge": [], "gamepass": []}
 
         offset = page_number * MAX_BINDS_PER_PAGE
         max_count = (
@@ -98,6 +97,7 @@ class ViewBindsCommand:
         )
         sliced_binds = binds[offset:max_count]
 
+        group_data = None
         for element in sliced_binds:
             bind = element["bind"]
             bindID = bind["id"]
@@ -108,13 +108,49 @@ class ViewBindsCommand:
 
             # TODO: Helpers for logic such as showing names of id items + role names
             if category == "group":
-                # TODO: Handle all subset group types (so guest ranks, everyone bindings, ranges, etc)
-                output.append(f"Group ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`\n")
-            elif category == "asset":
-                output.append(f"Asset ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`\n")
-            elif category == "badge":
-                output.append(f"Badge ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`\n")
-            elif category == "gamepass":
-                output.append(f"Gamepass ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`\n")
+                if not group_data:
+                    group_data = await get_group(bindID)
+                elif group_data.id != bindID:
+                    group_data = await get_group(bindID)
 
-        return "".join(output)
+                if not roles:
+                    output["linked_group"].append(
+                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}"
+                    )
+
+                select_output = [] if output["group_roles"][bindID] is None else output["group_roles"][bindID]
+
+                if "min" in bind and "max" in bind:
+                    select_output.append(
+                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                        f"**Rank Range:** {bind['min']} to {bind['max']}; **Role(s):** "
+                    )
+
+                if "roleset" in bind:
+                    select_output.append(
+                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                        f"**Rank ID:** {bind['roleset']}; **Role(s):** "
+                    )
+
+                if "everyone" in bind:
+                    select_output.append(
+                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                        f"**Rank:** All group members; **Role(s):** "
+                    )
+
+                if "guest" in bind:
+                    select_output.append(
+                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                        f"**Rank** Non-group members; **Role(s):** "
+                    )
+
+            elif category == "asset":
+                output["asset"].append(f"Asset ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`")
+            elif category == "badge":
+                output["badge"].append(f"Badge ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`")
+            elif category == "gamepass":
+                output["gamepass"].append(
+                    f"Gamepass ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`"
+                )
+
+        return output
