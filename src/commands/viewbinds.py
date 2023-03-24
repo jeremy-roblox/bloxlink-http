@@ -52,15 +52,21 @@ class ViewBindsCommand:
         #   - Gamepass
 
         page = None
-        if id_option == "View binds":
+        if id_option.lower() == "view binds":
             page = await self.build_page(ctx, category.lower(), page_number=0)
         else:
             page = await self.build_page(ctx, category.lower(), page_number=0, id_filter=id_option)
+
         if not page:
             page = "You have no binds that match the options you passed. "
             "Please use `/bind` to make a new role bind, or try again with different options."
+        if page is str:
+            embed.description = page
+        else:
+            # Make fields as necessary for the bind type.
+            # For now just pass whatever the page output is.
+            embed.description = page
 
-        embed.description = page
         await ctx.response.send(embed=embed)
 
     # Arbitrarily choosing that 10 binds per page should be good.
@@ -83,7 +89,6 @@ class ViewBindsCommand:
             binds = filter(lambda b: b["bind"]["id"] == id_filter, binds)
 
         binds = list(binds)
-        print(binds)
         bind_length = len(binds)
 
         if not bind_length:
@@ -103,54 +108,91 @@ class ViewBindsCommand:
             bindID = bind["id"]
 
             nickname = element.get("nickname")
-            roles = element.get("roles", [])
-            remove_roles = element.get("removeRoles", [])
+            roles = element.get("roles")
 
-            # TODO: Helpers for logic such as showing names of id items + role names
+            # TODO: include this field in the output.
+            remove_roles = element.get("removeRoles")
+
+            role_string = await role_ids_to_names(guild_id=ctx.guild_id, roles=roles)
+
             if category == "group":
                 if not group_data:
                     group_data = await get_group(bindID)
                 elif group_data.id != bindID:
                     group_data = await get_group(bindID)
 
-                if not roles:
+                if not roles or roles == "undefined" or roles == "null":
                     output["linked_group"].append(
                         f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}"
                     )
+                else:
+                    select_output = output["group_roles"].get(bindID, [])
 
-                select_output = [] if output["group_roles"][bindID] is None else output["group_roles"][bindID]
+                    if "min" in bind and "max" in bind:
+                        select_output.append(
+                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                            f"**Rank Range:** {bind['min']} to {bind['max']}; "
+                            f"**Role(s):** {role_string}"
+                        )
 
-                if "min" in bind and "max" in bind:
-                    select_output.append(
-                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                        f"**Rank Range:** {bind['min']} to {bind['max']}; **Role(s):** "
-                    )
+                    if "roleset" in bind:
+                        select_output.append(
+                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                            f"**Rank ID:** {bind['roleset']}; "
+                            f"**Role(s):** {role_string}"
+                        )
 
-                if "roleset" in bind:
-                    select_output.append(
-                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                        f"**Rank ID:** {bind['roleset']}; **Role(s):** "
-                    )
+                    if "everyone" in bind:
+                        select_output.append(
+                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                            f"**Rank:** All group members; "
+                            f"**Role(s):** {role_string}"
+                        )
 
-                if "everyone" in bind:
-                    select_output.append(
-                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                        f"**Rank:** All group members; **Role(s):** "
-                    )
+                    if "guest" in bind:
+                        select_output.append(
+                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
+                            f"**Rank** Non-group members; "
+                            f"**Role(s):** {role_string}"
+                        )
 
-                if "guest" in bind:
-                    select_output.append(
-                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                        f"**Rank** Non-group members; **Role(s):** "
-                    )
+                    output["group_roles"][bindID] = select_output
 
             elif category == "asset":
-                output["asset"].append(f"Asset ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`")
+                output["asset"].append(
+                    f"**Asset ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
+                )
             elif category == "badge":
-                output["badge"].append(f"Badge ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`")
+                output["badge"].append(
+                    f"**Badge ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
+                )
             elif category == "gamepass":
                 output["gamepass"].append(
-                    f"Gamepass ID: `{bindID}`; Nickname: `{nickname}`; Roles: `{roles}`"
+                    f"**Gamepass ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
                 )
 
         return output
+
+
+async def role_ids_to_names(guild_id: int, roles: list) -> str:
+    # TODO: utilize in-dev cache logic to get role data (and by extension the names)
+    # for now, I will just always query for guild data. (very much a not friendly request pattern)
+
+    guild: hikari.guilds.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+    guild_roles = guild.roles
+
+    output_list = []
+
+    for role in roles:
+        output_list.append(
+            guild_roles.get(hikari.Snowflake(role)).name
+            if guild_roles.get(hikari.Snowflake(role)) is not None
+            else "(Deleted Role)"
+        )
+
+    if len(output_list) == 0:
+        return ""
+    elif len(output_list) > 1:
+        return ", ".join(output_list)
+    else:
+        return output_list[0]
