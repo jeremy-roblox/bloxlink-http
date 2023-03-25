@@ -41,28 +41,32 @@ class Bloxlink(hikari.RESTBot):
     def uptime(self) -> timedelta:
         return datetime.utcnow() - self.started_at
 
-    async def relay(self, channel: str, nonce: uuid.UUID, payload: Optional[dict]= None, timeout: int = 2) -> dict:
-        await self.redis_messages.pubsub.subscribe(f"REPLY:{nonce}")
-        await self.redis.publish(channel, json.dumps({
-            "nonce": str(nonce),
-            "data": payload
-        }).encode("utf-8"))
-        return await asyncio.wait_for(self.redis_messages.get_message(f"REPLY:{nonce}"), timeout=timeout)
+    async def relay(self, channel: str, payload: Optional[dict]= None, timeout: int = 2) -> dict:
+        nonce = uuid.uuid4()
+        reply_channel = f"REPLY:{nonce}"
+
+        try:
+            await self.redis_messages.pubsub.subscribe(reply_channel)
+            await self.redis.publish(channel, json.dumps({
+                "nonce": str(nonce),
+                "data": payload
+            }).encode("utf-8"))
+            return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
+        except redis.RedisError as ex:
+            raise RuntimeError("Failed to publish or wait for response") from ex
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
-        nonce = uuid.uuid4()
-        res = await self.relay("CACHE_LOOKUP", nonce, {
+        res = await self.relay("CACHE_LOOKUP", {
             "query": "guild.member",
             "data": {
                 "guild_id": guild_id,
                 "user_id": user_id
             }
-        })        
+        })
         return res["data"]
     
     async def fetch_discord_guild(self, guild_id: int) -> dict:
-        nonce = uuid.uuid4()
-        res = await self.relay("CACHE_LOOKUP", nonce, {
+        res = await self.relay("CACHE_LOOKUP", {
             "query": "guild.data",
             "data": {
                 "guild_id": guild_id,
