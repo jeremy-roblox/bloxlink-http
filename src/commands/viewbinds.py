@@ -2,6 +2,7 @@ import resources.binds as binds
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
+from resources.utils import role_ids_to_names
 import hikari
 
 MAX_BINDS_PER_PAGE = 10
@@ -173,26 +174,3 @@ class ViewBindsCommand:
 
         return output
 
-
-async def role_ids_to_names(guild_id: int, roles: list) -> str:
-    # TODO: utilize in-dev cache logic to get role data (and by extension the names)
-    # for now, I will just always query for guild data. (very much a not friendly request pattern)
-
-    guild: hikari.guilds.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
-    guild_roles = guild.roles
-
-    output_list = []
-
-    for role in roles:
-        output_list.append(
-            guild_roles.get(hikari.Snowflake(role)).name
-            if guild_roles.get(hikari.Snowflake(role)) is not None
-            else "(Deleted Role)"
-        )
-
-    if len(output_list) == 0:
-        return ""
-    elif len(output_list) > 1:
-        return ", ".join(output_list)
-    else:
-        return output_list[0]
