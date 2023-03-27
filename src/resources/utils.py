@@ -1,8 +1,8 @@
 from enum import Enum
 import aiohttp, asyncio
 
-import bloxlink
 import hikari
+import resources.bloxlink as bloxlink
 
 from requests.utils import requote_uri
 from .secrets import PROXY_URL
