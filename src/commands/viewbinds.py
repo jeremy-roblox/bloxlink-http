@@ -1,7 +1,7 @@
 import resources.binds as binds
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
-from resources.models import CommandContext
+from resources.models import CommandContext, GuildBind
 from resources.utils import role_ids_to_names
 import hikari
 
@@ -74,9 +74,6 @@ class ViewBindsCommand:
     async def build_page(self, ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
         guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
 
-        print(guild_data.binds)
-        print(guild_data.binds[0]["bind"])
-
         # Filter for the category.
         categories = ("group", "asset", "badge", "gamepass")
         if category not in categories:
@@ -85,11 +82,14 @@ class ViewBindsCommand:
                 "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
             )
 
-        binds = filter(lambda b: b["bind"]["type"] == category, guild_data.binds)
-        if id_filter:
-            binds = filter(lambda b: b["bind"]["id"] == id_filter, binds)
+        binds = [GuildBind(**bind) for bind in guild_data.binds]
+        print(binds)
 
-        binds = list(binds)
+        filtered_binds = filter(lambda b: b.type == category, binds)
+        if id_filter:
+            filtered_binds = filter(lambda b: b.id == id_filter, filtered_binds)
+
+        binds = list(filtered_binds)
         bind_length = len(binds)
 
         if not bind_length:
@@ -103,74 +103,73 @@ class ViewBindsCommand:
         )
         sliced_binds = binds[offset:max_count]
 
+        # Used to prevent needing to get group data each iteration
         group_data = None
-        for element in sliced_binds:
-            bind = element["bind"]
-            bindID = bind["id"]
 
-            nickname = element.get("nickname")
-            roles = element.get("roles")
-
-            # TODO: include this field in the output.
-            remove_roles = element.get("removeRoles")
+        # TODO: Move string generation to the GuildBind object with the option of excluding the ID
+        for bind in sliced_binds:
+            nickname = bind.nickname
+            roles = bind.roles
 
             role_string = await role_ids_to_names(guild_id=ctx.guild_id, roles=roles)
 
+            remove_roles = bind.removeRoles
+            remove_roles_string = ""
+            if remove_roles is list:
+                remove_roles_string = await role_ids_to_names(guild_id=ctx.guild_id, roles=remove_roles)
+
             if category == "group":
                 if not group_data:
-                    group_data = await get_group(bindID)
-                elif group_data.id != bindID:
-                    group_data = await get_group(bindID)
+                    group_data = await get_group(bind.id)
+                elif group_data.id != bind.id:
+                    group_data = await get_group(bind.id)
 
                 if not roles or roles == "undefined" or roles == "null":
                     output["linked_group"].append(
-                        f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}"
+                        f"**Group:** {group_data.name} ({bind.id}); **Nickname:** {nickname}"
                     )
                 else:
-                    select_output = output["group_roles"].get(bindID, [])
+                    select_output = output["group_roles"].get(bind.id, [])
 
-                    if "min" in bind and "max" in bind:
-                        select_output.append(
-                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                            f"**Rank Range:** {bind['min']} to {bind['max']}; "
-                            f"**Role(s):** {role_string}"
-                        )
+                    base_string = f"**Group:** {group_data.name} ({bind.id}); **Nickname:** {nickname}; "
+                    rank_string = ""
+                    role_string = f"**Role(s):** {role_string}"
 
-                    if "roleset" in bind:
-                        select_output.append(
-                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                            f"**Rank ID:** {bind['roleset']}; "
-                            f"**Role(s):** {role_string}"
-                        )
+                    if bind.min is not None and bind.max is not None:
+                        rank_string = f"**Rank Range:** {bind.min} to {bind.max}; "
 
-                    if "everyone" in bind:
-                        select_output.append(
-                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                            f"**Rank:** All group members; "
-                            f"**Role(s):** {role_string}"
-                        )
+                    elif bind.roleset is not None:
+                        rank_string = f"**Rank ID:** {bind.roleset}; "
 
-                    if "guest" in bind:
-                        select_output.append(
-                            f"**Group:** {group_data.name} ({bindID}); **Nickname:** {nickname}; "
-                            f"**Rank** Non-group members; "
-                            f"**Role(s):** {role_string}"
-                        )
+                    elif bind.everyone:
+                        rank_string = "**Rank:** All group members; "
 
-                    output["group_roles"][bindID] = select_output
+                    elif bind.guest:
+                        rank_string = "**Rank** Non-group members; "
+
+                    # Alas append only accepts one value at a time.
+                    select_output.append(base_string)
+                    select_output.append(rank_string)
+                    select_output.append(role_string)
+                    if remove_roles_string:
+                        select_output.append(f"; **Remove Roles:** {remove_roles_string}")
+                    select_output.append("\n")
+
+                    output["group_roles"][bind.id] = select_output
 
             elif category == "asset":
                 output["asset"].append(
-                    f"**Asset ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
+                    f"**Asset ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
                 )
+
             elif category == "badge":
                 output["badge"].append(
-                    f"**Badge ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
+                    f"**Badge ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
                 )
+
             elif category == "gamepass":
                 output["gamepass"].append(
-                    f"**Gamepass ID:** {bindID}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
+                    f"**Gamepass ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
                 )
 
         return output
-
