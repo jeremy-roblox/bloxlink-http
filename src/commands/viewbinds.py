@@ -50,6 +50,7 @@ class ViewBindsCommand:
         avatar_url = bot_user.default_avatar_url if not bot_user.avatar_url else bot_user.avatar_url
         embed.set_author(name="Powered by Bloxlink", icon=avatar_url)
         embed.color = RED_COLOR
+        embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
 
         components = None
 
