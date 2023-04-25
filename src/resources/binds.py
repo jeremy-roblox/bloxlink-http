@@ -1,8 +1,8 @@
 from __future__ import annotations
-from .models import GuildData, MISSING
+from .models import BaseGuildBind, GuildData, MISSING
 import resources.users as users
 import resources.groups as groups
-from resources.exceptions import BloxlinkForbidden, Message
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message
 from resources.constants import DEFAULTS
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
@@ -185,3 +185,107 @@ async def apply_binds(
         embed = hikari.Embed(description="No binds apply to you!")
 
     return embed
+
+
+class GuildBind(BaseGuildBind):
+    def determine_type(self) -> str:
+        if self.type == "group":
+            if not self.roles or self.roles == "undefined" or self.roles == "null":
+                return "linked_group"
+            else:
+                return "group_roles"
+        else:
+            return self.type
+
+    async def get_bind_string(self, guild_id: int, include_id=True, group_data=None) -> str:
+        role_string = await role_ids_to_names(guild_id=guild_id, roles=self.roles)
+        remove_role_str = ""
+        if self.removeRoles:
+            remove_role_str = (
+                f"→ **Remove Roles:** {await role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
+            )
+
+        bind_string_list = []
+
+        if self.type == "group":
+            if not group_data:
+                raise BloxlinkException("Group data needs to be given if the type is a group.")
+
+            group_id_string = f"**Group:** {group_data.name} ({self.id}) → " if include_id else ""
+
+            # Entire group binding.
+            if not self.roles or self.roles == "undefined" or self.roles == "null":
+                bind_string_list.append(f"{group_id_string}**Nickname:** {self.nickname}")
+            else:
+                # Every other group binding type (range, guest, everyone, single ID)
+                output_list = []
+
+                base_string = f"{group_id_string}**Nickname:** {self.nickname} → "
+                rank_string = ""
+                role_string = f"**Role(s):** {role_string}"
+
+                if self.min is not None and self.max is not None:
+                    rank_string = f"**Rank Range:** {self.min} to {self.max} → "
+
+                elif self.roleset is not None:
+                    rank_string = f"**Rank ID:** {self.roleset} → "
+
+                elif self.everyone:
+                    rank_string = "**Rank:** All group members → "
+
+                elif self.guest:
+                    rank_string = "**Rank:** Non-group members → "
+
+                # Append only accepts one value at a time, so do this.
+                output_list.append(base_string)
+                output_list.append(rank_string)
+                output_list.append(role_string)
+
+                bind_string_list.append("".join(output_list))
+        elif self.type == "asset":
+            bind_string_list.append(
+                f"{f'**Asset ID:** {self.id} → ' if include_id else ''}"
+                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}"
+            )
+        elif self.type == "badge":
+            bind_string_list.append(
+                f"**{f'**Badge ID:** {self.id} → ' if include_id else ''}"
+                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}"
+            )
+        elif self.type == "gamepass":
+            bind_string_list.append(
+                f"{f'**Gamepass ID:** {self.id} → ' if include_id else ''}"
+                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}",
+            )
+        else:
+            return "No valid binding type was given. How? No clue."
+
+        if remove_role_str:
+            bind_string_list.append(f"→ **Remove Roles:** {remove_role_str}")
+        return "".join(bind_string_list)
+
+    pass
+
+
+async def role_ids_to_names(guild_id: int, roles: list) -> str:
+    # TODO: utilize in-dev cache logic to get role data (and by extension the names)
+    # for now, I will just always query for guild data. (very much a not friendly request pattern)
+
+    guild: hikari.guilds.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+    guild_roles = guild.roles
+
+    output_list = []
+
+    for role in roles:
+        output_list.append(
+            guild_roles.get(hikari.Snowflake(role)).name
+            if guild_roles.get(hikari.Snowflake(role)) is not None
+            else "(Deleted Role)"
+        )
+
+    if len(output_list) == 0:
+        return ""
+    elif len(output_list) > 1:
+        return ", ".join(output_list)
+    else:
+        return output_list[0]

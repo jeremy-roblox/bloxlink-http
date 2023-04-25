@@ -6,7 +6,7 @@ import hikari
 from .response import Response
 
 
-__all__ = ("UserData", "GuildData", "RobloxAccount", "CommandContext", "MISSING")
+__all__ = ("UserData", "GuildData", "RobloxAccount", "CommandContext", "BaseGuildBind", "MISSING")
 
 
 def default_field(obj):
@@ -60,13 +60,13 @@ class CommandContext:
 
 
 @dataclass(slots=True)
-class GuildBind:
+class BaseGuildBind:
     nickname: str = None
     roles: list = None
     removeRoles: list = None
 
     id: int = None
-    type: str = ""
+    type: str = ""  # Expected type strings: group, asset, gamepass, badge
     bind: dict = default_field({"type": "", "id": None})
 
     min: int = None

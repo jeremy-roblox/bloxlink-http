@@ -1,8 +1,7 @@
-import resources.binds as binds
+from resources.binds import GuildBind
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
-from resources.models import CommandContext, GuildBind
-from resources.utils import role_ids_to_names
+from resources.models import CommandContext
 import hikari
 
 MAX_BINDS_PER_PAGE = 10
@@ -70,7 +69,6 @@ class ViewBindsCommand:
 
         await ctx.response.send(embed=embed)
 
-    # Arbitrarily choosing that 10 binds per page should be good.
     async def build_page(self, ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
         guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
 
@@ -104,72 +102,33 @@ class ViewBindsCommand:
         sliced_binds = binds[offset:max_count]
 
         # Used to prevent needing to get group data each iteration
-        group_data = None
+        # group_data = None
 
         # TODO: Move string generation to the GuildBind object with the option of excluding the ID
         for bind in sliced_binds:
-            nickname = bind.nickname
-            roles = bind.roles
+            typing = bind.determine_type()
 
-            role_string = await role_ids_to_names(guild_id=ctx.guild_id, roles=roles)
+            group_data = None
+            include_id = True if typing is not "group_roles" else False
 
-            remove_roles = bind.removeRoles
-            remove_roles_string = ""
-            if remove_roles is list:
-                remove_roles_string = await role_ids_to_names(guild_id=ctx.guild_id, roles=remove_roles)
+            if typing == "linked_group" or typing == "group_roles":
+                group_data = await get_group(bind.id)
 
-            if category == "group":
-                if not group_data:
-                    group_data = await get_group(bind.id)
-                elif group_data.id != bind.id:
-                    group_data = await get_group(bind.id)
+            bind_string = await bind.get_bind_string(
+                ctx.guild_id, include_id=include_id, group_data=group_data
+            )
 
-                if not roles or roles == "undefined" or roles == "null":
-                    output["linked_group"].append(
-                        f"**Group:** {group_data.name} ({bind.id}); **Nickname:** {nickname}"
-                    )
-                else:
-                    select_output = output["group_roles"].get(bind.id, [])
-
-                    base_string = f"**Group:** {group_data.name} ({bind.id}); **Nickname:** {nickname}; "
-                    rank_string = ""
-                    role_string = f"**Role(s):** {role_string}"
-
-                    if bind.min is not None and bind.max is not None:
-                        rank_string = f"**Rank Range:** {bind.min} to {bind.max}; "
-
-                    elif bind.roleset is not None:
-                        rank_string = f"**Rank ID:** {bind.roleset}; "
-
-                    elif bind.everyone:
-                        rank_string = "**Rank:** All group members; "
-
-                    elif bind.guest:
-                        rank_string = "**Rank** Non-group members; "
-
-                    # Alas append only accepts one value at a time.
-                    select_output.append(base_string)
-                    select_output.append(rank_string)
-                    select_output.append(role_string)
-                    if remove_roles_string:
-                        select_output.append(f"; **Remove Roles:** {remove_roles_string}")
-                    select_output.append("\n")
-
-                    output["group_roles"][bind.id] = select_output
-
-            elif category == "asset":
-                output["asset"].append(
-                    f"**Asset ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
-                )
-
-            elif category == "badge":
-                output["badge"].append(
-                    f"**Badge ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
-                )
-
-            elif category == "gamepass":
-                output["gamepass"].append(
-                    f"**Gamepass ID:** {bind.id}; **Nickname:** {nickname}`; **Role(s):** {role_string}"
-                )
+            if typing == "linked_group":
+                output["linked_group"].append(bind_string)
+            elif typing == "group_roles":
+                select_output = output["group_roles"].get(bind.id, [])
+                select_output.append(bind_string)
+                output["group_roles"][bind.id] = select_output
+            elif typing == "asset":
+                output["asset"].append(bind_string)
+            elif typing == "badge":
+                output["badge"].append(bind_string)
+            elif typing == "gamepass":
+                output["gamepass"].append(bind_string)
 
         return output
