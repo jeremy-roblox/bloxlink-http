@@ -81,7 +81,6 @@ class ViewBindsCommand:
             )
 
         binds = [GuildBind(**bind) for bind in guild_data.binds]
-        print(binds)
 
         filtered_binds = filter(lambda b: b.type == category, binds)
         if id_filter:
@@ -102,17 +101,17 @@ class ViewBindsCommand:
         sliced_binds = binds[offset:max_count]
 
         # Used to prevent needing to get group data each iteration
-        # group_data = None
+        group_data = None
 
         # TODO: Move string generation to the GuildBind object with the option of excluding the ID
         for bind in sliced_binds:
             typing = bind.determine_type()
 
-            group_data = None
             include_id = True if typing is not "group_roles" else False
 
             if typing == "linked_group" or typing == "group_roles":
-                group_data = await get_group(bind.id)
+                if not group_data or group_data.id != bind.id:
+                    group_data = await get_group(bind.id)
 
             bind_string = await bind.get_bind_string(
                 ctx.guild_id, include_id=include_id, group_data=group_data
