@@ -202,7 +202,7 @@ class GuildBind(BaseGuildBind):
         remove_role_str = ""
         if self.removeRoles:
             remove_role_str = (
-                f"→ **Remove Roles:** {await role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
+                f"**Remove Roles:** {await role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
             )
 
         bind_string_list = []
@@ -267,7 +267,7 @@ class GuildBind(BaseGuildBind):
             return "No valid binding type was given. How? No clue."
 
         if remove_role_str:
-            bind_string_list.append(f"**Remove Roles:** {remove_role_str}")
+            bind_string_list.append(remove_role_str)
         return " → ".join(bind_string_list)
 
     pass
