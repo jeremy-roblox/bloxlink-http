@@ -15,7 +15,7 @@ class QuickBindCommand:
                 "nickname": "{roblox-name}",
                 "bind": {
                     "type": "group",
-                    "id": 3587262
+                    "id": 1
                 }
             },
             {
@@ -24,20 +24,20 @@ class QuickBindCommand:
                 "nickname": "{roblox-name}",
                 "bind": {
                     "type": "group",
-                    "id": 4705120
+                    "id": 2
                 }
             },
-            # {
-            #     "roles": ["1234567890123"],
-            #     "removeRoles": ["1234567890123", "1234567890123"],
-            #     "nickname": "{roblox-name}",
-            #     "bind": {
-            #         "type": "group",
-            #         "id": 2,
-            #         "min": 1,
-            #         "max": 5
-            #     }
-            # },
+            {
+                "roles": ["1234567890123"],
+                "removeRoles": ["1234567890123", "1234567890123"],
+                "nickname": "{roblox-name}",
+                "bind": {
+                    "type": "group",
+                    "id": 1,
+                    "min": 1,
+                    "max": 5
+                }
+            },
             # {
             #     "roles": ["1234567890123"],
             #     "removeRoles": ["1234567890123", "1234567890123"],

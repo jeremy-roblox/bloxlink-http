@@ -78,8 +78,11 @@ def get_custom_id_data(custom_id: str, segment: int, message: hikari.Message = N
     return segment_data
 
 
-async def set_custom_id_data(message: hikari.Message, custom_id: str, segment: int, values: list):
+async def set_custom_id_data(message: hikari.Message, custom_id: str, segment: int, values: list | str):
     component = await get_component(message, custom_id=custom_id)
+
+    if isinstance(values, str):
+        values = [values]
 
     if component:
         custom_id_data = component.custom_id.split(":")
