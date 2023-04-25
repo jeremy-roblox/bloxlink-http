@@ -2,6 +2,7 @@ from resources.binds import GuildBind
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
+from resources.constants import RED_COLOR
 import hikari
 
 MAX_BINDS_PER_PAGE = 10
@@ -43,6 +44,13 @@ class ViewBindsCommand:
         id_option = ctx.options["id"]
 
         embed = hikari.Embed()
+        embed.title = "**Bloxlink Role Binds**"
+
+        bot_user = await bloxlink.rest.fetch_my_user()
+        avatar_url = bot_user.default_avatar_url if not bot_user.avatar_url else bot_user.avatar_url
+        embed.set_author(name="Powered by Bloxlink", icon=avatar_url)
+        embed.color = RED_COLOR
+
         components = None
 
         # Valid categories:
@@ -63,9 +71,22 @@ class ViewBindsCommand:
         if page is str:
             embed.description = page
         else:
-            # Make fields as necessary for the bind type.
-            # For now just pass whatever the page output is.
-            embed.description = page
+            if page["linked_group"]:
+                embed.add_field("Linked Groups", "\n".join(page["linked_group"]))
+
+            if page["group_roles"]:
+                rank_map = page["group_roles"]
+                for group in rank_map.keys():
+                    embed.add_field(f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]))
+
+            if page["asset"]:
+                embed.add_field("Assets", "\n".join(page["asset"]))
+
+            if page["badge"]:
+                embed.add_field("Badges", "\n".join(page["badge"]))
+
+            if page["gamepass"]:
+                embed.add_field("Gamepasses", "\n".join(page["gamepass"]))
 
         await ctx.response.send(embed=embed)
 
@@ -102,8 +123,6 @@ class ViewBindsCommand:
 
         # Used to prevent needing to get group data each iteration
         group_data = None
-
-        # TODO: Move string generation to the GuildBind object with the option of excluding the ID
         for bind in sliced_binds:
             typing = bind.determine_type()
 

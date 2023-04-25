@@ -220,49 +220,55 @@ class GuildBind(BaseGuildBind):
                 # Every other group binding type (range, guest, everyone, single ID)
                 output_list = []
 
-                base_string = f"{group_id_string}**Nickname:** {self.nickname} → "
+                base_string = group_id_string
                 rank_string = ""
                 role_string = f"**Role(s):** {role_string}"
+                nickname_string = f"**Nickname:** {self.nickname}"
 
                 if self.min is not None and self.max is not None:
-                    rank_string = f"**Rank Range:** {self.min} to {self.max} → "
+                    rank_string = f"**Rank Range:** {self.min} to {self.max}"
 
                 elif self.roleset is not None:
-                    rank_string = f"**Rank ID:** {self.roleset} → "
+                    rank_string = f"**Rank:** {self.roleset}"
 
                 elif self.everyone:
-                    rank_string = "**Rank:** All group members → "
+                    rank_string = "**Rank:** All group members"
 
                 elif self.guest:
-                    rank_string = "**Rank:** Non-group members → "
+                    rank_string = "**Rank:** Non-group members"
 
                 # Append only accepts one value at a time, so do this.
-                output_list.append(base_string)
+                if base_string:
+                    output_list.append(base_string)
                 output_list.append(rank_string)
                 output_list.append(role_string)
+                output_list.append(nickname_string)
 
-                bind_string_list.append("".join(output_list))
+                bind_string_list.append(" → ".join(output_list))
         elif self.type == "asset":
+            # TODO: Put asset name in string.
             bind_string_list.append(
                 f"{f'**Asset ID:** {self.id} → ' if include_id else ''}"
-                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}"
+                f"**Nickname:** {self.nickname} → **Role(s):** {role_string}"
             )
         elif self.type == "badge":
+            # TODO: Put badge name in string.
             bind_string_list.append(
-                f"**{f'**Badge ID:** {self.id} → ' if include_id else ''}"
-                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}"
+                f"{f'**Badge ID:** {self.id} → ' if include_id else ''}"
+                f"**Nickname:** {self.nickname} → **Role(s):** {role_string}"
             )
         elif self.type == "gamepass":
+            # TODO: Put gamepass name in string.
             bind_string_list.append(
                 f"{f'**Gamepass ID:** {self.id} → ' if include_id else ''}"
-                "**Nickname:** {self.nickname}` → **Role(s):** {role_string}",
+                f"**Nickname:** {self.nickname} → **Role(s):** {role_string}",
             )
         else:
             return "No valid binding type was given. How? No clue."
 
         if remove_role_str:
-            bind_string_list.append(f"→ **Remove Roles:** {remove_role_str}")
-        return "".join(bind_string_list)
+            bind_string_list.append(f"**Remove Roles:** {remove_role_str}")
+        return " → ".join(bind_string_list)
 
     pass
 
