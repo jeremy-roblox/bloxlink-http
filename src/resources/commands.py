@@ -72,9 +72,10 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
     for command in slash_commands.values():
         if command.autocomplete_handlers:
             for command_option in interaction.options:
-                for autocomplete_method, autocomplete_fn in command.autocomplete_handlers.items():
-                    if command_option.name.startswith(autocomplete_method):
-                        return await autocomplete_fn(interaction)
+                if command_option.is_focused:
+                    for autocomplete_method, autocomplete_fn in command.autocomplete_handlers.items():
+                        if command_option.name.startswith(autocomplete_method):
+                            return await autocomplete_fn(interaction)
 
 
 async def handle_component(interaction: hikari.ComponentInteraction):
