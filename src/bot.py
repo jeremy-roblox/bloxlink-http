@@ -3,7 +3,7 @@ from resources.constants import MODULES
 from config import SERVER_HOST, SERVER_PORT
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
-from resources.commands import handle_command, sync_commands, handle_component
+from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
 import logging
 import hikari
 
@@ -30,5 +30,6 @@ if __name__ == "__main__":
 
     bot.set_listener(hikari.CommandInteraction, handle_command)
     bot.set_listener(hikari.ComponentInteraction, handle_component)
+    bot.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
     bot.add_startup_callback(sync_commands)
     bot.run(host=env.get("HOST", SERVER_HOST), port=env.get("PORT", SERVER_PORT))
