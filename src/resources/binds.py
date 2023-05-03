@@ -211,11 +211,13 @@ class GuildBind(BaseGuildBind):
             if not group_data:
                 raise BloxlinkException("Group data needs to be given if the type is a group.")
 
-            group_id_string = f"**Group:** {group_data.name} ({self.id}) → " if include_id else ""
+            group_id_string = f"**Group:** {group_data.name} ({self.id})" if include_id else ""
 
             # Entire group binding.
             if not self.roles or self.roles == "undefined" or self.roles == "null":
-                bind_string_list.append(f"{group_id_string}**Nickname:** {self.nickname}")
+                bind_string_list.append(
+                    f"{group_id_string} {f' → **Nickname:** {self.nickname}' if self.nickname else ''}"
+                )
             else:
                 # Every other group binding type (range, guest, everyone, single ID)
                 output_list = []
@@ -223,7 +225,8 @@ class GuildBind(BaseGuildBind):
                 base_string = group_id_string
                 rank_string = ""
                 role_string = f"**Role(s):** {role_string}"
-                nickname_string = f"**Nickname:** {self.nickname}"
+
+                nickname_string = f"**Nickname:** {self.nickname}" if self.nickname else ""
 
                 if self.min is not None and self.max is not None:
                     rank_string = f"**Rank Range:** {self.min} to {self.max}"
@@ -242,7 +245,8 @@ class GuildBind(BaseGuildBind):
                     output_list.append(base_string)
                 output_list.append(rank_string)
                 output_list.append(role_string)
-                output_list.append(nickname_string)
+                if nickname_string:
+                    output_list.append(nickname_string)
 
                 bind_string_list.append(" → ".join(output_list))
         elif self.type == "asset":
@@ -269,8 +273,6 @@ class GuildBind(BaseGuildBind):
         if remove_role_str:
             bind_string_list.append(remove_role_str)
         return " → ".join(bind_string_list)
-
-    pass
 
 
 async def role_ids_to_names(guild_id: int, roles: list) -> str:
