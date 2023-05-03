@@ -1,18 +1,24 @@
 from datetime import datetime, timedelta
-from typing import Callable
-from resources.commands import new_command
+from typing import Callable, Coroutine
 import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
-from inspect import iscoroutinefunction
+from inspect import iscoroutinefunction, isfunction
 import logging
 import importlib
-import hikari
 import functools
+from time import sleep
+from queue import Queue
+from threading import Lock
+import uuid
+import json
+from typing import Optional
 
 logger = logging.getLogger()
 
+from resources.redis import RedisMessageCollector
+from .commands import new_command
 from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from .models import UserData, GuildData
 
@@ -25,40 +31,56 @@ class Bloxlink(hikari.RESTBot):
         super().__init__(*args, **kwargs)
 
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
-        self.redis: redis.Redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
-
+        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+        self.redis_messages = RedisMessageCollector(self.redis)
         self.started_at = datetime.utcnow()
-
+    
         instance = self
-        # self.cache = benedict(keypath_separator=":")
 
     @property
     def uptime(self) -> timedelta:
         return datetime.utcnow() - self.started_at
 
+    async def relay(self, channel: str, payload: Optional[dict]= None, timeout: int = 2) -> dict:
+        nonce = uuid.uuid4()
+        reply_channel = f"REPLY:{nonce}"
+
+        try:
+            await self.redis_messages.pubsub.subscribe(reply_channel)
+            await self.redis.publish(channel, json.dumps({
+                "nonce": str(nonce),
+                "data": payload
+            }).encode("utf-8"))
+            return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
+        except redis.RedisError as ex:
+            raise RuntimeError("Failed to publish or wait for response") from ex
+
+    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
+        res = await self.relay("CACHE_LOOKUP", {
+            "query": "guild.member",
+            "data": {
+                "guild_id": guild_id,
+                "user_id": user_id
+            }
+        })
+        return res["data"]
+    
+    async def fetch_discord_guild(self, guild_id: int) -> dict:
+        res = await self.relay("CACHE_LOOKUP", {
+            "query": "guild.data",
+            "data": {
+                "guild_id": guild_id,
+            }
+        })
+        return res["data"]
+    
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
         """
         Fetch an item from local cache, then redis, then database.
         Will populate caches for later access
         """
         # should check local cache but for now just fetch from redis
-
-        if aspects:
-            item = await self.redis.hmget(f"{domain}:{item_id}", *aspects)
-            item = {x: y for x, y in zip(aspects, item) if y is not None}
-        else:
-            item = await self.redis.hgetall(f"{domain}:{item_id}")
-
-        if not item:
-            item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
-
-            if item and not isinstance(item, (list, dict)):
-                if aspects:
-                    items = {x:item[x] for x in aspects if item.get(x) and not isinstance(item[x], dict)}
-                    if items:
-                        await self.redis.hset(f"{domain}:{item_id}", items)
-                else:
-                    await self.redis.hset(f"{domain}:{item_id}", item)
+        item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
 
         if item.get("_id"):
             item.pop("_id")
@@ -71,16 +93,16 @@ class Bloxlink(hikari.RESTBot):
         """
         Update an item's aspects in local cache, redis, and database.
         """
-        # # update redis cache
-        # redis_aspects: dict = None
-        # if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
-        #     redis_aspects = dict(aspects)
+        # update redis cache
+        redis_aspects: dict = None
+        if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
+            redis_aspects = dict(aspects)
 
-        #     for aspect_name, aspect_value in dict(aspects).items():
-        #         if isinstance(aspect_value, (dict, list)):
-        #             redis_aspects.pop(aspect_name)
+            for aspect_name, aspect_value in dict(aspects).items():
+                if isinstance(aspect_value, (dict, list)):
+                    redis_aspects.pop(aspect_name)
 
-        # await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
+        await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
 
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)

@@ -22,12 +22,73 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
     return (
         len(guild_data.binds)
         if not group_id
-        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id)) or 0
+        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id))
+        or 0
     )
 
 
 async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
     return "TODO: show existing binds"
+
+
+async def create_bind(guild_id: int | str,
+                      bind_type: str["group" | "asset" | "gamepass" | "badge"],
+                      bind_id: int=None,
+                      roles: list[str]=None,
+                      remove_roles: list[str]=None,
+                      nickname: str = None,
+                      **bind_data):
+    """creates a new guild bind. if it already exists, the roles will be appended"""
+
+    guild_binds: GuildData = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
+
+    existing_binds = list(filter(
+        lambda b: b["bind"]["type"] == bind_type and
+                 (b["bind"].get("id") == bind_id if bind_id else True),
+        guild_binds
+    ))
+
+    if not existing_binds:
+        new_bind = {
+            "roles": roles,
+            "removeRoles": remove_roles,
+            "nickname": nickname,
+            "bind": {
+                "type": bind_type,
+                "id": bind_id,
+                **bind_data
+            }
+        }
+
+        guild_binds.append(new_bind)
+
+        await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+
+        return
+
+    if bind_id:
+        # group, badge, gamepass, and asset binds
+        if len(existing_binds) > 1:
+            # invalid bind. binds with IDs should only have one entry.
+            raise NotImplementedError()
+        else:
+            if roles:
+                # TODO: compare current role IDs with the server and remove invalid roles
+                existing_binds[0]["roles"] = list(set(existing_binds[0].get("roles", []) + roles)) # add roles and removes duplicates
+            else:
+                raise NotImplementedError()
+    else:
+        # everything else
+        raise NotImplementedError()
+
+
+
+
+
+
+
+
+
 
 
 async def apply_binds(

@@ -27,13 +27,7 @@ class UpdateCommand:
 
     async def __main__(self, ctx: CommandContext):
         target_user = list(ctx.resolved.users.values())[0] if ctx.resolved else ctx.member
-
-        roblox_account = None
-
-        try:
-            roblox_account = await users.get_user_account(target_user, raise_errors=False)
-        except UserNotVerified:
-            pass
+        roblox_account = await users.get_user_account(target_user, raise_errors=False)
 
         message_response = await binds.apply_binds(ctx.member, ctx.guild_id, roblox_account, moderate_user=True)
 
