@@ -137,9 +137,9 @@ class ViewBindsCommand:
 
         page = None
         if id_option.lower() == "view binds":
-            page = await self.build_page(ctx, category.lower(), page_number=0)
+            page = await build_page(ctx, category.lower(), page_number=0)
         else:
-            page = await self.build_page(ctx, category.lower(), page_number=0, id_filter=id_option)
+            page = await build_page(ctx, category.lower(), page_number=0, id_filter=id_option)
 
         if not page:
             page = "You have no binds that match the options you passed. "
@@ -166,63 +166,60 @@ class ViewBindsCommand:
 
         await ctx.response.send(embed=embed)
 
-    async def build_page(self, ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
-        guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
 
-        # Filter for the category.
-        categories = ("group", "asset", "badge", "gamepass")
-        if category not in categories:
-            return (
-                "Your given category option was invalid. "
-                "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
-            )
+async def build_page(ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
+    guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
 
-        binds = [GuildBind(**bind) for bind in guild_data.binds]
-
-        filtered_binds = filter(lambda b: b.type == category, binds)
-        if id_filter:
-            filtered_binds = filter(lambda b: str(b.id) == id_filter, filtered_binds)
-
-        binds = list(filtered_binds)
-        bind_length = len(binds)
-
-        if not bind_length:
-            return ""
-
-        output = {"linked_group": [], "group_roles": {}, "asset": [], "badge": [], "gamepass": []}
-
-        offset = page_number * MAX_BINDS_PER_PAGE
-        max_count = (
-            bind_length if (offset + MAX_BINDS_PER_PAGE >= bind_length) else offset + MAX_BINDS_PER_PAGE
+    # Filter for the category.
+    categories = ("group", "asset", "badge", "gamepass")
+    if category not in categories:
+        return (
+            "Your given category option was invalid. "
+            "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
         )
-        sliced_binds = binds[offset:max_count]
 
-        # Used to prevent needing to get group data each iteration
-        group_data = None
-        for bind in sliced_binds:
-            typing = bind.determine_type()
+    binds = [GuildBind(**bind) for bind in guild_data.binds]
 
-            include_id = True if typing != "group_roles" else False
+    filtered_binds = filter(lambda b: b.type == category, binds)
+    if id_filter:
+        filtered_binds = filter(lambda b: str(b.id) == id_filter, filtered_binds)
 
-            if typing == "linked_group" or typing == "group_roles":
-                if not group_data or group_data.id != bind.id:
-                    group_data = await get_group(bind.id)
+    binds = list(filtered_binds)
+    bind_length = len(binds)
 
-            bind_string = await bind.get_bind_string(
-                ctx.guild_id, include_id=include_id, group_data=group_data
-            )
+    if not bind_length:
+        return ""
 
-            if typing == "linked_group":
-                output["linked_group"].append(bind_string)
-            elif typing == "group_roles":
-                select_output = output["group_roles"].get(bind.id, [])
-                select_output.append(bind_string)
-                output["group_roles"][bind.id] = select_output
-            elif typing == "asset":
-                output["asset"].append(bind_string)
-            elif typing == "badge":
-                output["badge"].append(bind_string)
-            elif typing == "gamepass":
-                output["gamepass"].append(bind_string)
+    output = {"linked_group": [], "group_roles": {}, "asset": [], "badge": [], "gamepass": []}
 
-        return output
+    offset = page_number * MAX_BINDS_PER_PAGE
+    max_count = bind_length if (offset + MAX_BINDS_PER_PAGE >= bind_length) else offset + MAX_BINDS_PER_PAGE
+    sliced_binds = binds[offset:max_count]
+
+    # Used to prevent needing to get group data each iteration
+    group_data = None
+    for bind in sliced_binds:
+        typing = bind.determine_type()
+
+        include_id = True if typing != "group_roles" else False
+
+        if typing == "linked_group" or typing == "group_roles":
+            if not group_data or group_data.id != bind.id:
+                group_data = await get_group(bind.id)
+
+        bind_string = await bind.get_bind_string(ctx.guild_id, include_id=include_id, group_data=group_data)
+
+        if typing == "linked_group":
+            output["linked_group"].append(bind_string)
+        elif typing == "group_roles":
+            select_output = output["group_roles"].get(bind.id, [])
+            select_output.append(bind_string)
+            output["group_roles"][bind.id] = select_output
+        elif typing == "asset":
+            output["asset"].append(bind_string)
+        elif typing == "badge":
+            output["badge"].append(bind_string)
+        elif typing == "gamepass":
+            output["gamepass"].append(bind_string)
+
+    return output
