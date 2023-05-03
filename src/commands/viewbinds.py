@@ -3,7 +3,9 @@ from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR
+from datetime import datetime
 import hikari
+
 
 MAX_BINDS_PER_PAGE = 10
 
@@ -79,12 +81,53 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
     return interaction.build_response(choices[:25])
 
 
-async def viewbinds_next_button(interaction: hikari.ComponentInteraction):
-    pass
+async def viewbinds_button(interaction: hikari.ComponentInteraction):
+    """Handles the pagination buttons for viewbinds. Since the custom_id includes the next page,
+    we only need one method to handle both buttons."""
+    custom_id_data = interaction.custom_id.split(":")
 
+    author_id = custom_id_data[1]
+    page_number = custom_id_data[2]
+    category = custom_id_data[3]
+    id_filter = custom_id_data[4]
 
-async def viewbinds_prev_button(interaction: hikari.ComponentInteraction):
-    pass
+    # 15 minute timeout on prompts. Woo stateless.
+    # Could also just edit the message to remove the buttons?
+    time_diff = datetime.utcnow() - interaction.message.timestamp.replace(tzinfo=None)
+    if (time_diff.seconds / 60) >= 15:
+        return (
+            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+            .set_content(
+                "This prompt is quite old, try running the command again and using that prompt instead."
+            )
+            .set_flags(hikari.MessageFlag.EPHEMERAL)
+        )
+
+    if str(interaction.member.id) != author_id:
+        # Could just silently fail too... Can't defer before here or else the eph response
+        # fail to show up.
+        return (
+            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+            .set_content("You are not the person who ran this command!")
+            .set_flags(hikari.MessageFlag.EPHEMERAL)
+        )
+    else:
+        await interaction.create_initial_response(
+            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.MessageFlag.EPHEMERAL
+        )
+
+    page = await build_page_components(
+        interaction.guild_id, int(author_id), category, int(page_number), id_filter
+    )
+    embed = await build_page_embed(page)
+
+    # Update the embed.
+    await interaction.edit_message(interaction.message, embed=embed, components=[page["button_row"]])
+
+    # Return an empty message_update response so that way Hikari doesn't complain about nothing being returned.
+    # Can be omitted, just clogs up the logs otherwise. Might be worthwhile seeing if there is a "proper" way
+    # to edit the embed by returning from this function.
+    return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
 
 
 @bloxlink.command(
@@ -106,6 +149,9 @@ async def viewbinds_prev_button(interaction: hikari.ComponentInteraction):
             autocomplete=True,
         ),
     ],
+    accepted_custom_ids={
+        "viewbinds": viewbinds_button,
+    },
     autocomplete_handlers={
         "category": viewbinds_category_autocomplete,
         "id": viewbinds_id_autocomplete,
@@ -118,57 +164,64 @@ class ViewBindsCommand:
         category = ctx.options["category"]
         id_option = ctx.options["id"]
 
-        embed = hikari.Embed()
-        embed.title = "**Bloxlink Role Binds**"
-
-        bot_user = await bloxlink.rest.fetch_my_user()
-        avatar_url = bot_user.default_avatar_url if not bot_user.avatar_url else bot_user.avatar_url
-        embed.set_author(name="Powered by Bloxlink", icon=avatar_url)
-        embed.color = RED_COLOR
-        embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
-
-        components = None
-
-        # Valid categories:
-        #   - Group
-        #   - Asset
-        #   - Badge
-        #   - Gamepass
-
         page = None
         if id_option.lower() == "view binds":
-            page = await build_page(ctx, category.lower(), page_number=0)
+            page = await build_page_components(
+                ctx.guild_id, ctx.member.user.id, category.lower(), page_number=0
+            )
         else:
-            page = await build_page(ctx, category.lower(), page_number=0, id_filter=id_option)
+            page = await build_page_components(
+                ctx.guild_id, ctx.member.user.id, category.lower(), page_number=0, id_filter=id_option
+            )
 
-        if not page:
-            page = "You have no binds that match the options you passed. "
-            "Please use `/bind` to make a new role bind, or try again with different options."
-        if page is str:
-            embed.description = page
-        else:
-            if page["linked_group"]:
-                embed.add_field("Linked Groups", "\n".join(page["linked_group"]))
-
-            if page["group_roles"]:
-                rank_map = page["group_roles"]
-                for group in rank_map.keys():
-                    embed.add_field(f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]))
-
-            if page["asset"]:
-                embed.add_field("Assets", "\n".join(page["asset"]))
-
-            if page["badge"]:
-                embed.add_field("Badges", "\n".join(page["badge"]))
-
-            if page["gamepass"]:
-                embed.add_field("Gamepasses", "\n".join(page["gamepass"]))
-
-        await ctx.response.send(embed=embed)
+        embed = await build_page_embed(page)
+        button_row = page["button_row"]
+        await ctx.response.send(embed=embed, components=button_row)
 
 
-async def build_page(ctx: CommandContext, category: str, page_number: int, id_filter: str = None):
-    guild_data = await bloxlink.fetch_guild_data(ctx.guild_id, "binds")
+async def build_page_embed(page_components) -> hikari.Embed:
+    embed = hikari.Embed()
+    embed.title = "**Bloxlink Role Binds**"
+
+    bot_user = await bloxlink.rest.fetch_my_user()
+    avatar_url = bot_user.default_avatar_url if not bot_user.avatar_url else bot_user.avatar_url
+    embed.set_author(name="Powered by Bloxlink", icon=avatar_url)
+    embed.color = RED_COLOR
+    embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
+
+    if not page_components:
+        page_components = "You have no binds that match the options you passed. "
+        "Please use `/bind` to make a new role bind, or try again with different options."
+
+    if page_components is str:
+        embed.description = page_components
+    else:
+        if page_components["linked_group"]:
+            embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]))
+
+        if page_components["group_roles"]:
+            rank_map = page_components["group_roles"]
+            for group in rank_map.keys():
+                embed.add_field(f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]))
+
+        if page_components["asset"]:
+            embed.add_field("Assets", "\n".join(page_components["asset"]))
+
+        if page_components["badge"]:
+            embed.add_field("Badges", "\n".join(page_components["badge"]))
+
+        if page_components["gamepass"]:
+            embed.add_field("Gamepasses", "\n".join(page_components["gamepass"]))
+
+    return embed
+
+
+async def build_page_components(
+    guild_id: int, author_id: int, category: str, page_number: int, id_filter: str = None
+) -> dict | str:
+    """Generates a dictionary containing all relevant categories to generate the viewbinds embed with. Also
+    generates the buttons that will be added if the bind count is over MAX_BINDS_PER_PAGE."""
+    guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
 
     # Filter for the category.
     categories = ("group", "asset", "badge", "gamepass")
@@ -181,7 +234,8 @@ async def build_page(ctx: CommandContext, category: str, page_number: int, id_fi
     binds = [GuildBind(**bind) for bind in guild_data.binds]
 
     filtered_binds = filter(lambda b: b.type == category, binds)
-    if id_filter:
+
+    if id_filter and str(id_filter).lower() != "none":
         filtered_binds = filter(lambda b: str(b.id) == id_filter, filtered_binds)
 
     binds = list(filtered_binds)
@@ -190,11 +244,40 @@ async def build_page(ctx: CommandContext, category: str, page_number: int, id_fi
     if not bind_length:
         return ""
 
-    output = {"linked_group": [], "group_roles": {}, "asset": [], "badge": [], "gamepass": []}
+    output = {
+        "linked_group": [],
+        "group_roles": {},
+        "asset": [],
+        "badge": [],
+        "gamepass": [],
+        "button_row": None,
+    }
 
     offset = page_number * MAX_BINDS_PER_PAGE
     max_count = bind_length if (offset + MAX_BINDS_PER_PAGE >= bind_length) else offset + MAX_BINDS_PER_PAGE
     sliced_binds = binds[offset:max_count]
+
+    # Setup button row if necessary
+    if bind_length > MAX_BINDS_PER_PAGE:
+        button_row = bloxlink.rest.build_message_action_row()
+
+        # Previous button
+        button_row.add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            f"viewbinds:{author_id}:{page_number - 1}:{category}:{id_filter}",
+            label="<<",
+            is_disabled=True if page_number == 0 else False,
+        )
+
+        # Next button
+        button_row.add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            f"viewbinds:{author_id}:{page_number + 1}:{category}:{id_filter}",
+            label=">>",
+            is_disabled=True if max_count == bind_length else False,
+        )
+
+        output["button_row"] = button_row
 
     # Used to prevent needing to get group data each iteration
     group_data = None
@@ -207,7 +290,9 @@ async def build_page(ctx: CommandContext, category: str, page_number: int, id_fi
             if not group_data or group_data.id != bind.id:
                 group_data = await get_group(bind.id)
 
-        bind_string = await bind.get_bind_string(ctx.guild_id, include_id=include_id, group_data=group_data)
+        bind_string = await bind.get_bind_string(
+            guild_id=guild_id, include_id=include_id, group_data=group_data
+        )
 
         if typing == "linked_group":
             output["linked_group"].append(bind_string)
