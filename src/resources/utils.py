@@ -1,9 +1,6 @@
 from enum import Enum
 import aiohttp, asyncio
 
-import hikari
-
-from resources.bloxlink import instance as bloxlink
 from requests.utils import requote_uri
 from .secrets import PROXY_URL
 from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
