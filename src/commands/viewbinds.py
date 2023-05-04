@@ -25,7 +25,7 @@ async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteIntera
             choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
             continue
 
-        if bind_type.startswith(user_input.value):
+        if bind_type.startswith(user_input.value.lower()):
             choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
             continue
 
