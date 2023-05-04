@@ -13,33 +13,21 @@ MAX_BINDS_PER_PAGE = 10
 async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteInteraction):
     guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
 
-    # Bools used to prevent duplicates.
-    group = asset = badge = gamepass = False
-
     choices = []
-    binds = [GuildBind(**bind) for bind in guild_data.binds]
+    bind_type_set = set(bind["bind"]["type"] for bind in guild_data.binds)
 
     # Get user input in a guaranteed manner.
-    user_input = ""
-    for option in interaction.options:
-        if option.name == "category":
-            user_input = option.value
+    user_input = next((option for option in interaction.options if option.name == "category"), "")
 
-    for bind in binds:
-        bind_type = bind.type
+    for bind_type in sorted(bind_type_set):
+        capitalized_type = bind_type.capitalize()
+        if not user_input:
+            choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
+            continue
 
-        if bind_type == "asset" and not asset and "asset".startswith(user_input):
-            choices.append(hikari.impl.AutocompleteChoiceBuilder("Asset", "Asset"))
-            asset = True
-        elif bind_type == "badge" and not badge and "badge".startswith(user_input):
-            choices.append(hikari.impl.AutocompleteChoiceBuilder("Badge", "Badge"))
-            badge = True
-        elif bind_type == "gamepass" and not gamepass and "gamepass".startswith(user_input):
-            choices.append(hikari.impl.AutocompleteChoiceBuilder("Gamepass", "Gamepass"))
-            gamepass = True
-        elif bind_type == "group" and not group and "group".startswith(user_input):
-            choices.append(hikari.impl.AutocompleteChoiceBuilder("Group", "Group"))
-            group = True
+        if bind_type.startswith(user_input.value):
+            choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
+            continue
 
     return interaction.build_response(choices)
 
@@ -64,15 +52,13 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
 
         # Conversion to GuildBind is because it's easier to get the typing for filtering.
         binds = [GuildBind(**bind) for bind in guild_data.binds]
-        filtered_binds = filter(lambda b: b.type.lower() == category_option.value.lower(), binds)
+        filtered_binds = set(x.id for x in binds if x.type.lower() == category_option.value.lower())
 
-        user_input = id_option.value.lower()
+        if id_option:
+            user_input = id_option.value.lower()
 
-        # Remove duplicate ids
-        id_list = [*set([bind.id for bind in filtered_binds])]
-
-        # Filter id list with user input
-        filtered_binds = filter(lambda b: str(b).startswith(user_input), id_list)
+            # Filter id list with user input
+            filtered_binds = filter(lambda b: str(b).startswith(user_input), filtered_binds)
 
         for bind in filtered_binds:
             choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
