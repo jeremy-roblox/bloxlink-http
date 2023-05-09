@@ -68,13 +68,22 @@ async def handle_command(interaction: hikari.CommandInteraction):
 
 
 async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
+    custom_id = interaction.custom_id
+
     # Iterate through commands and find the autocomplete function that corresponds to the slash cmd option name.
     for command in slash_commands.values():
-        if command.autocomplete_handlers:
-            for command_option in interaction.options:
-                if command_option.is_focused:
-                    # Requires that the dict key matches the option name.
-                    return await command.autocomplete_handlers[command_option.name](interaction)
+        if not command.autocomplete_handlers:
+            continue
+
+        for command_option in interaction.options:
+            if not command_option.is_focused:
+                continue
+
+            for autocomplete_method, autocomplete_fn in command.autocomplete_handlers.items():
+                if not command_option.name.startswith(autocomplete_method):
+                    continue
+
+                return await autocomplete_fn(interaction)
 
 
 async def handle_component(interaction: hikari.ComponentInteraction):
