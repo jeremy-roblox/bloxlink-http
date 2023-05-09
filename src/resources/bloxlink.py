@@ -102,7 +102,7 @@ class Bloxlink(hikari.RESTBot):
                 redis_aspects.pop(aspect_name)
 
         if redis_aspects:
-            await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
+            await self.redis.hmset(f"{domain}:{item_id}", redis_aspects)
 
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
