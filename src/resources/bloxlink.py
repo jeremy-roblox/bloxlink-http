@@ -170,6 +170,15 @@ class Bloxlink(hikari.RESTBot):
 
         return await self.rest.edit_member(user=member, guild=guild_id, roles=new_roles, reason=reason or "")
 
+    async def fetch_roles(self, guild_id: str | int):
+        """
+        guild.fetch_roles() but returns a nice dictionary instead
+
+        """
+        return {
+            str(role.id): role for role in await self.rest.fetch_roles(guild_id)
+        }
+
     @staticmethod
     def load_module(import_name: str) -> None:
         try:

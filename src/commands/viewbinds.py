@@ -13,52 +13,33 @@ MAX_BINDS_PER_PAGE = 10
 async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteInteraction):
     guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
 
-    choices = []
-    bind_type_set = set(bind["bind"]["type"] for bind in guild_data.binds)
+    bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
 
-    # Get user input in a guaranteed manner.
-    user_input = next((option for option in interaction.options if option.name == "category"), "")
-
-    for bind_type in sorted(bind_type_set):
-        capitalized_type = bind_type.capitalize()
-        if not user_input:
-            choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
-            continue
-
-        if bind_type.startswith(user_input.value.lower()):
-            choices.append(hikari.impl.AutocompleteChoiceBuilder(capitalized_type, capitalized_type))
-            continue
-
-    return interaction.build_response(choices)
+    return interaction.build_response([hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types])
 
 
 async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction):
-    category_option = None
-    id_option = None
+    choices = [
+        # base option
+        hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
+    ]
 
-    base_option = hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
-    # Always include the option to view all bindings.
-    choices = [base_option]
+    options = {
+        o.name.lower():o for o in interaction.options
+    }
 
-    for option in interaction.options:
-        if option.name == "category":
-            category_option = option
-        elif option.name == "id":
-            id_option = option
+    category_option = options.get("category")
+    id_option = options.get("id").value.lower() if options.get("id") else None
 
     # Only show more options if the category option has been set by the user.
     if category_option:
         guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
 
         # Conversion to GuildBind is because it's easier to get the typing for filtering.
-        binds = [GuildBind(**bind) for bind in guild_data.binds]
-        filtered_binds = set(x.id for x in binds if x.type.lower() == category_option.value.lower())
-
         if id_option:
-            user_input = id_option.value.lower()
-
-            # Filter id list with user input
-            filtered_binds = filter(lambda b: str(b).startswith(user_input), filtered_binds)
+            filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds] if str(x.id).startswith(id_option))
+        else:
+            filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds])
 
         for bind in filtered_binds:
             choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))

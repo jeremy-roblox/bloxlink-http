@@ -251,7 +251,7 @@ async def apply_binds(
 class GuildBind(BaseGuildBind):
     def determine_type(self) -> str:
         if self.type == "group":
-            if not self.roles or self.roles == "undefined" or self.roles == "null":
+            if not self.roles or self.roles in ("undefined", "null"):
                 return "linked_group"
             else:
                 return "group_roles"
@@ -340,21 +340,11 @@ async def role_ids_to_names(guild_id: int, roles: list) -> str:
     # TODO: utilize in-dev cache logic to get role data (and by extension the names)
     # for now, I will just always query for guild data. (very much a not friendly request pattern)
 
-    guild: hikari.guilds.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
-    guild_roles = guild.roles
+    guild_roles = await bloxlink.fetch_roles(guild_id)
 
-    output_list = []
-
-    for role in roles:
-        output_list.append(
-            guild_roles.get(hikari.Snowflake(role)).name
-            if guild_roles.get(hikari.Snowflake(role)) is not None
+    return ", ".join([
+        guild_roles.get(str(role_id)).name
+            if guild_roles.get(str(role_id))
             else "(Deleted Role)"
-        )
-
-    if len(output_list) == 0:
-        return ""
-    elif len(output_list) > 1:
-        return ", ".join(output_list)
-    else:
-        return output_list[0]
+        for role_id in roles
+    ])
