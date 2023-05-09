@@ -34,7 +34,7 @@ class Bloxlink(hikari.RESTBot):
         self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
         self.redis_messages = RedisMessageCollector(self.redis)
         self.started_at = datetime.utcnow()
-    
+
         instance = self
 
     @property
@@ -64,7 +64,7 @@ class Bloxlink(hikari.RESTBot):
             }
         })
         return res["data"]
-    
+
     async def fetch_discord_guild(self, guild_id: int) -> dict:
         res = await self.relay("CACHE_LOOKUP", {
             "query": "guild.data",
@@ -73,7 +73,7 @@ class Bloxlink(hikari.RESTBot):
             }
         })
         return res["data"]
-    
+
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
         """
         Fetch an item from local cache, then redis, then database.
@@ -94,15 +94,15 @@ class Bloxlink(hikari.RESTBot):
         Update an item's aspects in local cache, redis, and database.
         """
         # update redis cache
-        redis_aspects: dict = None
-        if any(isinstance(x, (dict, list)) for x in aspects.values()): # we don't save lists or dicts via redis
-            redis_aspects = dict(aspects)
+        redis_aspects = dict(aspects)
 
-            for aspect_name, aspect_value in dict(aspects).items():
-                if isinstance(aspect_value, (dict, list)):
-                    redis_aspects.pop(aspect_name)
+        # we don't save lists and dicts to redis
+        for aspect_name, aspect_value in dict(aspects).items():
+            if isinstance(aspect_value, (dict, list)):
+                redis_aspects.pop(aspect_name)
 
-        await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
+        if redis_aspects:
+            await self.redis.hmset(f"{domain}:{item_id}", redis_aspects or aspects)
 
         # update database
         await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
