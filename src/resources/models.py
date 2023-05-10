@@ -6,14 +6,8 @@ import hikari
 from .response import Response
 
 
+__all__ = ("UserData", "GuildData", "RobloxAccount", "CommandContext", "BaseGuildBind", "PremiumModel", "MISSING")
 
-__all__ = (
-    "UserData",
-    "GuildData",
-    "RobloxAccount",
-    "CommandContext",
-    "MISSING"
-)
 
 def default_field(obj):
     return field(default_factory=lambda: copy.copy(obj))
@@ -51,6 +45,8 @@ class GuildData:
     unverifiedRoleName: str = "Unverified" # deprecated
     unverifiedRole: str = None
 
+    premium: dict = None
+
 
 @dataclass(slots=True)
 class CommandContext:
@@ -63,6 +59,26 @@ class CommandContext:
     options: dict[str, str | int]
 
     response: Response
+
+@dataclass(slots=True)
+class PremiumModel:
+    active: bool = False
+    type: str = None
+    payment_source: str = None
+    tier: str = None
+    term: str = None
+    features: set = None
+
+    def __str__(self):
+        buffer = []
+
+        if self.features:
+            if "premium" in self.features:
+                buffer.append("Basic - Premium commands")
+            if "pro" in self.features:
+                buffer.append("Pro - Unlocks the Pro bot and a few [enterprise features](https://blox.link/pricing)")
+
+        return "\n".join(buffer) or "Not premium"
 
 
 class MISSING:
