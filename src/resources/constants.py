@@ -21,6 +21,10 @@ LIMITS = {
     }
 }
 
+SKU_TIERS = {
+	"1022662272188952627": "basic/month"
+}
+
 ALL_USER_API_SCOPES = ["groups", "badges"]
 
 RED_COLOR       = 0xdb2323
