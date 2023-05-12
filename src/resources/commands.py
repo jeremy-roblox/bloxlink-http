@@ -69,6 +69,8 @@ async def handle_command(interaction:hikari.CommandInteraction):
 
     await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)
 
+    yield interaction.build_response()
+
 
 async def handle_component(interaction: hikari.ComponentInteraction):
     custom_id = interaction.custom_id
@@ -116,35 +118,38 @@ def new_command(command: Any, **kwargs):
     logging.info(f"Registered command {command_name}")
 
 
-async def sync_commands(bot: hikari.RESTBot):
-    from resources.bloxlink import instance as bloxlink
+def sync_commands(bot: hikari.RESTBot):
+    async def main(): # weirdness, probably a bug with yuyo
+        from resources.bloxlink import instance as bloxlink
 
-    commands = []
+        commands = []
 
-    for new_command_data in slash_commands.values():
-        command: hikari.commands.SlashCommandBuilder = bloxlink.rest.slash_command_builder(
-            new_command_data.name, new_command_data.description)
+        for new_command_data in slash_commands.values():
+            command: hikari.commands.SlashCommandBuilder = bloxlink.rest.slash_command_builder(
+                new_command_data.name, new_command_data.description
+            )
 
-        if new_command_data.rest_subcommands:
-            for sucommand in new_command_data.rest_subcommands:
-                command.add_option(sucommand)
+            if new_command_data.rest_subcommands:
+                for sucommand in new_command_data.rest_subcommands:
+                    command.add_option(sucommand)
 
-        if new_command_data.permissions:
-            command.set_default_member_permissions(new_command_data.permissions)
+            if new_command_data.permissions:
+                command.set_default_member_permissions(new_command_data.permissions)
 
-        if new_command_data.options:
-            for option in new_command_data.options:
-                command.add_option(option)
+            if new_command_data.options:
+                for option in new_command_data.options:
+                    command.add_option(option)
 
-        commands.append(command)
+            commands.append(command)
 
+        await bloxlink.rest.set_application_commands(
+            application=DISCORD_APPLICATION_ID,
+            commands=commands,
+        )
 
-    await bloxlink.rest.set_application_commands(
-        application=DISCORD_APPLICATION_ID,
-        commands=commands,
-    )
+        logging.info(f"Registered {len(slash_commands)} slash commands.")
 
-    logging.info(f"Registered {len(slash_commands)} slash commands.")
+    return main
 
 
 async def try_command(fn: Callable, response: Response):

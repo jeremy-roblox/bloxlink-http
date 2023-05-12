@@ -1,19 +1,17 @@
 from datetime import datetime, timedelta
-from typing import Callable, Coroutine
+from typing import Callable
 import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
 import asyncio
-from inspect import iscoroutinefunction, isfunction
+from inspect import iscoroutinefunction
 import logging
 import importlib
 import functools
-from time import sleep
-from queue import Queue
-from threading import Lock
 import uuid
 import json
 from typing import Optional
+import yuyo
 
 logger = logging.getLogger()
 
@@ -24,7 +22,7 @@ from .models import UserData, GuildData
 
 instance: 'Bloxlink' = None
 
-class Bloxlink(hikari.RESTBot):
+class Bloxlink(yuyo.asgi.AsgiBot):
     def __init__(self, *args, **kwargs):
         global instance
 
