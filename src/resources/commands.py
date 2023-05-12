@@ -88,6 +88,15 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
             return await autocomplete_fn(interaction)
 
 
+async def handle_component(interaction: hikari.ComponentInteraction):
+    custom_id = interaction.custom_id
+
+    # iterate through commands and find the custom_id mapped function
+    for command in slash_commands.values():
+        for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
+            if custom_id.startswith(accepted_custom_id):
+                return await custom_id_fn(interaction)
+
 
 def new_command(command: Any, **kwargs):
     new_command_class = command()

@@ -108,6 +108,5 @@ class BaseGuildBind:
         self.guest = self.bind.get("guest", None)
 
 
-
 class MISSING:
     pass
