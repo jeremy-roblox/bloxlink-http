@@ -135,8 +135,10 @@ async def build_page_embed(page_components) -> hikari.Embed:
     embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
 
     if not page_components:
-        page_components = "You have no binds that match the options you passed. "
-        "Please use `/bind` to make a new role bind, or try again with different options."
+        page_components = (
+            "You have no binds that match the options you passed. "
+            "Please use `/bind` to make a new role bind, or try again with different options."
+        )
 
     if page_components is str:
         embed.description = page_components
