@@ -4,6 +4,7 @@ from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR
 from resources.pagination import pagination_validation
+from resources.component_helper import get_custom_id_data
 import hikari
 
 
@@ -56,12 +57,14 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     """Handles the pagination buttons for viewbinds. Since the custom_id includes the next page,
     we only need one method to handle both buttons."""
-    custom_id_data = interaction.custom_id.split(":")
 
-    author_id = custom_id_data[1]
-    page_number = custom_id_data[2]
-    category = custom_id_data[3]
-    id_filter = custom_id_data[4]
+    # get_custom_id_data starts at segment 1, data we care about starts at 2 (author ID +)
+    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=2)
+
+    author_id = custom_id_data[0]
+    page_number = custom_id_data[1]
+    category = custom_id_data[2]
+    id_filter = custom_id_data[3]
 
     page = await build_page_components(
         interaction.guild_id, int(author_id), category, int(page_number), id_filter

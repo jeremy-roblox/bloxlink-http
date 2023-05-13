@@ -63,7 +63,13 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
     await message.edit(embeds=message.embeds, components=new_components)
 
 
-def get_custom_id_data(custom_id: str, segment: int, message: hikari.Message = None) -> str | None:
+def get_custom_id_data(
+    custom_id: str,
+    segment: int = None,
+    segment_min: int = None,
+    segment_max: int = None,
+    message: hikari.Message = None,
+) -> str | tuple | None:
     if message:
         for action_row in message.components:
             for component in action_row.components:
@@ -75,7 +81,14 @@ def get_custom_id_data(custom_id: str, segment: int, message: hikari.Message = N
         custom_id = str(custom_id)
 
     custom_id_data = custom_id.split(":")
-    segment_data = custom_id_data[segment - 1] if len(custom_id_data) >= segment else None
+    segment_data = None
+
+    if segment:
+        segment_data = custom_id_data[segment - 1] if len(custom_id_data) >= segment else None
+    elif segment_min:
+        segment_data = tuple(
+            custom_id_data[segment_min - 1 : (segment_max if segment_max else len(custom_id_data))]
+        )
 
     return segment_data
 
