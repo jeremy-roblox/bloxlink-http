@@ -15,7 +15,9 @@ async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteIntera
 
     bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
 
-    return interaction.build_response([hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types])
+    return interaction.build_response(
+        [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
+    )
 
 
 async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction):
@@ -24,9 +26,7 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
         hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
     ]
 
-    options = {
-        o.name.lower():o for o in interaction.options
-    }
+    options = {o.name.lower(): o for o in interaction.options}
 
     category_option = options.get("category")
     id_option = options.get("id").value.lower() if options.get("id") else None
@@ -37,7 +37,11 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
 
         # Conversion to GuildBind is because it's easier to get the typing for filtering.
         if id_option:
-            filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds] if str(x.id).startswith(id_option))
+            filtered_binds = set(
+                x.id
+                for x in [GuildBind(**bind) for bind in guild_data.binds]
+                if str(x.id).startswith(id_option)
+            )
         else:
             filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds])
 
