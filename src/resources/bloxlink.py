@@ -20,7 +20,8 @@ from .commands import new_command
 from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from .models import UserData, GuildData
 
-instance: 'Bloxlink' = None
+instance: "Bloxlink" = None
+
 
 class Bloxlink(yuyo.asgi.AsgiBot):
     def __init__(self, *args, **kwargs):
@@ -28,7 +29,8 @@ class Bloxlink(yuyo.asgi.AsgiBot):
 
         super().__init__(*args, **kwargs)
 
-        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL); self.mongo.get_io_loop = asyncio.get_running_loop
+        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
+        self.mongo.get_io_loop = asyncio.get_running_loop
         self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
         self.redis_messages = RedisMessageCollector(self.redis)
         self.started_at = datetime.utcnow()
@@ -39,37 +41,35 @@ class Bloxlink(yuyo.asgi.AsgiBot):
     def uptime(self) -> timedelta:
         return datetime.utcnow() - self.started_at
 
-    async def relay(self, channel: str, payload: Optional[dict]= None, timeout: int = 2) -> dict:
+    async def relay(self, channel: str, payload: Optional[dict] = None, timeout: int = 2) -> dict:
         nonce = uuid.uuid4()
         reply_channel = f"REPLY:{nonce}"
 
         try:
             await self.redis_messages.pubsub.subscribe(reply_channel)
-            await self.redis.publish(channel, json.dumps({
-                "nonce": str(nonce),
-                "data": payload
-            }).encode("utf-8"))
+            await self.redis.publish(
+                channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
+            )
             return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
         except redis.RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
-        res = await self.relay("CACHE_LOOKUP", {
-            "query": "guild.member",
-            "data": {
-                "guild_id": guild_id,
-                "user_id": user_id
-            }
-        })
+        res = await self.relay(
+            "CACHE_LOOKUP", {"query": "guild.member", "data": {"guild_id": guild_id, "user_id": user_id}}
+        )
         return res["data"]
 
     async def fetch_discord_guild(self, guild_id: int) -> dict:
-        res = await self.relay("CACHE_LOOKUP", {
-            "query": "guild.data",
-            "data": {
-                "guild_id": guild_id,
-            }
-        })
+        res = await self.relay(
+            "CACHE_LOOKUP",
+            {
+                "query": "guild.data",
+                "data": {
+                    "guild_id": guild_id,
+                },
+            },
+        )
         return res["data"]
 
     async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
@@ -78,7 +78,9 @@ class Bloxlink(yuyo.asgi.AsgiBot):
         Will populate caches for later access
         """
         # should check local cache but for now just fetch from redis
-        item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x:True for x in aspects}) or {"_id": item_id}
+        item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x: True for x in aspects}) or {
+            "_id": item_id
+        }
 
         if item.get("_id"):
             item.pop("_id")
@@ -153,13 +155,21 @@ class Bloxlink(yuyo.asgi.AsgiBot):
         else:
             guild_id = str(guild)
 
-        for aspect_name, aspect in aspects.items(): # allow Discord objects to save by ID only
+        for aspect_name, aspect in aspects.items():  # allow Discord objects to save by ID only
             if hasattr(aspect, "id"):
                 aspects[aspect_name] = str(aspect.id)
 
         return await self.update_item("guilds", guild_id, **aspects)
 
-    async def edit_user_roles(self, member: hikari.Member, guild_id: str | int, *, add_roles: list = None, remove_roles: list=None, reason: str = "") -> hikari.Member:
+    async def edit_user_roles(
+        self,
+        member: hikari.Member,
+        guild_id: str | int,
+        *,
+        add_roles: list = None,
+        remove_roles: list = None,
+        reason: str = "",
+    ) -> hikari.Member:
         """
         Adds or remove roles from a member.
         """
@@ -173,9 +183,20 @@ class Bloxlink(yuyo.asgi.AsgiBot):
         guild.fetch_roles() but returns a nice dictionary instead
 
         """
-        return {
-            str(role.id): role for role in await self.rest.fetch_roles(guild_id)
-        }
+        return {str(role.id): role for role in await self.rest.fetch_roles(guild_id)}
+
+    async def role_ids_to_names(self, guild_id: int, roles: list) -> str:
+        # TODO: Use redis -> gateway comms to get role data/role names.
+        # For now this just makes a http request every time it needs it.
+
+        guild_roles = await self.fetch_roles(guild_id)
+
+        return ", ".join(
+            [
+                guild_roles.get(str(role_id)).name if guild_roles.get(str(role_id)) else "(Deleted Role)"
+                for role_id in roles
+            ]
+        )
 
     @staticmethod
     def load_module(import_name: str) -> None:

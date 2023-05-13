@@ -22,8 +22,7 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
     return (
         len(guild_data.binds)
         if not group_id
-        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id))
-        or 0
+        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id)) or 0
     )
 
 
@@ -31,33 +30,33 @@ async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
     return "TODO: show existing binds"
 
 
-async def create_bind(guild_id: int | str,
-                      bind_type: str["group" | "asset" | "gamepass" | "badge"],
-                      bind_id: int=None,
-                      roles: list[str]=None,
-                      remove_roles: list[str]=None,
-                      nickname: str = None,
-                      **bind_data):
+async def create_bind(
+    guild_id: int | str,
+    bind_type: str["group" | "asset" | "gamepass" | "badge"],
+    bind_id: int = None,
+    roles: list[str] = None,
+    remove_roles: list[str] = None,
+    nickname: str = None,
+    **bind_data,
+):
     """creates a new guild bind. if it already exists, the roles will be appended"""
 
     guild_binds: GuildData = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
 
-    existing_binds = list(filter(
-        lambda b: b["bind"]["type"] == bind_type and
-                 (b["bind"].get("id") == bind_id if bind_id else True),
-        guild_binds
-    ))
+    existing_binds = list(
+        filter(
+            lambda b: b["bind"]["type"] == bind_type
+            and (b["bind"].get("id") == bind_id if bind_id else True),
+            guild_binds,
+        )
+    )
 
     if not existing_binds:
         new_bind = {
             "roles": roles,
             "removeRoles": remove_roles,
             "nickname": nickname,
-            "bind": {
-                "type": bind_type,
-                "id": bind_id,
-                **bind_data
-            }
+            "bind": {"type": bind_type, "id": bind_id, **bind_data},
         }
 
         guild_binds.append(new_bind)
@@ -74,21 +73,14 @@ async def create_bind(guild_id: int | str,
         else:
             if roles:
                 # TODO: compare current role IDs with the server and remove invalid roles
-                existing_binds[0]["roles"] = list(set(existing_binds[0].get("roles", []) + roles)) # add roles and removes duplicates
+                existing_binds[0]["roles"] = list(
+                    set(existing_binds[0].get("roles", []) + roles)
+                )  # add roles and removes duplicates
             else:
                 raise NotImplementedError()
     else:
         # everything else
         raise NotImplementedError()
-
-
-
-
-
-
-
-
-
 
 
 async def apply_binds(
@@ -259,12 +251,10 @@ class GuildBind(BaseGuildBind):
             return self.type
 
     async def get_bind_string(self, guild_id: int, include_id=True, group_data=None) -> str:
-        role_string = await role_ids_to_names(guild_id=guild_id, roles=self.roles)
+        role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
         remove_role_str = ""
         if self.removeRoles:
-            remove_role_str = (
-                f"**Remove Roles:** {await role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
-            )
+            remove_role_str = f"**Remove Roles:** {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
 
         bind_string_list = []
 
@@ -334,17 +324,3 @@ class GuildBind(BaseGuildBind):
         if remove_role_str:
             bind_string_list.append(remove_role_str)
         return " → ".join(bind_string_list)
-
-
-async def role_ids_to_names(guild_id: int, roles: list) -> str:
-    # TODO: utilize in-dev cache logic to get role data (and by extension the names)
-    # for now, I will just always query for guild data. (very much a not friendly request pattern)
-
-    guild_roles = await bloxlink.fetch_roles(guild_id)
-
-    return ", ".join([
-        guild_roles.get(str(role_id)).name
-            if guild_roles.get(str(role_id))
-            else "(Deleted Role)"
-        for role_id in roles
-    ])
