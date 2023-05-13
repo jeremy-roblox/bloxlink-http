@@ -1,17 +1,19 @@
 from datetime import datetime
+from resources.component_helper import get_custom_id_data
 import hikari
 
 
 def pagination_validation(timeout_mins: int = 15):
     """Handle generic logic for pagination, such as author validation and prompt timeouts.
     Automatically defers if the prompt isn't timed out or the interaction author doesn't match the original author.
-    The original author is presumed to be the first element in the custom_id (index 1).
+
+    The original author is presumed to be the first element in the custom_id after the
+    command name (in the case of viewbinds) - (index 1 raw, segment 2 for get_custom_id_data).
     """
 
     def func_wrapper(func):
         async def response_wrapper(interaction: hikari.ComponentInteraction):
-            custom_id_data = interaction.custom_id.split(":")
-            author_id = custom_id_data[1]
+            author_id = get_custom_id_data(interaction.custom_id, segment=2)
 
             # >= 15 minutes, tell the user to make a new prompt + remove buttons.
             time_diff = datetime.utcnow() - interaction.message.timestamp.replace(tzinfo=None)
