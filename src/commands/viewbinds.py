@@ -3,7 +3,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR
-from datetime import datetime
+from resources.pagination import pagination_validation
 import hikari
 
 
@@ -52,6 +52,7 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
     return interaction.build_response(choices[:25])
 
 
+@pagination_validation(timeout_mins=15)
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     """Handles the pagination buttons for viewbinds. Since the custom_id includes the next page,
     we only need one method to handle both buttons."""
@@ -62,31 +63,6 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     category = custom_id_data[3]
     id_filter = custom_id_data[4]
 
-    # 15 minute timeout on prompts. Woo stateless.
-    # Could also just edit the message to remove the buttons?
-    time_diff = datetime.utcnow() - interaction.message.timestamp.replace(tzinfo=None)
-    if (time_diff.seconds / 60) >= 15:
-        return (
-            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-            .set_content(
-                "This prompt is quite old, try running the command again and using that prompt instead."
-            )
-            .set_flags(hikari.MessageFlag.EPHEMERAL)
-        )
-
-    if str(interaction.member.id) != author_id:
-        # Could just silently fail too... Can't defer before here or else the eph response
-        # fail to show up.
-        return (
-            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-            .set_content("You are not the person who ran this command!")
-            .set_flags(hikari.MessageFlag.EPHEMERAL)
-        )
-    else:
-        await interaction.create_initial_response(
-            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.MessageFlag.EPHEMERAL
-        )
-
     page = await build_page_components(
         interaction.guild_id, int(author_id), category, int(page_number), id_filter
     )
@@ -94,11 +70,6 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
 
     # Update the embed.
     await interaction.edit_message(interaction.message, embed=embed, components=[page["button_row"]])
-
-    # Return an empty message_update response so that way Hikari doesn't complain about nothing being returned.
-    # Can be omitted, just clogs up the logs otherwise. Might be worthwhile seeing if there is a "proper" way
-    # to edit the embed by returning from this function.
-    return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
 
 
 @bloxlink.command(
