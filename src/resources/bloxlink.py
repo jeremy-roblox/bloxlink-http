@@ -12,7 +12,6 @@ import uuid
 import json
 from typing import Optional
 import yuyo
-import fastapi
 
 logger = logging.getLogger()
 
@@ -35,8 +34,6 @@ class Bloxlink(yuyo.asgi.AsgiBot):
         self.started_at = datetime.utcnow()
 
         instance = self
-
-        app: fastapi.FastAPI = None
 
     @property
     def uptime(self) -> timedelta:

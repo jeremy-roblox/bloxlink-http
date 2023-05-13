@@ -4,12 +4,10 @@ from config import SERVER_HOST, SERVER_PORT
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
 from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
-from resources.endpoints import register_endpoints
 import logging
 import hikari
 import fastapi
 import uvicorn
-import asyncio
 
 
 logger = logging.getLogger()
@@ -38,7 +36,6 @@ for directory in MODULES:
 
         bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
-register_endpoints(app, bot)
 app.mount("/", bot) # blocks, no other sub-apps can be registered after
 
 if __name__ == "__main__":
