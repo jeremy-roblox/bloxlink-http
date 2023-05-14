@@ -240,6 +240,17 @@ async def apply_binds(
     return embed
 
 
+def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: int = None):
+    binds = [GuildBind(**bind) for bind in bind_list]
+    if category:
+        binds = filter(lambda b: b.type == category, binds)
+
+    if id_filter:
+        binds = filter(lambda b: b.id == id_filter, binds)
+
+    return list(binds)
+
+
 class GuildBind(BaseGuildBind):
     def determine_type(self) -> str:
         if self.type == "group":

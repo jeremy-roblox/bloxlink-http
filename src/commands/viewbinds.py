@@ -1,4 +1,4 @@
-from resources.binds import GuildBind
+from resources.binds import GuildBind, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
@@ -178,14 +178,9 @@ async def build_page_components(
             "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
         )
 
-    binds = [GuildBind(**bind) for bind in guild_data.binds]
+    id_filter = None if id_filter.lower() == "none" else id_filter
 
-    filtered_binds = filter(lambda b: b.type == category, binds)
-
-    if id_filter and str(id_filter).lower() != "none":
-        filtered_binds = filter(lambda b: str(b.id) == id_filter, filtered_binds)
-
-    binds = list(filtered_binds)
+    binds = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_filter)
     bind_length = len(binds)
 
     if not bind_length:
