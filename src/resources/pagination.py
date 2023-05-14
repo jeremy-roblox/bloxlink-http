@@ -4,8 +4,7 @@ import hikari
 
 
 def pagination_validation(timeout_mins: int = 15):
-    """Handle generic logic for pagination, such as author validation and prompt timeouts.
-    Automatically defers if the prompt isn't timed out or the interaction author doesn't match the original author.
+    """Handle generic logic for pagination, such as author validation. Automatically defers.
 
     The original author is presumed to be the first element in the custom_id after the
     command name (in the case of viewbinds) - (index 1 raw, segment 2 for get_custom_id_data).
@@ -14,20 +13,6 @@ def pagination_validation(timeout_mins: int = 15):
     def func_wrapper(func):
         async def response_wrapper(interaction: hikari.ComponentInteraction):
             author_id = get_custom_id_data(interaction.custom_id, segment=2)
-
-            # >= 15 minutes, tell the user to make a new prompt + remove buttons.
-            time_diff = datetime.utcnow() - interaction.message.timestamp.replace(tzinfo=None)
-            if (time_diff.seconds / 60) >= timeout_mins:
-                await interaction.create_initial_response(
-                    hikari.ResponseType.DEFERRED_MESSAGE_CREATE, flags=hikari.MessageFlag.EPHEMERAL
-                )
-
-                await interaction.edit_message(message=interaction.message, components=[])
-                await interaction.edit_initial_response(
-                    "This prompt is quite old, please run the command again and use that prompt instead."
-                )
-                # Return something so Hikari doesn't complain.
-                return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
 
             # Only accept input from the author of the command
             # Presumes that the original author ID is the second value in the custom_id.
