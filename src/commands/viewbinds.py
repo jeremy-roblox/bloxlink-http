@@ -5,6 +5,7 @@ from resources.models import CommandContext
 from resources.constants import RED_COLOR
 from resources.pagination import pagination_validation
 from resources.component_helper import get_custom_id_data
+from resources.exceptions import RobloxAPIError
 import hikari
 
 
@@ -149,7 +150,12 @@ async def build_page_embed(page_components) -> hikari.Embed:
         if page_components["group_roles"]:
             rank_map = page_components["group_roles"]
             for group in rank_map.keys():
-                embed.add_field(f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]))
+                try:
+                    embed.add_field(
+                        f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]), inline=True
+                    )
+                except RobloxAPIError:
+                    embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
 
         if page_components["asset"]:
             embed.add_field("Assets", "\n".join(page_components["asset"]))
@@ -178,7 +184,8 @@ async def build_page_components(
             "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
         )
 
-    id_filter = None if id_filter.lower() == "none" else id_filter
+    if id_filter:
+        id_filter = None if id_filter.lower() == "none" else id_filter
 
     binds = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_filter)
     bind_length = len(binds)
@@ -207,7 +214,7 @@ async def build_page_components(
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{author_id}:{page_number - 1}:{category}:{id_filter}",
-            label="<<",
+            label="\u2B9C",
             is_disabled=True if page_number == 0 else False,
         )
 
@@ -215,7 +222,7 @@ async def build_page_components(
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{author_id}:{page_number + 1}:{category}:{id_filter}",
-            label=">>",
+            label="\u2B9E",
             is_disabled=True if max_count == bind_length else False,
         )
 
