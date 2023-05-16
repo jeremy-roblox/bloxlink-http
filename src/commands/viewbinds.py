@@ -92,7 +92,15 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
 
     guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
 
-    paginator = Paginator(guild_id, user_id, guild_data.binds, page_number, max_items=MAX_BINDS_PER_PAGE, custom_formatter=viewbinds_paginator_formatter(id_filter, category), extra_custom_ids=f"{category}:{id_filter}")
+    paginator = Paginator(
+        guild_id,
+        user_id,
+        guild_data.binds,
+        page_number,
+        max_items=MAX_BINDS_PER_PAGE,
+        custom_formatter=viewbinds_paginator_formatter(id_filter, category),
+        extra_custom_ids=f"{category}:{id_filter}",
+    )
 
     embed = paginator.embed
     components = paginator.components
@@ -102,7 +110,8 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     await set_components(message, components=[components])
 
     return interaction.build_deferred_response(
-        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE)
+        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
+    )
 
 
 @bloxlink.command(
@@ -144,7 +153,14 @@ class ViewBindsCommand:
 
         guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
 
-        paginator = Paginator(guild_id, user_id, max_items=MAX_BINDS_PER_PAGE, items=guild_data.binds, custom_formatter=viewbinds_paginator_formatter(id_option, category), extra_custom_ids=f"{category}:{id_option}")
+        paginator = Paginator(
+            guild_id,
+            user_id,
+            max_items=MAX_BINDS_PER_PAGE,
+            items=guild_data.binds,
+            custom_formatter=viewbinds_paginator_formatter(id_option, category),
+            extra_custom_ids=f"{category}:{id_option}",
+        )
 
         embed = paginator.embed
         components = paginator.components
@@ -156,7 +172,16 @@ def viewbinds_paginator_formatter(id_filter, category_filter):
     def wrapper(page_number, items):
         embed = hikari.Embed(title="Bloxlink Role Binds")
 
-        embed.description = "\n".join([f"bind id {bind['bind']['id']}" for bind in items if (bind['bind']['type'] == category_filter and (id_filter and str(bind['bind']['id']) == id_filter or True))])
+        embed.description = "\n".join(
+            [
+                f"bind id {bind['bind']['id']}"
+                for bind in items
+                if (
+                    bind["bind"]["type"] == category_filter
+                    and (id_filter and str(bind["bind"]["id"]) == id_filter or True)
+                )
+            ]
+        )
 
         return embed
 
@@ -164,7 +189,16 @@ def viewbinds_paginator_formatter(id_filter, category_filter):
 
 
 class Paginator:
-    def __init__(self, guild_id, user_id, items, page_number=0, max_items=10, custom_formatter=None, extra_custom_ids=""):
+    def __init__(
+        self,
+        guild_id,
+        user_id,
+        items,
+        page_number=0,
+        max_items=10,
+        custom_formatter=None,
+        extra_custom_ids="",
+    ):
         self.guild_id = guild_id
         self.user_id = user_id
         self.page_number = page_number
@@ -176,7 +210,9 @@ class Paginator:
     @property
     def embed(self):
         offset = self.page_number * self.max_items
-        max_items = len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
+        max_items = (
+            len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
+        )
         current_items = self.items[offset:max_items]
 
         if self.custom_formatter:
@@ -195,7 +231,9 @@ class Paginator:
         button_row = bloxlink.rest.build_message_action_row()
 
         offset = self.page_number * self.max_items
-        max_items = len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
+        max_items = (
+            len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
+        )
 
         # Previous button
         button_row.add_interactive_button(
@@ -210,7 +248,7 @@ class Paginator:
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label="\u2B9E",
-            is_disabled=True if max_items == len(self.items) else False
+            is_disabled=True if max_items == len(self.items) else False,
         )
 
         return button_row
@@ -218,8 +256,6 @@ class Paginator:
     @components.setter
     def components(self, value):
         self._components = value
-
-
 
 
 async def build_page_embed(page_components) -> hikari.Embed:
