@@ -240,13 +240,22 @@ async def apply_binds(
     return embed
 
 
-def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: int = None):
-    binds = [GuildBind(**bind) for bind in bind_list]
-    if category:
-        binds = filter(lambda b: b.type == category, binds)
+def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
+    binds = []
 
     if id_filter:
-        binds = filter(lambda b: b.id == id_filter, binds)
+        id_filter = None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else id_filter
+
+    for bind in bind_list:
+        classed_bind = GuildBind(**bind)
+
+        if category and classed_bind.type != category:
+            continue
+
+        if id_filter and str(classed_bind.id) != id_filter:
+            continue
+
+        binds.append(classed_bind)
 
     return list(binds)
 
