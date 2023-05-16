@@ -100,6 +100,7 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
         max_items=MAX_BINDS_PER_PAGE,
         custom_formatter=viewbinds_paginator_formatter(id_filter, category),
         extra_custom_ids=f"{category}:{id_filter}",
+        item_filter=viewbinds_item_filter(id_filter, category),
     )
 
     embed = paginator.embed
@@ -160,6 +161,7 @@ class ViewBindsCommand:
             items=guild_data.binds,
             custom_formatter=viewbinds_paginator_formatter(id_option, category),
             extra_custom_ids=f"{category}:{id_option}",
+            item_filter=viewbinds_item_filter(id_option, category),
         )
 
         embed = paginator.embed
@@ -168,22 +170,26 @@ class ViewBindsCommand:
         await ctx.response.send(embed=embed, components=components)
 
 
-def viewbinds_paginator_formatter(id_filter, category_filter):
-    def wrapper(page_number, items):
-        embed = hikari.Embed(title="Bloxlink Role Binds")
+def viewbinds_paginator_formatter(page_number, items):
+    embed = hikari.Embed(title="Bloxlink Role Binds")
 
-        embed.description = "\n".join(
-            [
-                f"bind id {bind['bind']['id']}"
-                for bind in items
-                if (
-                    bind["bind"]["type"] == category_filter
-                    and (id_filter and str(bind["bind"]["id"]) == id_filter or True)
-                )
-            ]
-        )
+    embed.description = "\n".join(
+        [
+            f"bind id {bind.id}"
+            for bind in items
+            # if (
+            #     bind["bind"]["type"] == category_filter
+            #     and (id_filter and str(bind["bind"]["id"]) == id_filter or True)
+            # )
+        ]
+    )
 
-        return embed
+    return embed
+
+
+def viewbinds_item_filter(id_filter, category_filter):
+    def wrapper(items):
+        return json_binds_to_guild_binds(items, category=category_filter, id_filter=id_filter)
 
     return wrapper
 
@@ -198,11 +204,12 @@ class Paginator:
         max_items=10,
         custom_formatter=None,
         extra_custom_ids="",
+        item_filter=None,
     ):
         self.guild_id = guild_id
         self.user_id = user_id
         self.page_number = page_number
-        self.items = items
+        self.items = items if not item_filter else item_filter(items)
         self.max_items = max_items
         self.custom_formatter = custom_formatter
         self.extra_custom_ids = extra_custom_ids
