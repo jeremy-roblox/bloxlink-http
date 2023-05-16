@@ -3,8 +3,8 @@ from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR
-from resources.pagination import button_author_validation, Paginator
-from resources.component_helper import get_custom_id_data, set_components
+from resources.pagination import Paginator
+from resources.component_helper import get_custom_id_data, set_components, button_author_validation
 from resources.exceptions import RobloxAPIError
 import hikari
 
