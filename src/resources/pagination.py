@@ -3,8 +3,10 @@ from resources.component_helper import get_custom_id_data
 import hikari
 
 
-def pagination_validation(timeout_mins: int = 15):
-    """Handle generic logic for pagination, such as author validation. Automatically defers.
+def button_author_validation(author_segment: int = 2):
+    """Handle same-author validation for buttons. Automatically defers.
+
+    Ensures that the author of the command is the one who can press buttons.
 
     The original author is presumed to be the first element in the custom_id after the
     command name (in the case of viewbinds) - (index 1 raw, segment 2 for get_custom_id_data).
@@ -12,7 +14,7 @@ def pagination_validation(timeout_mins: int = 15):
 
     def func_wrapper(func):
         async def response_wrapper(interaction: hikari.ComponentInteraction):
-            author_id = get_custom_id_data(interaction.custom_id, segment=2)
+            author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
 
             # Only accept input from the author of the command
             # Presumes that the original author ID is the second value in the custom_id.
