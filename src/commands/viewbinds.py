@@ -158,8 +158,8 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id):
 
     if len(items) == 0:
         embed.description = (
-            "No bindings were found. Double check that you have your `category` "
-            "set correctly and/or that you set the right `id`."
+            "You have no binds that match the options you passed. "
+            "Please use `/bind` to make a new role bind, or try again with different options."
         )
         return embed
 
@@ -218,35 +218,26 @@ async def build_page_embed(page_components) -> hikari.Embed:
     embed.color = RED_COLOR
     embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
 
-    if not page_components:
-        page_components = (
-            "You have no binds that match the options you passed. "
-            "Please use `/bind` to make a new role bind, or try again with different options."
-        )
+    if page_components["linked_group"]:
+        embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]))
 
-    if page_components is str:
-        embed.description = page_components
-    else:
-        if page_components["linked_group"]:
-            embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]))
+    if page_components["group_roles"]:
+        rank_map = page_components["group_roles"]
+        for group in rank_map.keys():
+            try:
+                embed.add_field(
+                    f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]), inline=True
+                )
+            except RobloxAPIError:
+                embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
 
-        if page_components["group_roles"]:
-            rank_map = page_components["group_roles"]
-            for group in rank_map.keys():
-                try:
-                    embed.add_field(
-                        f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]), inline=True
-                    )
-                except RobloxAPIError:
-                    embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
+    if page_components["asset"]:
+        embed.add_field("Assets", "\n".join(page_components["asset"]))
 
-        if page_components["asset"]:
-            embed.add_field("Assets", "\n".join(page_components["asset"]))
+    if page_components["badge"]:
+        embed.add_field("Badges", "\n".join(page_components["badge"]))
 
-        if page_components["badge"]:
-            embed.add_field("Badges", "\n".join(page_components["badge"]))
-
-        if page_components["gamepass"]:
-            embed.add_field("Gamepasses", "\n".join(page_components["gamepass"]))
+    if page_components["gamepass"]:
+        embed.add_field("Gamepasses", "\n".join(page_components["gamepass"]))
 
     return embed
