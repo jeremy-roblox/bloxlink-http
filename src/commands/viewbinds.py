@@ -3,7 +3,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR
-from resources.pagination import pagination_validation
+from resources.pagination import button_author_validation
 from resources.component_helper import get_custom_id_data, set_components
 from resources.exceptions import RobloxAPIError
 import hikari
@@ -54,28 +54,7 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
     return interaction.build_response(choices[:25])
 
 
-# @pagination_validation(timeout_mins=15)
-# async def viewbinds_button(interaction: hikari.ComponentInteraction):
-#     """Handles the pagination buttons for viewbinds. Since the custom_id includes the next page,
-#     we only need one method to handle both buttons."""
-
-#     # get_custom_id_data starts at segment 1, data we care about starts at 2 (author ID +)
-#     custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=2)
-
-#     author_id = custom_id_data[0]
-#     page_number = custom_id_data[1]
-#     category = custom_id_data[2]
-#     id_filter = custom_id_data[3]
-
-#     page = await build_page_components(
-#         interaction.guild_id, int(author_id), category, int(page_number), id_filter
-#     )
-#     embed = await build_page_embed(page)
-
-#     # Update the embed.
-#     await interaction.edit_message(interaction.message, embed=embed, components=[page["button_row"]])
-
-
+@button_author_validation()
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
@@ -98,16 +77,20 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
         guild_data.binds,
         page_number,
         max_items=MAX_BINDS_PER_PAGE,
-        custom_formatter=viewbinds_paginator_formatter(id_filter, category),
+        custom_formatter=viewbinds_paginator_formatter,
         extra_custom_ids=f"{category}:{id_filter}",
         item_filter=viewbinds_item_filter(id_filter, category),
     )
 
-    embed = paginator.embed
+    embed = await paginator.embed
     components = paginator.components
 
     message.embeds[0] = embed
 
+    # Handles emojis as expected
+    # await interaction.edit_message(message, embed=embed, components=[components])
+
+    # TODO: Breaks emojis in the reply somehow?
     await set_components(message, components=[components])
 
     return interaction.build_deferred_response(
@@ -159,32 +142,63 @@ class ViewBindsCommand:
             user_id,
             max_items=MAX_BINDS_PER_PAGE,
             items=guild_data.binds,
-            custom_formatter=viewbinds_paginator_formatter(id_option, category),
+            custom_formatter=viewbinds_paginator_formatter,
             extra_custom_ids=f"{category}:{id_option}",
             item_filter=viewbinds_item_filter(id_option, category),
         )
 
-        embed = paginator.embed
+        embed = await paginator.embed
         components = paginator.components
 
         await ctx.response.send(embed=embed, components=components)
 
 
-def viewbinds_paginator_formatter(page_number, items):
+async def viewbinds_paginator_formatter(page_number, items, guild_id):
     embed = hikari.Embed(title="Bloxlink Role Binds")
 
-    embed.description = "\n".join(
-        [
-            f"bind id {bind.id}"
-            for bind in items
-            # if (
-            #     bind["bind"]["type"] == category_filter
-            #     and (id_filter and str(bind["bind"]["id"]) == id_filter or True)
-            # )
-        ]
-    )
+    if len(items) == 0:
+        embed.description = (
+            "No bindings were found. Double check that you have your `category` "
+            "set correctly and/or that you set the right `id`."
+        )
+        return embed
 
-    return embed
+    item_map = {
+        "linked_group": [],
+        "group_roles": {},
+        "asset": [],
+        "badge": [],
+        "gamepass": [],
+    }
+
+    group_data = None
+    for bind in items:
+        bind_type = bind.determine_type()
+        include_id = True if bind_type != "group_roles" else False
+
+        if bind_type == "linked_group" or bind_type == "group_roles":
+            if not group_data or group_data.id != bind.id:
+                try:
+                    group_data = await get_group(bind.id)
+                except RobloxAPIError:
+                    # TODO: Do something more useful here. Code will error either way right now.
+                    group_data = {}
+
+        bind_string = await bind.get_bind_string(
+            guild_id=guild_id, include_id=include_id, group_data=group_data
+        )
+
+        for types in item_map:
+            if types == "group_roles" and bind_type == types:
+                select_output = item_map[types].get(bind.id, [])
+                select_output.append(bind_string)
+                item_map[types][bind.id] = select_output
+            elif bind_type == types:
+                item_map[types].append(bind_string)
+
+    # TODO: Probably should either move the above logic out of here,
+    # and/or bring the build_page_embed logic into here.
+    return await build_page_embed(item_map)
 
 
 def viewbinds_item_filter(id_filter, category_filter):
@@ -215,7 +229,7 @@ class Paginator:
         self.extra_custom_ids = extra_custom_ids
 
     @property
-    def embed(self):
+    async def embed(self):
         offset = self.page_number * self.max_items
         max_items = (
             len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
@@ -223,7 +237,7 @@ class Paginator:
         current_items = self.items[offset:max_items]
 
         if self.custom_formatter:
-            embed = self.custom_formatter(self.page_number, current_items)
+            embed = await self.custom_formatter(self.page_number, current_items, self.guild_id)
         else:
             embed = hikari.Embed(title=f"Test Pagination", description=f"Page {self.page_number}")
 
@@ -307,93 +321,3 @@ async def build_page_embed(page_components) -> hikari.Embed:
             embed.add_field("Gamepasses", "\n".join(page_components["gamepass"]))
 
     return embed
-
-
-async def build_page_components(
-    guild_id: int, author_id: int, category: str, page_number: int, id_filter: str = None
-) -> dict | str:
-    """Generates a dictionary containing all relevant categories to generate the viewbinds embed with. Also
-    generates the buttons that will be added if the bind count is over MAX_BINDS_PER_PAGE."""
-    guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
-
-    # Filter for the category.
-    categories = ("group", "asset", "badge", "gamepass")
-    if category not in categories:
-        return (
-            "Your given category option was invalid. "
-            "Only `Group`, `Asset`, `Badge`, and `Gamepass` are allowed options."
-        )
-
-    if id_filter:
-        id_filter = None if id_filter.lower() == "none" else id_filter
-
-    binds = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_filter)
-    bind_length = len(binds)
-
-    if not bind_length:
-        return ""
-
-    output = {
-        "linked_group": [],
-        "group_roles": {},
-        "asset": [],
-        "badge": [],
-        "gamepass": [],
-        "button_row": None,
-    }
-
-    offset = page_number * MAX_BINDS_PER_PAGE
-    max_count = bind_length if (offset + MAX_BINDS_PER_PAGE >= bind_length) else offset + MAX_BINDS_PER_PAGE
-    sliced_binds = binds[offset:max_count]
-
-    # Setup button row if necessary
-    if bind_length > MAX_BINDS_PER_PAGE:
-        button_row = bloxlink.rest.build_message_action_row()
-
-        # Previous button
-        button_row.add_interactive_button(
-            hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{author_id}:{page_number - 1}:{category}:{id_filter}",
-            label="\u2B9C",
-            is_disabled=True if page_number == 0 else False,
-        )
-
-        # Next button
-        button_row.add_interactive_button(
-            hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{author_id}:{page_number + 1}:{category}:{id_filter}",
-            label="\u2B9E",
-            is_disabled=True if max_count == bind_length else False,
-        )
-
-        output["button_row"] = button_row
-
-    # Used to prevent needing to get group data each iteration
-    group_data = None
-    for bind in sliced_binds:
-        typing = bind.determine_type()
-
-        include_id = True if typing != "group_roles" else False
-
-        if typing == "linked_group" or typing == "group_roles":
-            if not group_data or group_data.id != bind.id:
-                group_data = await get_group(bind.id)
-
-        bind_string = await bind.get_bind_string(
-            guild_id=guild_id, include_id=include_id, group_data=group_data
-        )
-
-        if typing == "linked_group":
-            output["linked_group"].append(bind_string)
-        elif typing == "group_roles":
-            select_output = output["group_roles"].get(bind.id, [])
-            select_output.append(bind_string)
-            output["group_roles"][bind.id] = select_output
-        elif typing == "asset":
-            output["asset"].append(bind_string)
-        elif typing == "badge":
-            output["badge"].append(bind_string)
-        elif typing == "gamepass":
-            output["gamepass"].append(bind_string)
-
-    return output
