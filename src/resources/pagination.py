@@ -3,6 +3,7 @@ from resources.component_helper import get_custom_id_data
 from resources.bloxlink import instance as bloxlink
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 import hikari
+import math
 
 
 class Paginator:
@@ -21,6 +22,7 @@ class Paginator:
         self.user_id = user_id
         self.page_number = page_number
         self.items = items if not item_filter else item_filter(items)
+        self.max_pages = math.ceil(len(self.items) / max_items)
         self.max_items = max_items
         self.custom_formatter = custom_formatter
         self.extra_custom_ids = extra_custom_ids
@@ -34,7 +36,9 @@ class Paginator:
         current_items = self.items[offset:max_items]
 
         if self.custom_formatter:
-            embed = await self.custom_formatter(self.page_number, current_items, self.guild_id)
+            embed = await self.custom_formatter(
+                self.page_number, current_items, self.guild_id, self.max_pages
+            )
         else:
             embed = hikari.Embed(title=f"Test Pagination", description=f"Page {self.page_number}")
 

@@ -153,7 +153,7 @@ class ViewBindsCommand:
         await ctx.response.send(embed=embed, components=components)
 
 
-async def viewbinds_paginator_formatter(page_number, items, guild_id):
+async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages):
     embed = hikari.Embed(title="Bloxlink Role Binds")
 
     if len(items) == 0:
@@ -198,7 +198,7 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id):
 
     # TODO: Probably should either move the above logic out of here,
     # and/or bring the build_page_embed logic into here.
-    return await build_page_embed(item_map)
+    return await build_page_embed(item_map, page_number, max_pages)
 
 
 def viewbinds_item_filter(id_filter, category_filter):
@@ -208,16 +208,16 @@ def viewbinds_item_filter(id_filter, category_filter):
     return wrapper
 
 
-async def build_page_embed(page_components) -> hikari.Embed:
+async def build_page_embed(page_components, page_num, page_max) -> hikari.Embed:
     embed = hikari.Embed()
     embed.title = "**Bloxlink Role Binds**"
 
-    bot_user = await bloxlink.rest.fetch_my_user()
     embed.color = RED_COLOR
     embed.description = (
-        "> Use </bind:836429412810358807> to make a new bind, "
+        "Use </bind:836429412810358807> to make a new bind, "
         f"or </unbind:836429412810358805> to delete a bind.\n{UNICODE_BLANK}"
     )
+    embed.set_footer(f"Page {page_num + 1}/{page_max}")
 
     if page_components["linked_group"]:
         embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]), inline=True)
