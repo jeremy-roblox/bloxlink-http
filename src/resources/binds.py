@@ -3,7 +3,7 @@ from .models import BaseGuildBind, GuildData, MISSING
 import resources.users as users
 import resources.groups as groups
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message
-from resources.constants import DEFAULTS
+from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, UNICODE_GTE
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
 from .utils import fetch
@@ -308,7 +308,11 @@ class GuildBind(BaseGuildBind):
 
             # Entire group binding.
             if not self.roles or self.roles == "undefined" or self.roles == "null":
-                bind_string_list.append(join_bind_strings([name_id_string, nickname_string]))
+                output_list = [name_id_string, nickname_string]
+                if remove_role_str:
+                    output_list.append(remove_role_str)
+
+                bind_string_list.append(join_bind_strings(output_list))
             else:
                 # Every other group binding type (range, guest, everyone, single ID)
                 output_list = []
@@ -330,7 +334,7 @@ class GuildBind(BaseGuildBind):
                         f"**{roleset_name}** ({self.roleset})" if roleset_name else f"{abs(self.roleset)}"
                     )
                     if self.roleset <= 0:
-                        rank_string = f"Ranks \u2265 {roleset_str}:"
+                        rank_string = f"Ranks {UNICODE_GTE} {roleset_str}:"
                     else:
                         rank_string = f"Rank {roleset_str}:"
 
@@ -347,6 +351,8 @@ class GuildBind(BaseGuildBind):
                 output_list.append(role_string)
                 if nickname_string:
                     output_list.append(nickname_string)
+                if remove_role_str:
+                    output_list.append(remove_role_str)
 
                 bind_string_list.append(join_bind_strings(output_list))
         else:
@@ -356,12 +362,11 @@ class GuildBind(BaseGuildBind):
                         name_id_string,
                         nickname_string,
                         role_string,
+                        remove_role_str,
                     ]
                 )
             )
 
-        if remove_role_str:
-            bind_string_list.append(remove_role_str)
         return join_bind_strings(bind_string_list)
 
 
@@ -396,4 +401,7 @@ def named_string_builder(
 
 def join_bind_strings(strings: list):
     """Helper method to use when joining all the strings for the viewbind embed."""
-    return "\n<:Reply:872019019677450240>".join(strings)
+
+    # Use REPLY_CONT for all but last element
+    split_strings = [f"\n{REPLY_CONT}".join(strings[:-1]), strings[-1]] if len(strings) > 2 else strings
+    return f"\n{REPLY_EMOTE}".join(split_strings)

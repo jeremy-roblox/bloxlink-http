@@ -2,7 +2,7 @@ from resources.binds import GuildBind, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.groups import get_group
 from resources.models import CommandContext
-from resources.constants import RED_COLOR
+from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.pagination import Paginator
 from resources.component_helper import get_custom_id_data, set_components, button_author_validation
 from resources.exceptions import RobloxAPIError
@@ -216,11 +216,11 @@ async def build_page_embed(page_components) -> hikari.Embed:
     embed.color = RED_COLOR
     embed.description = (
         "> Use </bind:836429412810358807> to make a new bind, "
-        "or </unbind:836429412810358805> to delete a bind."
+        f"or </unbind:836429412810358805> to delete a bind.\n{UNICODE_BLANK}"
     )
 
     if page_components["linked_group"]:
-        embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]))
+        embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]), inline=True)
 
     if page_components["group_roles"]:
         rank_map = page_components["group_roles"]

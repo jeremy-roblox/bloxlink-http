@@ -1,6 +1,7 @@
 from datetime import datetime
 from resources.component_helper import get_custom_id_data
 from resources.bloxlink import instance as bloxlink
+from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 import hikari
 
 
@@ -56,7 +57,7 @@ class Paginator:
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
-            label="\u276E",
+            label=UNICODE_LEFT,
             is_disabled=True if self.page_number == 0 else False,
         )
 
@@ -64,7 +65,7 @@ class Paginator:
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
-            label="\u276F",
+            label=UNICODE_RIGHT,
             is_disabled=True if max_items == len(self.items) else False,
         )
 
