@@ -292,15 +292,15 @@ class GuildBind(BaseGuildBind):
             #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
             # )
 
-        bind_string_list = []
-
         name_id_string = (
             named_string_builder(self.type, self.id, include_id, include_name)
             if not group_data
             else named_string_builder(self.type, self.id, include_id, include_name, group_data)
         )
-        nickname_string = f"Nickname: {self.nickname}" if self.nickname else ""
+        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
         role_string = f"Role(s): {role_string}"
+
+        output_list = []
 
         if self.type == "group":
             if not group_data:
@@ -312,10 +312,8 @@ class GuildBind(BaseGuildBind):
                 if remove_role_str:
                     output_list.append(remove_role_str)
 
-                bind_string_list.append(join_bind_strings(output_list))
             else:
                 # Every other group binding type (range, guest, everyone, single ID)
-                output_list = []
                 rank_string = ""
 
                 rolesets = group_data.rolesets
@@ -353,21 +351,10 @@ class GuildBind(BaseGuildBind):
                     output_list.append(nickname_string)
                 if remove_role_str:
                     output_list.append(remove_role_str)
-
-                bind_string_list.append(join_bind_strings(output_list))
         else:
-            bind_string_list.append(
-                join_bind_strings(
-                    [
-                        name_id_string,
-                        nickname_string,
-                        role_string,
-                        remove_role_str,
-                    ]
-                )
-            )
+            output_list = list(filter(None, [name_id_string, nickname_string, role_string, remove_role_str]))
 
-        return join_bind_strings(bind_string_list)
+        return join_bind_strings(output_list)
 
 
 # TODO: Consider where to place the following utility funcs (since just dangling in binds.py is somewhat messy.)
@@ -375,21 +362,22 @@ def named_string_builder(
     bind_type: str, bind_id: int, include_id: bool, include_name: bool, group_data: groups.RobloxGroup = None
 ):
     name = ""
-    match bind_type:
-        case "group":
-            if not group_data:
-                return f"*(Invalid Data)* ({bind_id})"
-            name = group_data.name
+    if include_name:
+        match bind_type:
+            case "group":
+                if not group_data:
+                    return f"*(Invalid Data)* ({bind_id})"
+                name = group_data.name
 
-        # TODO: Logic for getting each of the item names for these types.
-        case "asset":
-            name = "<ASSET-NAME>"
+            # TODO: Logic for getting each of the item names for these types.
+            case "asset":
+                name = "<ASSET-NAME>"
 
-        case "badge":
-            name = "<BADGE-NAME>"
+            case "badge":
+                name = "<BADGE-NAME>"
 
-        case "gamepass":
-            name = "<GAMEPASS-NAME>"
+            case "gamepass":
+                name = "<GAMEPASS-NAME>"
 
     return " ".join(
         [
