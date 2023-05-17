@@ -9,7 +9,7 @@ from resources.exceptions import RobloxAPIError
 import hikari
 
 
-MAX_BINDS_PER_PAGE = 3
+MAX_BINDS_PER_PAGE = 5
 
 
 async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteInteraction):
@@ -88,10 +88,10 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message.embeds[0] = embed
 
     # Handles emojis as expected
-    # await interaction.edit_message(message, embed=embed, components=[components])
+    await interaction.edit_message(message, embed=embed, components=[components])
 
     # TODO: Breaks emojis in the reply somehow?
-    await set_components(message, components=[components])
+    # await set_components(message, components=[components])
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
@@ -185,7 +185,7 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id):
                     group_data = {}
 
         bind_string = await bind.get_bind_string(
-            guild_id=guild_id, include_id=include_id, group_data=group_data
+            guild_id=guild_id, include_id=include_id, include_name=include_id, group_data=group_data
         )
 
         for types in item_map:
@@ -226,7 +226,9 @@ async def build_page_embed(page_components) -> hikari.Embed:
         for group in rank_map.keys():
             try:
                 embed.add_field(
-                    f"{(await get_group(group)).name} ({group})", "\n".join(rank_map[group]), inline=True
+                    f"{(await get_group(group)).name} ({group})",
+                    "\n".join(rank_map[group]),
+                    inline=True,
                 )
             except RobloxAPIError:
                 embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
