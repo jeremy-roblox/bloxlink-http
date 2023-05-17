@@ -56,7 +56,7 @@ class Paginator:
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
-            label="\u2B9C",
+            label="\u276E",
             is_disabled=True if self.page_number == 0 else False,
         )
 
@@ -64,7 +64,7 @@ class Paginator:
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
             f"viewbinds:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
-            label="\u2B9E",
+            label="\u276F",
             is_disabled=True if max_items == len(self.items) else False,
         )
 
