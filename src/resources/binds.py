@@ -283,12 +283,14 @@ class GuildBind(BaseGuildBind):
     ) -> str:
         """Returns a string representing the bind, formatted in the way /viewbinds expects it."""
 
-        role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
+        # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
+        role_string = ", ".join([f"<@&{role}>" for role in self.roles])
         remove_role_str = ""
         if self.removeRoles:
-            remove_role_str = (
-                f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
-            )
+            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
+            # remove_role_str = (
+            #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
+            # )
 
         bind_string_list = []
 

@@ -158,8 +158,8 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id):
 
     if len(items) == 0:
         embed.description = (
-            "You have no binds that match the options you passed. "
-            "Please use `/bind` to make a new role bind, or try again with different options."
+            "> You have no binds that match the options you passed. "
+            "Use `/bind` to make a new binding, or try again with different options."
         )
         return embed
 
@@ -213,10 +213,11 @@ async def build_page_embed(page_components) -> hikari.Embed:
     embed.title = "**Bloxlink Role Binds**"
 
     bot_user = await bloxlink.rest.fetch_my_user()
-    avatar_url = bot_user.default_avatar_url if not bot_user.avatar_url else bot_user.avatar_url
-    embed.set_author(name="Powered by Bloxlink", icon=avatar_url)
     embed.color = RED_COLOR
-    embed.set_footer("Use /bind to make a new bind, or /unbind to delete a bind")
+    embed.description = (
+        "> Use </bind:836429412810358807> to make a new bind, "
+        "or </unbind:836429412810358805> to delete a bind."
+    )
 
     if page_components["linked_group"]:
         embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]))
