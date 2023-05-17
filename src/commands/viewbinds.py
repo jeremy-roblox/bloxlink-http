@@ -181,8 +181,11 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
                 try:
                     group_data = await get_group(bind.id)
                 except RobloxAPIError:
-                    # TODO: Do something more useful here. Code will error either way right now.
-                    group_data = {}
+                    embed.description = (
+                        "> There was an error with the Roblox API when getting your group's data. "
+                        "Try again later."
+                    )
+                    return embed
 
         bind_string = await bind.get_bind_string(
             guild_id=guild_id, include_id=include_id, include_name=include_id, group_data=group_data
