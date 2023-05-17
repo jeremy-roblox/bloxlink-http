@@ -327,10 +327,10 @@ class GuildBind(BaseGuildBind):
                     rank_string = f"Ranks {min_str} to {max_str}:"
 
                 elif self.roleset is not None:
-                    roleset_name = rolesets.get(abs(self.roleset), "")
-                    roleset_str = (
-                        f"**{roleset_name}** ({self.roleset})" if roleset_name else f"{abs(self.roleset)}"
-                    )
+                    abs_roleset = abs(self.roleset)
+                    roleset_name = rolesets.get(abs_roleset, "")
+                    roleset_str = f"**{roleset_name}** ({abs_roleset})" if roleset_name else f"{abs_roleset}"
+
                     if self.roleset <= 0:
                         rank_string = f"Ranks {UNICODE_GTE} {roleset_str}:"
                     else:
