@@ -6,17 +6,16 @@ from .secrets import PROXY_URL
 from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from json import loads
 
-__all__ = (
-    "fetch",
-    "ReturnType"
-)
+__all__ = ("fetch", "ReturnType")
 
 session = None
+
 
 class ReturnType(Enum):
     JSON = 1
     TEXT = 2
     BYTES = 3
+
 
 async def fetch(
     method: str,
@@ -27,9 +26,9 @@ async def fetch(
     return_data: ReturnType = ReturnType.JSON,
     raise_on_failure: bool = True,
     timeout: float = 20,
-    proxy: bool = True
+    proxy: bool = True,
 ):
-    params  = params or {}
+    params = params or {}
     headers = headers or {}
     new_json = {}
     proxied = False
@@ -58,7 +57,14 @@ async def fetch(
             params[k] = "true" if v else "false"
 
     try:
-        async with session.request(method, url, json=new_json, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None) as response:
+        async with session.request(
+            method,
+            url,
+            json=new_json,
+            params=params,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
+        ) as response:
             if proxied:
                 try:
                     response_json = await response.json()

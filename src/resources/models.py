@@ -12,8 +12,8 @@ __all__ = ("UserData", "GuildData", "RobloxAccount", "CommandContext", "BaseGuil
 def default_field(obj):
     return field(default_factory=lambda: copy.copy(obj))
 
-class PartialMixin:
 
+class PartialMixin:
     __slots__ = ()
 
     def __getattr__(self, name: str) -> Any:
@@ -29,20 +29,20 @@ class PartialMixin:
 class UserData(PartialMixin):
     id: int
     robloxID: str = None
-    robloxAccounts: dict = default_field({"accounts":[], "guilds": {}})
+    robloxAccounts: dict = default_field({"accounts": [], "guilds": {}})
 
 
 @dataclass(slots=True)
 class GuildData:
     id: int
-    binds: list = default_field([]) # FIXME
+    binds: list = default_field([])  # FIXME
 
     verifiedRoleEnabled: bool = True
-    verifiedRoleName: str = "Verified" # deprecated
+    verifiedRoleName: str = "Verified"  # deprecated
     verifiedRole: str = None
 
     unverifiedRoleEnabled: bool = True
-    unverifiedRoleName: str = "Unverified" # deprecated
+    unverifiedRoleName: str = "Unverified"  # deprecated
     unverifiedRole: str = None
 
     premium: dict = None
@@ -79,6 +79,33 @@ class PremiumModel:
                 buffer.append("Pro - Unlocks the Pro bot and a few [enterprise features](https://blox.link/pricing)")
 
         return "\n".join(buffer) or "Not premium"
+
+
+@dataclass(slots=True)
+class BaseGuildBind:
+    nickname: str = None
+    roles: list = None
+    removeRoles: list = None
+
+    id: int = None
+    type: str = ""  # Expected type strings: group, asset, gamepass, badge
+    bind: dict = default_field({"type": "", "id": None})
+
+    min: int = None
+    max: int = None
+    roleset: int = None
+    everyone: bool = None
+    guest: bool = None
+
+    def __post_init__(self):
+        self.id = self.bind.get("id")
+        self.type = self.bind.get("type")
+
+        self.min = self.bind.get("min", None)
+        self.max = self.bind.get("max", None)
+        self.roleset = self.bind.get("roleset", None)
+        self.everyone = self.bind.get("everyone", None)
+        self.guest = self.bind.get("guest", None)
 
 
 class MISSING:

@@ -3,12 +3,9 @@ from resources.constants import MODULES
 from config import SERVER_HOST, SERVER_PORT
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
-from resources.commands import handle_command, sync_commands, handle_component
+from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
 import logging
 import hikari
-import fastapi
-import uvicorn
-
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +16,6 @@ if __name__ == "__main__":
         public_key=DISCORD_PUBLIC_KEY,
         token=DISCORD_TOKEN,
         token_type=hikari.TokenType.BOT,
-        asgi_managed=False
     )
 
     for directory in MODULES:
@@ -31,11 +27,9 @@ if __name__ == "__main__":
 
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
-    bot.interaction_server.set_listener(hikari.CommandInteraction, handle_command)
-    bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_component)
-    bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
 
-    app = fastapi.FastAPI(on_startup=[bot.start, sync_commands(bot)], on_shutdown=[bot.close])
-    app.mount("/", bot)
-
-    uvicorn.run(app, host=env.get("HOST", SERVER_HOST), port=env.get("PORT", SERVER_PORT))
+    bot.set_listener(hikari.CommandInteraction, handle_command)
+    bot.set_listener(hikari.ComponentInteraction, handle_component)
+    bot.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
+    bot.add_startup_callback(sync_commands)
+    bot.run(host=env.get("HOST", SERVER_HOST), port=env.get("PORT", SERVER_PORT))
