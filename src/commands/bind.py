@@ -124,12 +124,13 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     await original_message.edit(embed=new_embed)
     await message.delete()
 
-    existing_role_ids = get_custom_id_data("bind_menu:save_button", 5, original_message)
+    existing_role_ids = get_custom_id_data("bind_menu:save_button", segment=5, message=original_message)
 
-    await set_custom_id(
+    await set_custom_id_data(
         original_message,
         "bind_menu:save_button",
-        f"{bind_choice}-{original_message}-{([role_id] + [existing_role_ids]) if existing_role_ids else [role_id]}",
+        segment=4,
+        values=f"{bind_choice}-{original_message.id}-{([role_id] + [existing_role_ids]) if existing_role_ids else [role_id]}",
     )
 
     # await set_custom_id_data(original_message, "bind_menu:save_button", 4, bind_choice)

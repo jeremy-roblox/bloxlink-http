@@ -31,10 +31,8 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
             new_components.append(component)
 
         elif isinstance(component, hikari.SelectMenuComponent):
-            new_select_menu = (
-                bloxlink.rest.build_message_action_row()
-                .add_select_menu(component.custom_id)
-                .set_placeholder(component.placeholder)
+            new_select_menu = bloxlink.rest.build_message_action_row().add_select_menu(
+                component.type, component.custom_id, placeholder=component.placeholder
             )
 
             for option in component.options:
@@ -50,13 +48,9 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
 
         elif isinstance(component, hikari.ButtonComponent):
             print("new button component", component.custom_id)
-            new_button_menu = (
-                bloxlink.rest.build_message_action_row()
-                .add_button(component.style, component.custom_id)
-                .set_label(component.label)
+            new_button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+                component.style, component.custom_id, label=component.label
             )
-
-            new_button_menu = new_button_menu.add_to_container()
 
             new_components.append(new_button_menu)
 
