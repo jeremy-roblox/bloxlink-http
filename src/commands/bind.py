@@ -146,7 +146,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         original_message,
         "bm:sb",
         segment=4,
-        values=f"{bind_choice}-{original_message.id}-{','.join(role_data.keys())}",
+        values=f"{bind_choice}:{','.join(role_data.keys())}",
     )
 
     # await set_custom_id_data(original_message, "bm:sb", 4, bind_choice)
@@ -249,15 +249,16 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     # print(await interaction.fetch_initial_response())
     # print(await interaction.fetch_parent_message())
 
-    print(interaction.custom_id)
+    print("save id", interaction.custom_id)
     # print(message.content)
     # print(message.make_link(interaction.guild_id))
 
     # print(await get_custom_id_data(""))
 
-    group_id = get_custom_id_data(interaction.custom_id, 3)
-    bind_mode = get_custom_id_data(interaction.custom_id, 4)
-    role_ids = get_custom_id_data(interaction.custom_id, 5)
+    id_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
+    group_id = id_data[0]
+    bind_mode = id_data[1]
+    role_ids = id_data[2]
 
     print(role_ids)
 
