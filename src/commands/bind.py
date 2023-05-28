@@ -266,7 +266,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         await create_bind(
             guild_id,
             bind_type="group",
-            bind_id=group_id,
+            bind_id=int(group_id),
             roles=role_ids.split(","),
             # roleset=
         )
