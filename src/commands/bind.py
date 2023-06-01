@@ -10,6 +10,7 @@ from resources.component_helper import (
 )
 from hikari.commands import CommandOption, OptionType
 import hikari
+import re
 
 SPLIT_CHAR = "BLOXLINK_SPLIT"
 GROUP_RANK_CRITERIA = {
@@ -264,31 +265,50 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
     guild_id = interaction.guild_id
 
-    embed = interaction.message.embeds[0]
-    # print(await interaction.fetch_initial_response())
-    # print(await interaction.fetch_parent_message())
+    embed = message.embeds[0]
+    bindings = embed.description.split("\n")[2:]
 
-    print("save id", interaction.custom_id)
-    # print(message.content)
-    # print(message.make_link(interaction.guild_id))
+    group_id = get_custom_id_data(interaction.custom_id, segment=3)
+    for bind in bindings:
+        # remove underscores
+        bind = bind[1:-1]
+        bind_type = ""
 
-    # print(await get_custom_id_data(""))
+        for criteria_type, criteria_vals in GROUP_RANK_CRITERIA_TEXT.items():
+            if criteria_vals in bind:
+                bind_type = criteria_type
+                break
 
-    id_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
-    group_id = id_data[0]
-    bind_mode = id_data[1]
-    role_ids = id_data[2]
+        # Get all role IDs, need to rework if adding roles to remove.
+        # Probably will split on the text "roles to remove" if it exists first.
+        role_ids = re.findall("(\d{17,})", bind)
+        # Get all matches in-between double asterisks
+        named_ranks = re.findall("\*\*(.*?)\*\*", bind)
 
-    print(role_ids)
+        group_data = await get_group(group_id)
+        group_rolesets = group_data.rolesets.items()
 
-    if bind_mode == "equ":
-        await create_bind(
-            guild_id,
-            bind_type="group",
-            bind_id=int(group_id),
-            roles=role_ids.split(","),
-            # roleset=
-        )
+        rank_ids = []
+        for rank in named_ranks:
+            for k, v in group_rolesets:
+                if v == rank:
+                    rank_ids.append(k)
+
+        if bind_type == "equ":
+            await create_bind(
+                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, roleset=rank_ids[0]
+            )
+
+        elif bind_type == "gte":
+            pass
+        elif bind_type == "lte":
+            pass
+        elif bind_type == "rng":
+            pass
+        elif bind_type == "gst":
+            pass
+        else:
+            print("No matching bind type was found.")
 
     return interaction.build_response(
         hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
