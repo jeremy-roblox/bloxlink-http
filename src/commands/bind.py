@@ -12,6 +12,20 @@ from hikari.commands import CommandOption, OptionType
 import hikari
 
 SPLIT_CHAR = "BLOXLINK_SPLIT"
+GROUP_RANK_CRITERIA = {
+    "equ": "Rank must match exactly...",
+    "gte": "Rank must be greater than or equal to...",
+    "lte": "Rank must be less than or equal to...",
+    "rng": "Rank must be within 2 rolesets...",
+    "gst": "User must NOT be a member of this group",
+}
+GROUP_RANK_CRITERIA_TEXT = {
+    "equ": "People with the rank",
+    "gte": "People with a rank greater than or equal to",
+    "lte": "People with a rank less than or equal to",
+    "rng": "People with a rank between",
+    "gst": "People who are not in the group",
+}
 
 
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
@@ -37,8 +51,8 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         roleset_menu = bloxlink.rest.build_message_action_row().add_text_menu(
             f"bind:select_roleset:{original_message_id}:{bind_choice}",
             placeholder="Bind this Group rank",
-            min_values=1,
-            max_values=1,
+            min_values=1 if bind_choice != "rng" else 2,
+            max_values=1 if bind_choice != "rng" else 2,
         )
 
         for roleset_value, roleset_name in group.rolesets.items():
@@ -126,9 +140,11 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     if "Pending changes:" not in new_description:
         new_description.append("Pending changes:")
 
+    prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
+
     suffix = ", ".join(f"<@&{val}>" for val in role_data.keys())
     new_description.append(
-        f"_People with roleset **{roleset_data.split(SPLIT_CHAR)[0]}** will receive "
+        f"_{prefix} **{roleset_data.split(SPLIT_CHAR)[0]}** will receive "
         f"role{'s' if len(role_data.keys()) > 1  else ''} {suffix}_"
     )
 
@@ -139,15 +155,17 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     await original_message.edit(embed=new_embed)
     await message.delete()
 
-    existing_role_ids = get_custom_id_data("bind_menu:save_button", segment=5, message=original_message)
-    print("existing_role_ids", existing_role_ids)
+    # TODO: Parse embed description for a matching bind type and edit the roles for that if one exists.
 
-    await set_custom_id_data(
-        original_message,
-        "bind_menu:save_button",
-        segment=4,
-        values=f"{bind_choice}:{','.join(role_data.keys())}",
-    )
+    # existing_role_ids = get_custom_id_data("bind_menu:save_button", segment=5, message=original_message)
+    # print("existing_role_ids", existing_role_ids)
+
+    # await set_custom_id_data(
+    #     original_message,
+    #     "bind_menu:save_button",
+    #     segment=4,
+    #     values=f"{bind_choice}:{','.join(role_data.keys())}",
+    # )
 
     # await set_custom_id_data(original_message, "bind_menu:save_button", 4, bind_choice)
 
@@ -155,6 +173,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # await set_custom_id_data(original_message, "bind_menu:save_button", 5, ([role_id] + [existing_role_ids]) if existing_role_ids else [role_id])
 
+    # TODO: Add a button to return to the original message rather than use an embedded link since that doesn't work.
     return interaction.build_response(
         hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
     ).set_content(
@@ -233,12 +252,10 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         bloxlink.rest.build_message_action_row()
         .add_text_menu(f"bind:select_criteria:{message.id}:{group_id}", min_values=1, max_values=1)
         .set_placeholder("Choose condition")
-        .add_option("Rank must match exactly...", "equ")
-        .add_option("Rank must be greater than or equal to...", "gte")
-        .add_option("Rank must be less than or equal to...", "lte")
-        .add_option("Rank must be within 2 rolesets...", "rng")
-        .add_option("User must NOT be a member of this group", "gst")
     )
+
+    for key, val in GROUP_RANK_CRITERIA.items():
+        criteria_menu.add_option(val, key)
 
     await interaction.execute(embed=embed, components=[criteria_menu.parent])
 
@@ -246,6 +263,8 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
     guild_id = interaction.guild_id
+
+    embed = interaction.message.embeds[0]
     # print(await interaction.fetch_initial_response())
     # print(await interaction.fetch_parent_message())
 
