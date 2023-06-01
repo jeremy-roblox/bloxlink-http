@@ -139,21 +139,21 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     await original_message.edit(embed=new_embed)
     await message.delete()
 
-    existing_role_ids = get_custom_id_data("bm:sb", segment=5, message=original_message)
+    existing_role_ids = get_custom_id_data("bind_menu:save_button", segment=5, message=original_message)
     print("existing_role_ids", existing_role_ids)
 
     await set_custom_id_data(
         original_message,
-        "bm:sb",
+        "bind_menu:save_button",
         segment=4,
         values=f"{bind_choice}:{','.join(role_data.keys())}",
     )
 
-    # await set_custom_id_data(original_message, "bm:sb", 4, bind_choice)
+    # await set_custom_id_data(original_message, "bind_menu:save_button", 4, bind_choice)
 
-    # existing_role_ids = get_custom_id_data("bm:sb", 5, original_message)
+    # existing_role_ids = get_custom_id_data("bind_menu:save_button", 5, original_message)
 
-    # await set_custom_id_data(original_message, "bm:sb", 5, ([role_id] + [existing_role_ids]) if existing_role_ids else [role_id])
+    # await set_custom_id_data(original_message, "bind_menu:save_button", 5, ([role_id] + [existing_role_ids]) if existing_role_ids else [role_id])
 
     return interaction.build_response(
         hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
@@ -231,7 +231,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     criteria_menu = (
         bloxlink.rest.build_message_action_row()
-        .add_text_menu(f"bind:select_criteria:{message.id}:{group_id}")
+        .add_text_menu(f"bind:select_criteria:{message.id}:{group_id}", min_values=1, max_values=1)
         .set_placeholder("Choose condition")
         .add_option("Rank must match exactly...", "equ")
         .add_option("Rank must be greater than or equal to...", "gte")
@@ -285,7 +285,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         "bind:select_roleset": bind_menu_select_roleset,
         "bind:select_role": bind_menu_select_role,
         "bind:select_criteria": bind_menu_select_criteria,
-        "bm:sb": bind_menu_save_button,
+        "bind_menu:save_button": bind_menu_save_button,
     },
 )
 class BindCommand:
@@ -340,7 +340,7 @@ class BindCommand:
                 )
                 .add_interactive_button(
                     hikari.ButtonStyle.SUCCESS,
-                    f"bm:sb:{group_id}",
+                    f"bind_menu:save_button:{group_id}",
                     label="Save changes",
                 )
             )
