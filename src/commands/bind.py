@@ -41,7 +41,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     original_message_id = get_custom_id_data(interaction.custom_id, 3)
     group_id = get_custom_id_data(interaction.custom_id, 4)
 
-    if bind_choice in ("equ"):
+    if bind_choice in ("equ", "gte", "lte", "rng"):
         show_roleset_menu = True
 
     print("select_criteria", interaction.custom_id)
@@ -65,6 +65,31 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         )
 
         await set_components(message, components=[roleset_menu.parent])
+    else:
+        # Skip to the role selection prompt.
+        # Copy-pasted code, need a better solution for building these prompts as necessary.
+        # Extrapolate to a method?
+        role_menu = (
+            bloxlink.rest.build_message_action_row()
+            .add_text_menu(f"bind:select_role:{original_message_id}::{bind_choice}", min_values=1)
+            .set_placeholder("Attach this Discord role to the Group Roleset")
+        )
+
+        guild = await interaction.fetch_guild()
+        for role_id, role in guild.roles.items():
+            if role.name != "@everyone" and len(role_menu.options) < 25:
+                role_menu.add_option(role.name, f"{role.name}{SPLIT_CHAR}{str(role_id)}")
+
+        role_menu.set_max_values(len(role_menu.options))
+
+        message.embeds[0].description = (
+            "Finally, choose the role from your "
+            "server that you want members to receive "
+            "who qualify for the bind.\nNo existing role? "
+            "No problem! Click the 'Create Role' button above!"
+        )
+
+        await set_components(message, components=[role_menu.parent])
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
@@ -142,11 +167,19 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         new_description.append("Pending changes:")
 
     prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
+    content = ""
+    if bind_choice in ("equ", "gte", "lte"):
+        content = roleset_data.split(SPLIT_CHAR)[0]
+    elif bind_choice == "gst":
+        content = "<GROUP ID> (TBD)"
+    elif bind_choice == "rng":
+        splits = roleset_data.split(SPLIT_CHAR)
+        # TODO: not working properly yet.
+        content = f"{splits[0]}** and **{splits[1]}"
 
     suffix = ", ".join(f"<@&{val}>" for val in role_data.keys())
     new_description.append(
-        f"_{prefix} **{roleset_data.split(SPLIT_CHAR)[0]}** will receive "
-        f"role{'s' if len(role_data.keys()) > 1  else ''} {suffix}_"
+        f"_{prefix} **{content}** will receive " f"role{'s' if len(role_data.keys()) > 1  else ''} {suffix}_"
     )
 
     new_embed = hikari.Embed(title="New Group Bind [UNSAVED CHANGES]", description="\n".join(new_description))
