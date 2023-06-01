@@ -46,7 +46,13 @@ async def create_bind(
     existing_binds = list(
         filter(
             lambda b: b["bind"]["type"] == bind_type
-            and (b["bind"].get("id") == bind_id if bind_id else True),
+            and (b["bind"].get("id") == bind_id if bind_id else True)
+            and (
+                (b["bind"].get("roleset") == bind_data.get("roleset") if bind_data.get("roleset") else True)
+                and (b["bind"].get("min") == bind_data.get("min") if bind_data.get("min") else True)
+                and (b["bind"].get("max") == bind_data.get("max") if bind_data.get("max") else True)
+                and (b["bind"].get("guest") == bind_data.get("guest") if bind_data.get("guest") else True)
+            ),
             guild_binds,
         )
     )
@@ -69,7 +75,9 @@ async def create_bind(
         # group, badge, gamepass, and asset binds
         if len(existing_binds) > 1:
             # invalid bind. binds with IDs should only have one entry.
-            raise NotImplementedError()
+            raise NotImplementedError(
+                "Binds with IDs should only have one entry. More than one duplicate was found."
+            )
         else:
             if roles:
                 # TODO: compare current role IDs with the server and remove invalid roles
@@ -80,7 +88,7 @@ async def create_bind(
                 raise NotImplementedError()
     else:
         # everything else
-        raise NotImplementedError()
+        raise NotImplementedError("No bind_id was passed when trying to make a bind.")
 
 
 async def apply_binds(
