@@ -196,11 +196,13 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     await original_message.edit(embed=new_embed)
     await message.delete()
 
-    return interaction.build_response(
-        hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
-    ).set_content(
-        f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
-        " and click the Save button to save the bind to your server!"
+    return (
+        interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+        .set_content(
+            f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
+            " and click the Save button to save the bind to your server!"
+        )
+        .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
 
     # await interaction.edit_initial_response(
@@ -352,9 +354,16 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         else:
             print("No matching bind type was found.")
 
-    return interaction.build_response(
-        hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
-    ).set_content("Saved your binds")
+    reset_embed = hikari.Embed(
+        title="New Group Bind", description=await get_bind_desc(interaction.guild_id, int(group_id))
+    )
+    await message.edit(embed=reset_embed)
+
+    return (
+        interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+        .set_content("Saved your binds")
+        .set_flags(hikari.MessageFlag.EPHEMERAL)
+    )
 
 
 @bloxlink.command(
