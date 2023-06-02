@@ -319,13 +319,28 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
             )
 
         elif bind_type == "gte":
-            pass
+            # TODO: Consider changing so only "min" option is set.
+            await create_bind(
+                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, roleset=-abs(rank_ids[0])
+            )
+
         elif bind_type == "lte":
-            pass
+            await create_bind(
+                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, max=rank_ids[0]
+            )
+
         elif bind_type == "rng":
-            pass
+            await create_bind(
+                guild_id,
+                bind_type="group",
+                bind_id=int(group_id),
+                roles=role_ids,
+                min=rank_ids[0],
+                max=rank_ids[1],
+            )
+
         elif bind_type == "gst":
-            pass
+            await create_bind(guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, guest=True)
         else:
             print("No matching bind type was found.")
 
