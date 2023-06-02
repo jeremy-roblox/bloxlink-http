@@ -52,6 +52,11 @@ async def create_bind(
                 and (b["bind"].get("min") == bind_data.get("min") if bind_data.get("min") else True)
                 and (b["bind"].get("max") == bind_data.get("max") if bind_data.get("max") else True)
                 and (b["bind"].get("guest") == bind_data.get("guest") if bind_data.get("guest") else True)
+                and (
+                    b["bind"].get("everyone") == bind_data.get("everyone")
+                    if bind_data.get("everyone")
+                    else True
+                )
             ),
             guild_binds,
         )
