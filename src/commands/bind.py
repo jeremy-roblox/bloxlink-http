@@ -19,14 +19,16 @@ GROUP_RANK_CRITERIA = {
     "gte": "Rank must be greater than or equal to...",
     "lte": "Rank must be less than or equal to...",
     "rng": "Rank must be within 2 rolesets...",
-    "gst": "User must NOT be a member of this group",
+    "gst": "User must NOT be a member of this group.",
+    "all": "User must be a member of this group.",
 }
 GROUP_RANK_CRITERIA_TEXT = {
     "equ": "People with the rank",
     "gte": "People with a rank greater than or equal to",
     "lte": "People with a rank less than or equal to",
     "rng": "People with a rank between",
-    "gst": "People who are not in the group",
+    "gst": "People who are not in this group",
+    "all": "People who are in this group",
 }
 
 
@@ -174,7 +176,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     content = ""
     if bind_choice in ("equ", "gte", "lte"):
         content = roleset_data
-    elif bind_choice == "gst":
+    elif bind_choice in ("gst", "all"):
         content = "<GROUP ID> (TBD)"
     elif bind_choice == "rng":
         min_rank = roleset_data[0]
@@ -341,6 +343,12 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
         elif bind_type == "gst":
             await create_bind(guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, guest=True)
+
+        elif bind_type == "all":
+            await create_bind(
+                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, everyone=True
+            )
+
         else:
             print("No matching bind type was found.")
 
