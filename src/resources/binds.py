@@ -33,7 +33,7 @@ async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
 async def create_bind(
     guild_id: int | str,
     bind_type: str["group" | "asset" | "gamepass" | "badge"],
-    bind_id: int = None,
+    bind_id: int,
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
@@ -43,24 +43,29 @@ async def create_bind(
 
     guild_binds: GuildData = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
 
-    existing_binds = list(
-        filter(
-            lambda b: b["bind"]["type"] == bind_type
-            and (b["bind"].get("id") == bind_id if bind_id else True)
-            and (
-                (b["bind"].get("roleset") == bind_data.get("roleset") if bind_data.get("roleset") else True)
-                and (b["bind"].get("min") == bind_data.get("min") if bind_data.get("min") else True)
-                and (b["bind"].get("max") == bind_data.get("max") if bind_data.get("max") else True)
-                and (b["bind"].get("guest") == bind_data.get("guest") if bind_data.get("guest") else True)
-                and (
-                    b["bind"].get("everyone") == bind_data.get("everyone")
-                    if bind_data.get("everyone")
-                    else True
-                )
-            ),
-            guild_binds,
-        )
-    )
+    existing_binds = []
+    for bind in guild_binds:
+        b = bind["bind"]
+
+        if b["type"] != bind_type:
+            continue
+        if b.get("id") != bind_id:
+            continue
+
+        if len(bind_data) > 0:
+            cond = (
+                (b.get("roleset") == bind_data.get("roleset") if "roleset" in bind_data else False)
+                or (b.get("min") == bind_data.get("min") if "min" in bind_data else False)
+                or (b.get("max") == bind_data.get("max") if "max" in bind_data else False)
+                or (b.get("guest") == bind_data.get("guest") if "guest" in bind_data else False)
+                or (b.get("everyone") == bind_data.get("everyone") if "everyone" in bind_data else False)
+            )
+            if not cond:
+                continue
+        elif len(b) > 2 and len(bind_data) == 0:
+            continue
+
+        existing_binds.append(bind)
 
     if not existing_binds:
         new_bind = {
@@ -90,7 +95,8 @@ async def create_bind(
                     set(existing_binds[0].get("roles", []) + roles)
                 )  # add roles and removes duplicates
             else:
-                raise NotImplementedError()
+                # In ideal circumstances, this case should be for entire group bindings only
+                raise NotImplementedError("No roles to be assigned were passed.")
     else:
         # everything else
         raise NotImplementedError("No bind_id was passed when trying to make a bind.")
