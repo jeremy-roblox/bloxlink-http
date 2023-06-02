@@ -26,7 +26,7 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
                 iterate_components.append(component)
 
     for component in iterate_components:
-        print("component=", component)
+        # print("component=", component)
         if hasattr(component, "build"):
             new_components.append(component)
 
@@ -47,7 +47,7 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
             new_components.append(new_select_menu)
 
         elif isinstance(component, hikari.ButtonComponent):
-            print("new button component", component.custom_id)
+            # print("new button component", component.custom_id)
             new_button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
                 component.style, component.custom_id, label=component.label
             )
@@ -67,7 +67,7 @@ def get_custom_id_data(
     if message:
         for action_row in message.components:
             for component in action_row.components:
-                print(component.custom_id)
+                # print(component.custom_id)
                 if component.custom_id.startswith(custom_id):
                     custom_id = component.custom_id
 
