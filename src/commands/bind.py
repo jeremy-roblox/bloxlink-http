@@ -137,7 +137,12 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     )
 
     for role_id, role in guild.roles.items():
-        if role.name != "@everyone" and len(role_menu.options) < 25:
+        if (
+            role.name != "@everyone"
+            and not role.bot_id
+            and not role.integration_id
+            and len(role_menu.options) < 25
+        ):
             role_menu.add_option(role.name, f"{role.name}{SPLIT_CHAR}{str(role_id)}")
 
     role_menu.set_max_values(len(role_menu.options))
