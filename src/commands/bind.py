@@ -437,3 +437,15 @@ class BindCommand:
             await ctx.response.send(embed=embed, components=button_menu)
 
             # We're done here. Button clicks invoke above functions
+        elif bind_mode == "entire_group":
+            try:
+                await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id)
+            except NotImplementedError:
+                await ctx.response.send(
+                    f'You already have a group binding for group "{group.name}" ({group_id}). No changes were made.'
+                )
+                return
+
+            await ctx.response.send(
+                f'Your group binding for group "{group.name}" ({group_id}) has been saved.'
+            )
