@@ -12,7 +12,8 @@ from hikari.commands import CommandOption, OptionType
 import hikari
 import re
 
-SPLIT_CHAR = "BLOXLINK_SPLIT"
+# Obscure unicode character, counts as 2 chars for length but is unique enough for splitting w/o worry.
+SPLIT_CHAR = "\U0001D15D"
 GROUP_RANK_CRITERIA = {
     "equ": "Rank must match exactly...",
     "gte": "Rank must be greater than or equal to...",
@@ -50,7 +51,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         group = await get_group(group_id)
 
         roleset_menu = bloxlink.rest.build_message_action_row().add_text_menu(
-            f"bind:select_roleset:{original_message_id}:{bind_choice}",
+            f"bind:sel_rank:{original_message_id}:{bind_choice}",
             placeholder="Bind this Group rank",
             min_values=1 if bind_choice != "rng" else 2,
             max_values=1 if bind_choice != "rng" else 2,
@@ -71,7 +72,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         # Extrapolate to a method?
         role_menu = (
             bloxlink.rest.build_message_action_row()
-            .add_text_menu(f"bind:select_role:{original_message_id}::{bind_choice}", min_values=1)
+            .add_text_menu(f"bind:sel_role:{original_message_id}::{bind_choice}", min_values=1)
             .set_placeholder("Attach this Discord role to the Group Roleset")
         )
 
@@ -98,7 +99,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     message = interaction.message
-    roleset_choice = interaction.values[0]
+    roleset_choices = interaction.values
 
     guild = await interaction.fetch_guild()
 
@@ -111,7 +112,12 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     # show discord role menu
     role_menu = (
         bloxlink.rest.build_message_action_row()
-        .add_text_menu(f"bind:select_role:{original_message_id}:{roleset_choice}:{bind_choice}", min_values=1)
+        .add_text_menu(
+            f"bind:sel_role:{original_message_id}:{roleset_choices[0]}"
+            f"+{SPLIT_CHAR}{f'{roleset_choices[1]}:' if len(roleset_choices) > 1 else ':'}"
+            f"{bind_choice}",
+            min_values=1,
+        )
         .set_placeholder("Attach this Discord role to the Group Roleset")
     )
 
@@ -146,15 +152,12 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         item_data = item.split(SPLIT_CHAR)
         role_data[item_data[1]] = item_data[0]
 
-    # role_data = interaction.values[0].split(SPLIT_CHAR)
-
-    # role_name, role_id = role_data[0], role_data[1]
-
     print("select_role", interaction.custom_id)
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 3)
-    roleset_data = get_custom_id_data(interaction.custom_id, 4)
-    bind_choice = get_custom_id_data(interaction.custom_id, 5)
+    custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
+    original_message_id = custom_data[0]
+    roleset_data = custom_data[1]
+    bind_choice = custom_data[2]
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
@@ -173,9 +176,11 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     elif bind_choice == "gst":
         content = "<GROUP ID> (TBD)"
     elif bind_choice == "rng":
-        splits = roleset_data.split(SPLIT_CHAR)
-        # TODO: not working properly yet.
-        content = f"{splits[0]}** and **{splits[1]}"
+        split_ranks = roleset_data.split(f"+{SPLIT_CHAR}")
+        min_rank = split_ranks[0].split(SPLIT_CHAR)
+        max_rank = split_ranks[1].split(SPLIT_CHAR)
+
+        content = f"{min_rank[0]}** and **{max_rank[0]}"
 
     suffix = ", ".join(f"<@&{val}>" for val in role_data.keys())
     new_description.append(
@@ -189,25 +194,6 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     await original_message.edit(embed=new_embed)
     await message.delete()
 
-    # TODO: Parse embed description for a matching bind type and edit the roles for that if one exists.
-
-    # existing_role_ids = get_custom_id_data("bind_menu:save_button", segment=5, message=original_message)
-    # print("existing_role_ids", existing_role_ids)
-
-    # await set_custom_id_data(
-    #     original_message,
-    #     "bind_menu:save_button",
-    #     segment=4,
-    #     values=f"{bind_choice}:{','.join(role_data.keys())}",
-    # )
-
-    # await set_custom_id_data(original_message, "bind_menu:save_button", 4, bind_choice)
-
-    # existing_role_ids = get_custom_id_data("bind_menu:save_button", 5, original_message)
-
-    # await set_custom_id_data(original_message, "bind_menu:save_button", 5, ([role_id] + [existing_role_ids]) if existing_role_ids else [role_id])
-
-    # TODO: Add a button to return to the original message rather than use an embedded link since that doesn't work.
     return interaction.build_response(
         hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE
     ).set_content(
@@ -284,7 +270,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     criteria_menu = (
         bloxlink.rest.build_message_action_row()
-        .add_text_menu(f"bind:select_criteria:{message.id}:{group_id}", min_values=1, max_values=1)
+        .add_text_menu(f"bind:sel_crit:{message.id}:{group_id}", min_values=1, max_values=1)
         .set_placeholder("Choose condition")
     )
 
@@ -314,9 +300,9 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
         # Get all role IDs, need to rework if adding roles to remove.
         # Probably will split on the text "roles to remove" if it exists first.
-        role_ids = re.findall("(\d{17,})", bind)
+        role_ids = re.findall(r"(\d{17,})", bind)
         # Get all matches in-between double asterisks
-        named_ranks = re.findall("\*\*(.*?)\*\*", bind)
+        named_ranks = re.findall(r"\*\*(.*?)\*\*", bind)
 
         group_data = await get_group(group_id)
         group_rolesets = group_data.rolesets.items()
@@ -354,9 +340,9 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     permissions=hikari.Permissions.MANAGE_GUILD,
     accepted_custom_ids={
         "bind_menu:add_roles_button": bind_menu_add_role_button,
-        "bind:select_roleset": bind_menu_select_roleset,
-        "bind:select_role": bind_menu_select_role,
-        "bind:select_criteria": bind_menu_select_criteria,
+        "bind:sel_rank": bind_menu_select_roleset,
+        "bind:sel_role": bind_menu_select_role,
+        "bind:sel_crit": bind_menu_select_criteria,
         "bind_menu:save_button": bind_menu_save_button,
     },
 )
