@@ -41,7 +41,7 @@ async def create_bind(
 ):
     """creates a new guild bind. if it already exists, the roles will be appended"""
 
-    guild_binds: GuildData = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
+    guild_binds: list = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
 
     existing_binds = []
     for bind in guild_binds:
@@ -90,10 +90,20 @@ async def create_bind(
             )
         else:
             if roles:
-                # TODO: compare current role IDs with the server and remove invalid roles
-                existing_binds[0]["roles"] = list(
-                    set(existing_binds[0].get("roles", []) + roles)
-                )  # add roles and removes duplicates
+                # Remove invalid guild roles
+                guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
+                existing_roles = set(existing_binds[0].get("roles", []) + roles)
+
+                # Moves binding to the end of the array, if we wanted order to stay could get the
+                # index, then remove, then insert again at that index.
+                guild_binds.remove(existing_binds[0])
+
+                existing_binds[0]["roles"] = list(guild_roles & existing_roles)
+                guild_binds.append(existing_binds[0])
+
+                await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+                return
+
             else:
                 # In ideal circumstances, this case should be for entire group bindings only
                 raise NotImplementedError("No roles to be assigned were passed.")
