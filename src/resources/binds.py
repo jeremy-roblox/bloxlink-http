@@ -303,9 +303,10 @@ class GuildBind(BaseGuildBind):
         """Returns a string representing the bind, formatted in the way /viewbinds expects it."""
 
         # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
-        role_string = ", ".join([f"<@&{role}>" for role in self.roles])
+        role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
         remove_role_str = ""
-        if self.removeRoles:
+
+        if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
             remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
             # remove_role_str = (
             #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
@@ -327,7 +328,9 @@ class GuildBind(BaseGuildBind):
 
             # Entire group binding.
             if not self.roles or self.roles == "undefined" or self.roles == "null":
-                output_list = [name_id_string, nickname_string]
+                output_list = [name_id_string]
+                if nickname_string:
+                    output_list.append(nickname_string)
                 if remove_role_str:
                     output_list.append(remove_role_str)
 
@@ -344,6 +347,17 @@ class GuildBind(BaseGuildBind):
                     min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
                     max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
                     rank_string = f"Ranks {min_str} to {max_str}:"
+
+                elif self.min is not None:
+                    min_name = rolesets.get(self.min, "")
+                    min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
+                    rank_string = f"Rank {min_str} or above:"
+
+                elif self.max is not None:
+                    max_name = rolesets.get(self.max, "")
+                    max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
+                    rank_string = f"Rank {max_str} or below:"
+                    pass
 
                 elif self.roleset is not None:
                     abs_roleset = abs(self.roleset)
