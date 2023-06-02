@@ -34,6 +34,13 @@ GROUP_RANK_CRITERIA_TEXT = {
 
 
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
+    """
+    Handles the group bind criteria selection response & sets up the next prompt accordingly.
+
+    Sets up the group rank selection prompt for all criteria except "all" and "gst", those two
+    will be directed straight to role selection.
+    """
+
     message = interaction.message
 
     # depending on choice, show more select menus to message
@@ -101,6 +108,10 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
 
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
+    """
+    Handles the selected group rank response, one or two depending on the bind condition.
+    Sets up role-selection prompt.
+    """
     message = interaction.message
     roleset_choices = interaction.values
 
@@ -148,6 +159,12 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
 
 async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
+    """
+    Handles the role selection prompt response.
+
+    Saves the values from the prior steps (passed via the component custom_id) and
+    the selections from this prompt to the original embed description.
+    """
     message = interaction.message
 
     print("inter vals", interaction.values)
@@ -212,80 +229,55 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
 
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
+    """
+    Handles what will occur on the add role button press.
+
+    Depending on the bind type, this will do different things, will only be
+    applicable for group binds where specific ranks are desired, as well as
+    asset, badge, and gamepass bindings.
+    """
     custom_id = interaction.custom_id
-
-    channel_id = interaction.channel_id
-    guild_id = interaction.guild_id
-
-    member = interaction.member
     message = interaction.message
-
-    guild = await interaction.fetch_guild()
 
     await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
-    custom_id_data = custom_id.split(":")
-
-    group_id = custom_id_data[2] if len(custom_id_data) >= 3 else None
-
-    if not group_id:
-        return
-
-    group = await get_group(group_id)
-
-    # print(group)
-
-    # embed = message.embeds[0]
-
-    # custom_id_data = custom_id.split(":")
-
-    # role_data = (custom_id_data[2] if len(custom_id_data) >= 3 else "").split(",")
-
-    # await message.edit(embed=embed)
+    bind_type, bind_id = get_custom_id_data(custom_id, segment_min=3, segment_max=4)
 
     embed = hikari.Embed(
         title="Binding Role Interactive Wizard",
-        description=(
+    )
+
+    if bind_type == "group":
+        if not bind_id:
+            return
+
+        group = await get_group(bind_id)
+
+        embed.description = (
             "This menu will let you connect a Group rank to a "
             "Discord role.\nPlease choose the criteria for this bind."
-        ),
-    )
+        )
 
-    # roleset_menu = (
-    #     bloxlink.rest.build_message_action_row().add_select_menu(f"bind_menu:select_menu:add_role:roleset_menu:{message.id}")
-    #     .set_placeholder("Bind this Group rank")
-    # )
+        criteria_menu = (
+            bloxlink.rest.build_message_action_row()
+            .add_text_menu(f"bind:sel_crit:{message.id}:{bind_id}", min_values=1, max_values=1)
+            .set_placeholder("Choose condition")
+        )
 
-    # for roleset_value, roleset_name in group.rolesets.items():
-    #     if len(roleset_menu.options) < 25:
-    #         roleset_menu = roleset_menu.add_option(roleset_name, str(roleset_value)).add_to_menu()
+        for key, val in GROUP_RANK_CRITERIA.items():
+            criteria_menu.add_option(val, key)
 
-    # roleset_menu = roleset_menu.add_to_container()
+        await interaction.execute(embed=embed, components=[criteria_menu.parent])
 
-    # role_menu = (
-    #     bloxlink.rest.build_message_action_row().add_select_menu(f"bind_menu:select_menu:add_role:role_menu:{message.id}")
-    #     .set_placeholder("..to this Discord role")
-    # )
-
-    # for role_id, role in guild.roles.items():
-    #     if role.name != "@everyone" and len(role_menu.options) < 25:
-    #         role_menu = role_menu.add_option(role.name, str(role_id)).add_to_menu()
-
-    # role_menu = role_menu.add_to_container()
-
-    criteria_menu = (
-        bloxlink.rest.build_message_action_row()
-        .add_text_menu(f"bind:sel_crit:{message.id}:{group_id}", min_values=1, max_values=1)
-        .set_placeholder("Choose condition")
-    )
-
-    for key, val in GROUP_RANK_CRITERIA.items():
-        criteria_menu.add_option(val, key)
-
-    await interaction.execute(embed=embed, components=[criteria_menu.parent])
+    elif bind_type in ("asset", "badge", "gamepass"):
+        # Direct the user straight to the role selection prompt.
+        raise NotImplementedError(f"The bind type {bind_type} is not handled yet!")
 
 
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
+    """
+    Saves the configuration found in the description of the embed to the database.
+    """
     message = interaction.message
     guild_id = interaction.guild_id
 
@@ -432,7 +424,7 @@ class BindCommand:
                 bloxlink.rest.build_message_action_row()
                 .add_interactive_button(
                     hikari.ButtonStyle.PRIMARY,
-                    f"bind_menu:add_roles_button:{group_id}",
+                    f"bind_menu:add_roles_button:group:{group_id}",
                     label="Bind new role",
                 )
                 .add_interactive_button(
