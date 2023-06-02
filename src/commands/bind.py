@@ -1,4 +1,5 @@
 from resources.bloxlink import instance as bloxlink
+from resources.exceptions import RobloxNotFound
 from resources.groups import get_group
 from resources.binds import count_binds, get_bind_desc, create_bind
 from resources.models import CommandContext
@@ -291,16 +292,11 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     embed = message.embeds[0]
     bindings = embed.description.split("\n")[2:]
 
-    group_id = get_custom_id_data(interaction.custom_id, segment=3)
+    bind_type, prompt_id = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=4)
+
     for bind in bindings:
         # remove underscores
         bind = bind[1:-1]
-        bind_type = ""
-
-        for criteria_type, criteria_vals in GROUP_RANK_CRITERIA_TEXT.items():
-            if criteria_vals in bind:
-                bind_type = criteria_type
-                break
 
         # Get all role IDs, need to rework if adding roles to remove.
         # Probably will split on the text "roles to remove" if it exists first.
@@ -308,54 +304,65 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         # Get all matches in-between double asterisks
         named_ranks = re.findall(r"\*\*(.*?)\*\*", bind)
 
-        group_data = await get_group(group_id)
-        group_rolesets = group_data.rolesets.items()
+        if bind_type == "group":
+            group_bind_type = ""
 
-        rank_ids = []
-        for rank in named_ranks:
-            for k, v in group_rolesets:
-                if v == rank:
-                    rank_ids.append(k)
+            # Determine the type of binding based on the text desc.
+            for criteria_type, criteria_vals in GROUP_RANK_CRITERIA_TEXT.items():
+                if criteria_vals in bind:
+                    group_bind_type = criteria_type
+                    break
 
-        if bind_type == "equ":
-            await create_bind(
-                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, roleset=rank_ids[0]
-            )
+            group_data = await get_group(prompt_id)
+            group_rolesets = group_data.rolesets.items()
 
-        elif bind_type == "gte":
-            # TODO: Consider changing so only "min" option is set.
-            await create_bind(
-                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, roleset=-abs(rank_ids[0])
-            )
+            rank_ids = []
+            for rank in named_ranks:
+                for k, v in group_rolesets:
+                    if v == rank:
+                        rank_ids.append(k)
 
-        elif bind_type == "lte":
-            await create_bind(
-                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, max=rank_ids[0]
-            )
+            if group_bind_type == "equ":
+                await create_bind(
+                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, roleset=rank_ids[0]
+                )
 
-        elif bind_type == "rng":
-            await create_bind(
-                guild_id,
-                bind_type="group",
-                bind_id=int(group_id),
-                roles=role_ids,
-                min=rank_ids[0],
-                max=rank_ids[1],
-            )
+            elif group_bind_type == "gte":
+                # TODO: Consider changing so only "min" option is set.
+                await create_bind(
+                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, roleset=-abs(rank_ids[0])
+                )
 
-        elif bind_type == "gst":
-            await create_bind(guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, guest=True)
+            elif group_bind_type == "lte":
+                await create_bind(
+                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, max=rank_ids[0]
+                )
 
-        elif bind_type == "all":
-            await create_bind(
-                guild_id, bind_type="group", bind_id=int(group_id), roles=role_ids, everyone=True
-            )
+            elif group_bind_type == "rng":
+                await create_bind(
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    min=rank_ids[0],
+                    max=rank_ids[1],
+                )
 
-        else:
-            print("No matching bind type was found.")
+            elif group_bind_type == "gst":
+                await create_bind(guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, guest=True)
+
+            elif group_bind_type == "all":
+                await create_bind(guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, everyone=True)
+
+            else:
+                raise NotImplementedError("No matching group bind type was found.")
+
+        elif bind_type in ("asset", "badge", "gamepass"):
+            raise NotImplementedError("Alternative bind type found.")
 
     reset_embed = hikari.Embed(
-        title="New Group Bind", description=await get_bind_desc(interaction.guild_id, int(group_id))
+        title=f"New {bind_type.capitalize()} Bind",
+        description=await get_bind_desc(interaction.guild_id, int(prompt_id)),
     )
     await message.edit(embed=reset_embed)
 
@@ -430,7 +437,7 @@ class BindCommand:
                 )
                 .add_interactive_button(
                     hikari.ButtonStyle.SUCCESS,
-                    f"bind_menu:save_button:{group_id}",
+                    f"bind_menu:save_button:group:{group_id}",
                     label="Save changes",
                 )
             )
