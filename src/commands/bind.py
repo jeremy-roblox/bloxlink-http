@@ -9,12 +9,12 @@ from resources.component_helper import (
     set_components,
     get_custom_id_data,
 )
+from resources.constants import SPLIT_CHAR
 from hikari.commands import CommandOption, OptionType
 import hikari
 import re
 
-# Obscure unicode character, counts as 2 chars for length but is unique enough for splitting w/o worry.
-SPLIT_CHAR = "\U0001D15D"
+
 GROUP_RANK_CRITERIA = {
     "equ": "Rank must match exactly...",
     "gte": "Rank must be greater than or equal to...",

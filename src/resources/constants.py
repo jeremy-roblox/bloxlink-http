@@ -36,3 +36,7 @@ REPLY_CONT = "<:ReplyCont:870764844012412938>"
 UNICODE_LEFT = "\u276E"
 UNICODE_RIGHT = "\u276F"
 UNICODE_BLANK = "\u2800"
+
+# Obscure unicode character, counts as 2 chars for length.
+# Useful for custom_ids where user input is included but we need to split.
+SPLIT_CHAR = "\U0001D15D"
