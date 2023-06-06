@@ -29,12 +29,16 @@ async def build_role_selection_prompt(
     guild_id: int,
     placeholder: str = "Attach this Discord role to the people who apply to this bind.",
     min_values: int = 1,
+    include_none: bool = False,
 ) -> hikari.api.MessageActionRowBuilder:
     role_menu = bloxlink.rest.build_message_action_row().add_text_menu(
         custom_id, placeholder=placeholder, min_values=min_values
     )
 
     guild_roles = await bloxlink.fetch_roles(guild_id)
+
+    if include_none:
+        role_menu.add_option("[SKIP]", "None")
 
     for role_id, role_data in guild_roles.items():
         if (
