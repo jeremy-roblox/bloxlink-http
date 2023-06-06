@@ -10,6 +10,7 @@ from resources.component_helper import (
     get_custom_id_data,
 )
 from resources.constants import SPLIT_CHAR
+from resources.prompts import build_role_selection_prompt, build_roleset_selection_prompt
 from hikari.commands import CommandOption, OptionType
 import hikari
 import re
@@ -46,52 +47,32 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     # depending on choice, show more select menus to message
     bind_choice = interaction.values[0]
 
-    show_roleset_menu = False
-    show_discord_role_menu = False
+    show_roleset_menu: bool = bind_choice in ("equ", "gte", "lte", "rng")
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 3)
-    group_id = get_custom_id_data(interaction.custom_id, 4)
-
-    if bind_choice in ("equ", "gte", "lte", "rng"):
-        show_roleset_menu = True
+    original_message_id, group_id = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=4)
 
     print("select_criteria", interaction.custom_id)
+    prompt = None
 
     if show_roleset_menu:
-        group = await get_group(group_id)
-
-        roleset_menu = bloxlink.rest.build_message_action_row().add_text_menu(
+        value_count = 1 if bind_choice != "rng" else 2
+        prompt = await build_roleset_selection_prompt(
             f"bind:sel_rank:{original_message_id}:{bind_choice}",
-            placeholder="Bind this Group rank",
-            min_values=1 if bind_choice != "rng" else 2,
-            max_values=1 if bind_choice != "rng" else 2,
+            group_id,
+            min_values=value_count,
+            max_values=value_count,
         )
-
-        for roleset_value, roleset_name in group.rolesets.items():
-            if roleset_name != "Guest" and len(roleset_menu.options) < 25:
-                roleset_menu.add_option(roleset_name, roleset_name)
 
         message.embeds[0].description = (
             "Very good! Now, choose the roleset from your group " "that should receive the role."
         )
-
-        await set_components(message, components=[roleset_menu.parent])
     else:
         # Skip to the role selection prompt.
-        # Copy-pasted code, need a better solution for building these prompts as necessary.
-        # Extrapolate to a method?
-        role_menu = (
-            bloxlink.rest.build_message_action_row()
-            .add_text_menu(f"bind:sel_role:{original_message_id}::{bind_choice}", min_values=1)
-            .set_placeholder("Attach this Discord role to the Group Roleset")
+
+        # custom_id has double colons because that is where a roleset would go (segment 4).
+        prompt = await build_role_selection_prompt(
+            f"bind:sel_role:{original_message_id}::{bind_choice}", interaction.guild_id
         )
-
-        guild = await interaction.fetch_guild()
-        for role_id, role in guild.roles.items():
-            if role.name != "@everyone" and len(role_menu.options) < 25:
-                role_menu.add_option(role.name, f"{role.name}{SPLIT_CHAR}{str(role_id)}")
-
-        role_menu.set_max_values(len(role_menu.options))
 
         message.embeds[0].description = (
             "Finally, choose the role from your "
@@ -100,11 +81,10 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
             "No problem! Click the 'Create Role' button above!"
         )
 
-        await set_components(message, components=[role_menu.parent])
+    if prompt:
+        await set_components(message, components=[prompt])
 
-    return interaction.build_deferred_response(
-        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
-    )
+    return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
@@ -114,8 +94,6 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     """
     message = interaction.message
     roleset_choices = interaction.values
-
-    guild = await interaction.fetch_guild()
 
     print("select_roleset", interaction.custom_id)
 
@@ -127,40 +105,21 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     roleset_str = (
         f"{roleset_choices[0]}{f'{SPLIT_CHAR}{roleset_choices[1]}' if len(roleset_choices) > 1 else ''}"
     )
-    role_menu = (
-        bloxlink.rest.build_message_action_row()
-        .add_text_menu(
-            f"bind:sel_role:{original_message_id}:{roleset_str}:{bind_choice}",
-            min_values=1,
-        )
-        .set_placeholder("Attach this Discord role to the Group Roleset")
+    prompt = await build_role_selection_prompt(
+        f"bind:sel_role:{original_message_id}:{roleset_str}:{bind_choice}",
+        interaction.guild_id,
     )
 
-    for role_id, role in guild.roles.items():
-        if (
-            role.name != "@everyone"
-            and not role.bot_id
-            and not role.integration_id
-            and len(role_menu.options) < 25
-        ):
-            role_menu.add_option(role.name, f"{role.name}{SPLIT_CHAR}{str(role_id)}")
-
-    role_menu.set_max_values(len(role_menu.options))
-
     message.embeds[0].description = (
-        "Finally, choose the role from your "
+        "Choose the role from your "
         "server that you want members to receive "
         "who qualify for the bind.\nNo existing role? "
         "No problem! Click the 'Create Role' button above!"
     )
 
-    original_message_id = get_custom_id_data(interaction.id, 5)
+    await set_components(message, components=[prompt])
 
-    await set_components(message, components=[role_menu.parent])
-
-    return interaction.build_deferred_response(
-        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
-    )
+    return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
 async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
@@ -182,10 +141,17 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
     original_message_id = custom_data[0]
+
+    is_group_bind = True
+
     roleset_data = custom_data[1]
     if SPLIT_CHAR in roleset_data:
         roleset_data = roleset_data.split(SPLIT_CHAR)
-    bind_choice = custom_data[2]
+    elif roleset_data in ("asset", "badge", "gamepass"):
+        is_group_bind = False
+
+    if is_group_bind:
+        bind_choice = custom_data[2]
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
@@ -195,24 +161,36 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     if "Pending changes:" not in new_description:
         new_description.append("Pending changes:")
 
-    prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
+    prefix = ""
     content = ""
-    if bind_choice in ("equ", "gte", "lte"):
-        content = roleset_data
-    elif bind_choice in ("gst", "all"):
-        content = "<GROUP ID> (TBD)"
-    elif bind_choice == "rng":
-        min_rank = roleset_data[0]
-        max_rank = roleset_data[1]
+    role_mention_str = ", ".join(f"<@&{val}>" for val in role_data.keys())
 
-        content = f"{min_rank}** and **{max_rank}"
+    if is_group_bind:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
+        content = ""
+        if bind_choice in ("equ", "gte", "lte"):
+            content = roleset_data
+        elif bind_choice in ("gst", "all"):
+            content = "<GROUP ID> (TBD)"
+        elif bind_choice == "rng":
+            min_rank = roleset_data[0]
+            max_rank = roleset_data[1]
 
-    suffix = ", ".join(f"<@&{val}>" for val in role_data.keys())
+            content = f"{min_rank}** and **{max_rank}"
+    else:
+        prefix = "Users who own"
+        content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
+
     new_description.append(
-        f"_{prefix} **{content}** will receive " f"role{'s' if len(role_data.keys()) > 1  else ''} {suffix}_"
+        f"_{prefix} **{content}** will receive "
+        f"role{'s' if len(role_data.keys()) > 1  else ''} {role_mention_str}_"
     )
 
-    new_embed = hikari.Embed(title="New Group Bind [UNSAVED CHANGES]", description="\n".join(new_description))
+    original_title = original_message.embeds[0].title
+    new_title = (
+        original_title if "[UNSAVED CHANGES]" in original_title else f"{original_title} [UNSAVED CHANGES]"
+    )
+    new_embed = hikari.Embed(title=new_title, description="\n".join(new_description))
 
     original_message.embeds[0] = new_embed
 
@@ -252,6 +230,8 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         title="Binding Role Interactive Wizard",
     )
 
+    prompt = None
+
     if bind_type == "group":
         if not bind_id:
             return
@@ -272,11 +252,25 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         for key, val in GROUP_RANK_CRITERIA.items():
             criteria_menu.add_option(val, key)
 
-        await interaction.execute(embed=embed, components=[criteria_menu.parent])
+        prompt = criteria_menu.parent
 
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
+        prompt = await build_role_selection_prompt(
+            f"bind:sel_role:{message.id}:{bind_type}", interaction.guild_id
+        )
+        embed.description = (
+            "Choose the role from your "
+            "server that you want members to receive "
+            "who qualify for this bind.\nNo existing role? "
+            "No problem! Click the 'Create Role' button above!"
+        )
+
+    else:
         raise NotImplementedError(f"The bind type {bind_type} is not handled yet!")
+
+    if prompt:
+        await interaction.execute(embed=embed, components=[prompt])
 
 
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
