@@ -100,13 +100,20 @@ async def create_bind(
 
                 existing_binds[0]["roles"] = list(guild_roles & existing_roles)
                 guild_binds.append(existing_binds[0])
-
-                await bloxlink.update_guild_data(guild_id, binds=guild_binds)
-                return
-
             else:
                 # In ideal circumstances, this case should be for entire group bindings only
                 raise NotImplementedError("No roles to be assigned were passed.")
+            
+            if remove_roles:
+                # Override roles to remove rather than append.
+                guild_binds.remove(existing_binds[0])
+
+                existing_binds[0]["removeRoles"] = remove_roles
+                guild_binds.append(existing_binds[0])
+
+            await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+
+            
     else:
         # everything else
         raise NotImplementedError("No bind_id was passed when trying to make a bind.")
