@@ -156,6 +156,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
 
+    # Save current configuration to the description.
     new_description = original_message.embeds[0].description.split("\n")
 
     if "Pending changes:" not in new_description:
@@ -181,10 +182,15 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         prefix = "Users who own"
         content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
 
-    new_description.append(
+    new_bind_str = (
         f"_{prefix} **{content}** will receive "
         f"role{'s' if len(role_data.keys()) > 1  else ''} {role_mention_str}_"
     )
+
+    # Remove dupes & add to the end of the list.
+    if new_bind_str in new_description:
+        new_description.remove(new_bind_str)
+    new_description.append(new_bind_str)
 
     original_title = original_message.embeds[0].title
     new_title = (
@@ -194,9 +200,59 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     original_message.embeds[0] = new_embed
 
+    # Save to the original message
     await original_message.edit(embed=new_embed)
-    await message.delete()
 
+    # Setup remove role prompt
+    prompt = await build_role_selection_prompt(
+        custom_id=f"bind:sel_rmv_role:{original_message_id}",
+        guild_id=interaction.guild_id,
+        placeholder="Choose which role(s) will be removed from people who apply to this bind.",
+        include_none=True,
+    )
+    message.embeds[0].description = (
+        "Choose the role(s) to remove from your "
+        "server members who qualify for the bind.\n"
+        "Don't want any roles removed? No problem! "
+        "Select the option named `[SKIP]`."
+    )
+    await set_components(message, components=[prompt])
+
+    return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
+
+async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction):
+    original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
+
+    skip_bool = False
+    for item in interaction.values:
+        if "None" in item:
+            skip_bool = True
+            break
+
+    if not skip_bool:
+        channel = await interaction.fetch_channel()
+        original_message = await channel.fetch_message(original_message_id)
+        original_embed = original_message.embeds[0]
+
+        original_desc_list = original_embed.description.splitlines()
+        last_item = original_desc_list[-1]
+
+        role_data = {}
+        for item in interaction.values:
+            item_data = item.split(SPLIT_CHAR)
+            role_data[item_data[1]] = item_data[0]
+        role_mention_str = ", ".join(f"<@&{val}>" for val in role_data.keys())
+
+        last_item = last_item[:-1] + f", and will have these roles removed: {role_mention_str}_"
+        original_desc_list[-1] = last_item
+
+        description = "\n".join(original_desc_list)
+        original_embed.description = description
+
+        await original_message.edit(embed=original_embed)
+
+    await interaction.message.delete()
     return (
         interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
         .set_content(
@@ -205,10 +261,6 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         )
         .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
-
-    # await interaction.edit_initial_response(
-    #     f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
-    #     " and click the Save button to save the bind to your server!")
 
 
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
@@ -291,7 +343,20 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
         # Get all role IDs, need to rework if adding roles to remove.
         # Probably will split on the text "roles to remove" if it exists first.
-        role_ids = re.findall(r"(\d{17,})", bind)
+
+        role_ids = []
+        remove_role_ids = []
+
+        remove_split_str = ", and will have these roles removed:"
+        if remove_split_str in bind:
+            remove_split = bind.split(remove_split_str)
+            print(remove_split)
+
+            role_ids = re.findall(r"(\d{17,})", remove_split[0])
+            remove_role_ids = role_ids = re.findall(r"(\d{17,})", remove_split[1])
+        else:
+            role_ids = re.findall(r"(\d{17,})", bind)
+
         # Get all matches in-between double asterisks
         named_ranks = re.findall(r"\*\*(.*?)\*\*", bind)
 
@@ -315,18 +380,33 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
             if group_bind_type == "equ":
                 await create_bind(
-                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, roleset=rank_ids[0]
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    remove_roles=remove_role_ids,
+                    roleset=rank_ids[0],
                 )
 
             elif group_bind_type == "gte":
                 # TODO: Consider changing so only "min" option is set.
                 await create_bind(
-                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, roleset=-abs(rank_ids[0])
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    remove_roles=remove_role_ids,
+                    roleset=-abs(rank_ids[0]),
                 )
 
             elif group_bind_type == "lte":
                 await create_bind(
-                    guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, max=rank_ids[0]
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    remove_roles=remove_role_ids,
+                    max=rank_ids[0],
                 )
 
             elif group_bind_type == "rng":
@@ -335,15 +415,30 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
                     bind_type,
                     bind_id=int(prompt_id),
                     roles=role_ids,
+                    remove_roles=remove_role_ids,
                     min=rank_ids[0],
                     max=rank_ids[1],
                 )
 
             elif group_bind_type == "gst":
-                await create_bind(guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, guest=True)
+                await create_bind(
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    remove_roles=remove_role_ids,
+                    guest=True,
+                )
 
             elif group_bind_type == "all":
-                await create_bind(guild_id, bind_type, bind_id=int(prompt_id), roles=role_ids, everyone=True)
+                await create_bind(
+                    guild_id,
+                    bind_type,
+                    bind_id=int(prompt_id),
+                    roles=role_ids,
+                    remove_roles=remove_role_ids,
+                    everyone=True,
+                )
 
             else:
                 raise NotImplementedError("No matching group bind type was found.")
@@ -370,9 +465,10 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     permissions=hikari.Permissions.MANAGE_GUILD,
     accepted_custom_ids={
         "bind_menu:add_roles_button": bind_menu_add_role_button,
+        "bind:sel_crit": bind_menu_select_criteria,
         "bind:sel_rank": bind_menu_select_roleset,
         "bind:sel_role": bind_menu_select_role,
-        "bind:sel_crit": bind_menu_select_criteria,
+        "bind:sel_rmv_role": bind_menu_select_remove_roles,
         "bind_menu:save_button": bind_menu_save_button,
     },
 )
