@@ -161,7 +161,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
             content = f"{min_rank}** and **{max_rank}"
     else:
-        prefix = "Users who own"
+        prefix = "People who own"
         content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
 
     new_bind_str = (
