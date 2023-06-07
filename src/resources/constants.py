@@ -40,3 +40,21 @@ UNICODE_BLANK = "\u2800"
 # Obscure unicode character, counts as 2 chars for length.
 # Useful for custom_ids where user input is included but we need to split.
 SPLIT_CHAR = "\U0001D15D"
+
+# Utilized for bind command logic.
+GROUP_RANK_CRITERIA = {
+    "equ": "Rank must match exactly...",
+    "gte": "Rank must be greater than or equal to...",
+    "lte": "Rank must be less than or equal to...",
+    "rng": "Rank must be within 2 rolesets...",
+    "gst": "User must NOT be a member of this group.",
+    "all": "User must be a member of this group.",
+}
+GROUP_RANK_CRITERIA_TEXT = {
+    "equ": "People with the rank",
+    "gte": "People with a rank greater than or equal to",
+    "lte": "People with a rank less than or equal to",
+    "rng": "People with a rank between",
+    "gst": "People who are not in this group",
+    "all": "People who are in this group",
+}

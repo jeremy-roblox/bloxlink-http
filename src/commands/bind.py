@@ -9,29 +9,11 @@ from resources.component_helper import (
     set_components,
     get_custom_id_data,
 )
-from resources.constants import SPLIT_CHAR
+from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA, GROUP_RANK_CRITERIA_TEXT
 from resources.prompts import build_role_selection_prompt, build_roleset_selection_prompt
 from hikari.commands import CommandOption, OptionType
 import hikari
 import re
-
-
-GROUP_RANK_CRITERIA = {
-    "equ": "Rank must match exactly...",
-    "gte": "Rank must be greater than or equal to...",
-    "lte": "Rank must be less than or equal to...",
-    "rng": "Rank must be within 2 rolesets...",
-    "gst": "User must NOT be a member of this group.",
-    "all": "User must be a member of this group.",
-}
-GROUP_RANK_CRITERIA_TEXT = {
-    "equ": "People with the rank",
-    "gte": "People with a rank greater than or equal to",
-    "lte": "People with a rank less than or equal to",
-    "rng": "People with a rank between",
-    "gst": "People who are not in this group",
-    "all": "People who are in this group",
-}
 
 
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
@@ -183,7 +165,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
 
     new_bind_str = (
-        f"_{prefix} **{content}** will receive "
+        f"- _{prefix} **{content}** will receive "
         f"role{'s' if len(role_data.keys()) > 1  else ''} {role_mention_str}_"
     )
 
@@ -338,8 +320,8 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     bind_type, prompt_id = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=4)
 
     for bind in bindings:
-        # remove underscores
-        bind = bind[1:-1]
+        # remove underscores and bulletpoint
+        bind = bind[3:-1]
 
         # Get all role IDs, need to rework if adding roles to remove.
         # Probably will split on the text "roles to remove" if it exists first.
@@ -353,7 +335,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
             print(remove_split)
 
             role_ids = re.findall(r"(\d{17,})", remove_split[0])
-            remove_role_ids = role_ids = re.findall(r"(\d{17,})", remove_split[1])
+            remove_role_ids = re.findall(r"(\d{17,})", remove_split[1])
         else:
             role_ids = re.findall(r"(\d{17,})", bind)
 
@@ -517,10 +499,26 @@ class BindCommand:
         if bind_mode == "specific_roles":
             embed = hikari.Embed(
                 title="New Group Bind",
-                description="No binds exist for this group! Click the button below to create your first bind."
-                if bind_count == 0
-                else await get_bind_desc(ctx.guild_id, group.id),
+                description=(
+                    "No binds exist for this group! Click the button below to create your first bind."
+                    if bind_count == 0
+                    else await get_bind_desc(ctx.guild_id, group.id)
+                ),
             )
+
+            # embed.add_field(
+            #     "Current Binds",
+            #     value=(
+            #         "No binds exist for this group! Click the button below to create your first bind."
+            #         if bind_count == 0
+            #         else await get_bind_desc(ctx.guild_id, group.id)
+            #     ),
+            #     inline=True,
+            # )
+
+            # embed.add_field(
+            #     name="New Binds", value="*The binds you're making will be added here!*", inline=True
+            # )
 
             button_menu = (
                 bloxlink.rest.build_message_action_row()
