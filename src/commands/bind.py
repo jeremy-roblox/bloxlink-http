@@ -503,7 +503,14 @@ class BindCommand:
         group_id = ctx.options["group_id"]
         bind_mode = ctx.options["bind_mode"]
 
-        group = await get_group(group_id)
+        try:
+            group = await get_group(group_id)
+        except RobloxNotFound:
+            # Can't be ephemeral sadly bc of the defer state for the command.
+            await ctx.response.send(
+                f"The group ID ({group_id}) you gave is either invalid or does not exist."
+            )
+            return
 
         bind_count = await count_binds(ctx.guild_id, group.id)
 
