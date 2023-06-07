@@ -171,24 +171,12 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
         "gamepass": [],
     }
 
-    group_data = None
     for bind in items:
         bind_type = bind.determine_type()
         include_id = True if bind_type != "group_roles" else False
 
-        if bind_type == "linked_group" or bind_type == "group_roles":
-            if not group_data or group_data.id != bind.id:
-                try:
-                    group_data = await get_group(bind.id)
-                except RobloxAPIError:
-                    embed.description = (
-                        "> There was an error with the Roblox API when getting your group's data. "
-                        "Try again later."
-                    )
-                    return embed
-
         bind_string = await bind.get_bind_string(
-            guild_id=guild_id, include_id=include_id, include_name=include_id, group_data=group_data
+            guild_id=guild_id, include_id=include_id, include_name=include_id
         )
 
         for types in item_map:

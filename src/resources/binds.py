@@ -2,7 +2,10 @@ from __future__ import annotations
 from .models import BaseGuildBind, GuildData, MISSING
 import resources.users as users
 import resources.groups as groups
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message
+import resources.assets as assets
+import resources.badges as badges
+import resources.gamepasses as gamepasses
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxNotFound
 from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
@@ -103,7 +106,7 @@ async def create_bind(
             else:
                 # In ideal circumstances, this case should be for entire group bindings only
                 raise NotImplementedError("No roles to be assigned were passed.")
-            
+
             if remove_roles:
                 # Override roles to remove rather than append.
                 guild_binds.remove(existing_binds[0])
@@ -113,7 +116,6 @@ async def create_bind(
 
             await bloxlink.update_guild_data(guild_id, binds=guild_binds)
 
-            
     else:
         # everything else
         raise NotImplementedError("No bind_id was passed when trying to make a bind.")
@@ -310,13 +312,7 @@ class GuildBind(BaseGuildBind):
         else:
             return self.type
 
-    async def get_bind_string(
-        self,
-        guild_id: int,
-        include_id: bool = True,
-        include_name: bool = True,
-        group_data: groups.RobloxGroup = None,
-    ) -> str:
+    async def get_bind_string(self, guild_id: int, include_id: bool = True, include_name: bool = True) -> str:
         """Returns a string representing the bind, formatted in the way /viewbinds expects it."""
 
         # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
@@ -329,20 +325,14 @@ class GuildBind(BaseGuildBind):
             #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
             # )
 
-        name_id_string = (
-            named_string_builder(self.type, self.id, include_id, include_name)
-            if not group_data
-            else named_string_builder(self.type, self.id, include_id, include_name, group_data)
-        )
+        name_id_string = await named_string_builder(self.type, self.id, include_id, include_name)
+
         nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
         role_string = f"Role(s): {role_string}"
 
         output_list = []
 
         if self.type == "group":
-            if not group_data:
-                raise BloxlinkException("Group data needs to be given if the type is a group.")
-
             # Entire group binding.
             if not self.roles or self.roles == "undefined" or self.roles == "null":
                 output_list = [name_id_string]
@@ -355,7 +345,14 @@ class GuildBind(BaseGuildBind):
                 # Every other group binding type (range, guest, everyone, single ID)
                 rank_string = ""
 
-                rolesets = group_data.rolesets
+                rolesets = dict()
+                try:
+                    group = await groups.get_group(self.id)
+                    rolesets = group.rolesets
+                except RobloxNotFound:
+                    # We can pass here since for the rest of the data, the default for no
+                    # item will be to insert the id by itself, rather than including the name
+                    pass
 
                 if self.min is not None and self.max is not None:
                     min_name = rolesets.get(self.min, "")
@@ -408,26 +405,38 @@ class GuildBind(BaseGuildBind):
 
 
 # TODO: Consider where to place the following utility funcs (since just dangling in binds.py is somewhat messy.)
-def named_string_builder(
-    bind_type: str, bind_id: int, include_id: bool, include_name: bool, group_data: groups.RobloxGroup = None
-):
+async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, include_name: bool):
     name = ""
     if include_name:
         match bind_type:
             case "group":
-                if not group_data:
-                    return f"*(Invalid Data)* ({bind_id})"
-                name = group_data.name
+                try:
+                    group = await groups.get_group(bind_id)
+                    name = group.name
+                except RobloxNotFound:
+                    return f"*(Invalid Group)* ({bind_id})"
 
             # TODO: Logic for getting each of the item names for these types.
             case "asset":
-                name = "<ASSET-NAME>"
+                try:
+                    asset = await assets.get_asset(bind_id)
+                    name = asset.name
+                except RobloxNotFound:
+                    return f"*(Invalid Asset)* ({bind_id})"
 
             case "badge":
-                name = "<BADGE-NAME>"
+                try:
+                    badge = await badges.get_badge(bind_id)
+                    name = badge.name
+                except RobloxNotFound:
+                    return f"*(Invalid Badge)* ({bind_id})"
 
             case "gamepass":
-                name = "<GAMEPASS-NAME>"
+                try:
+                    gamepass = await gamepasses.get_gamepass(bind_id)
+                    name = gamepass.name
+                except RobloxNotFound:
+                    return f"*(Invalid Gamepass)* ({bind_id})"
 
     return " ".join(
         [
