@@ -208,6 +208,9 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
 
 async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction):
+    """
+    Handles the response from the selection prompt asking if users want roles to be removed.
+    """
     original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
 
     skip_bool = False
