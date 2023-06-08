@@ -10,7 +10,11 @@ from resources.component_helper import (
     get_custom_id_data,
 )
 from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA, GROUP_RANK_CRITERIA_TEXT
-from resources.prompts import build_role_selection_prompt, build_roleset_selection_prompt
+from resources.prompts import (
+    build_role_selection_prompt,
+    build_roleset_selection_prompt,
+    build_group_criteria_prompt,
+)
 from hikari.commands import CommandOption, OptionType
 import hikari
 import re
@@ -39,32 +43,22 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     if show_roleset_menu:
         value_count = 1 if bind_choice != "rng" else 2
         prompt = await build_roleset_selection_prompt(
-            f"bind:sel_rank:{original_message_id}:{bind_choice}",
+            f"{original_message_id}:{bind_choice}",
             group_id,
             min_values=value_count,
             max_values=value_count,
-        )
-
-        message.embeds[0].description = (
-            "Very good! Now, choose the roleset from your group " "that should receive the role."
+            embed=message.embeds[0],
         )
     else:
         # Skip to the role selection prompt.
-
         # custom_id has double colons because that is where a roleset would go (segment 4).
         prompt = await build_role_selection_prompt(
-            f"bind:sel_role:{original_message_id}::{bind_choice}", interaction.guild_id
-        )
-
-        message.embeds[0].description = (
-            "Finally, choose the role from your "
-            "server that you want members to receive "
-            "who qualify for the bind.\nNo existing role? "
-            "No problem! Click the 'Create Role' button above!"
+            f"{original_message_id}::{bind_choice}", interaction.guild_id, embed=message.embeds[0]
         )
 
     if prompt:
-        await set_components(message, components=[prompt])
+        message.embeds[0] = prompt.embed
+        await set_components(message, components=prompt.components)
 
     return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
@@ -88,18 +82,13 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
         f"{roleset_choices[0]}{f'{SPLIT_CHAR}{roleset_choices[1]}' if len(roleset_choices) > 1 else ''}"
     )
     prompt = await build_role_selection_prompt(
-        f"bind:sel_role:{original_message_id}:{roleset_str}:{bind_choice}",
+        f"{original_message_id}:{roleset_str}:{bind_choice}",
         interaction.guild_id,
+        embed=message.embeds[0],
     )
 
-    message.embeds[0].description = (
-        "Choose the role from your "
-        "server that you want members to receive "
-        "who qualify for the bind.\nNo existing role? "
-        "No problem! Click the 'Create Role' button above!"
-    )
-
-    await set_components(message, components=[prompt])
+    message.embeds[0] = prompt.embed
+    await set_components(message, components=prompt.components)
 
     return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
@@ -187,18 +176,16 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Setup remove role prompt
     prompt = await build_role_selection_prompt(
-        custom_id=f"bind:sel_rmv_role:{original_message_id}",
+        custom_id=original_message_id,
         guild_id=interaction.guild_id,
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
         include_none=True,
+        remove_text=True,
+        embed=message.embeds[0],
     )
-    message.embeds[0].description = (
-        "Choose the role(s) to remove from your "
-        "server members who qualify for the bind.\n"
-        "Don't want any roles removed? No problem! "
-        "Select the option named `[SKIP]`."
-    )
-    await set_components(message, components=[prompt])
+
+    message.embeds[0] = prompt.embed
+    await set_components(message, components=prompt.components)
 
     return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
@@ -272,39 +259,19 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
         group = await get_group(bind_id)
 
-        embed.description = (
-            "This menu will let you connect a Group rank to a "
-            "Discord role.\nPlease choose the criteria for this bind."
-        )
-
-        criteria_menu = (
-            bloxlink.rest.build_message_action_row()
-            .add_text_menu(f"bind:sel_crit:{message.id}:{bind_id}", min_values=1, max_values=1)
-            .set_placeholder("Choose condition")
-        )
-
-        for key, val in GROUP_RANK_CRITERIA.items():
-            criteria_menu.add_option(val, key)
-
-        prompt = criteria_menu.parent
+        prompt = build_group_criteria_prompt(f"{message.id}:{bind_id}", embed=embed)
 
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
         prompt = await build_role_selection_prompt(
-            f"bind:sel_role:{message.id}:{bind_type}", interaction.guild_id
-        )
-        embed.description = (
-            "Choose the role from your "
-            "server that you want members to receive "
-            "who qualify for this bind.\nNo existing role? "
-            "No problem! Click the 'Create Role' button above!"
+            f"{message.id}:{bind_type}", interaction.guild_id, embed=embed
         )
 
     else:
         raise NotImplementedError(f"The bind type {bind_type} is not handled yet!")
 
     if prompt:
-        await interaction.execute(embed=embed, components=[prompt])
+        await interaction.execute(embed=prompt.embed, components=prompt.components)
 
 
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
