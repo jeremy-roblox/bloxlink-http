@@ -19,6 +19,8 @@ from hikari.commands import CommandOption, OptionType
 import hikari
 import re
 
+DISCORD_ID_REGEX = r"(\d{17,})"
+
 
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     """
@@ -99,6 +101,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     Saves the values from the prior steps (passed via the component custom_id) and
     the selections from this prompt to the original embed description.
+    It then sets up the select roles to remove prompt.
     """
     message = interaction.message
 
@@ -153,14 +156,28 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         prefix = "People who own"
         content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
 
+    # Check for duplicates & update accordingly. Removes old entry and appends again
+    role_list = role_data.keys()
+    for item in new_description:
+        if item[3:].startswith(f"{prefix} **{content}**"):
+            original_roles = []
+
+            # Only get roles to be given, we'll just discard the roles to remove if an entry is there.
+            # User can add them back in the next step
+            if "these roles removed:" in item:
+                split_item = item.split("these roles removed")
+                original_roles = re.findall(DISCORD_ID_REGEX, split_item[0])
+
+            role_list = list(set(role_list).union(set(original_roles)))
+
+            new_description.remove(item)
+            break
+
+    role_mention_str = ", ".join(f"<@&{val}>" for val in role_list)
     new_bind_str = (
         f"- _{prefix} **{content}** will receive "
         f"role{'s' if len(role_data.keys()) > 1  else ''} {role_mention_str}_"
     )
-
-    # Remove dupes & add to the end of the list.
-    if new_bind_str in new_description:
-        new_description.remove(new_bind_str)
     new_description.append(new_bind_str)
 
     original_title = original_message.embeds[0].title
@@ -299,12 +316,11 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         remove_split_str = ", and will have these roles removed:"
         if remove_split_str in bind:
             remove_split = bind.split(remove_split_str)
-            print(remove_split)
 
-            role_ids = re.findall(r"(\d{17,})", remove_split[0])
-            remove_role_ids = re.findall(r"(\d{17,})", remove_split[1])
+            role_ids = re.findall(DISCORD_ID_REGEX, remove_split[0])
+            remove_role_ids = re.findall(DISCORD_ID_REGEX, remove_split[1])
         else:
-            role_ids = re.findall(r"(\d{17,})", bind)
+            role_ids = re.findall(DISCORD_ID_REGEX, bind)
 
         # Get all matches in-between double asterisks
         named_ranks = re.findall(r"\*\*(.*?)\*\*", bind)
