@@ -6,7 +6,7 @@ import resources.assets as assets
 import resources.badges as badges
 import resources.gamepasses as gamepasses
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxNotFound
-from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE
+from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, GROUP_RANK_CRITERIA_TEXT
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
 from .utils import fetch
@@ -29,8 +29,95 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
     )
 
 
-async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
-    return "TODO: show existing binds"
+async def get_bind_desc(
+    guild_id: int | str,
+    bind_id: int | str = None,
+    bind_type: str["group" | "asset" | "badge" | "gamepass"] = None,
+):
+    bind_strings = []
+
+    guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
+
+    for bind in guild_binds:
+        bind_gb = GuildBind(**bind)
+
+        if bind_id and str(bind_gb.id) != str(bind_id):
+            continue
+
+        if bind_type and bind_gb.type != bind_type:
+            continue
+
+        roles = bind_gb.roles
+        role_str = ", ".join(f"<@&{val}>" for val in roles)
+        remove_roles = bind_gb.removeRoles
+        remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
+
+        bind_type = bind_gb.type
+
+        prefix = ""
+        content = ""
+
+        if bind_type == "group":
+            subtype = bind_gb.determine_type()
+            if subtype == "linked_group":
+                bind_strings.append(
+                    f"- _All users in this group ({bind_id}) receive the role matching their group rank name._"
+                )
+                continue
+
+            elif subtype == "group_roles":
+                if bind_gb.min and bind_gb.max:
+                    # TODO: Consider grabbing rank names.
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
+                    content = f"{bind_gb.min}** and **{bind_gb.max}"
+
+                elif bind_gb.min:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                    content = bind_gb.min
+
+                elif bind_gb.max:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
+                    content = bind_gb.max
+
+                elif bind_gb.roleset:
+                    if bind_gb.roleset < 0:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                        content = abs(bind_gb.roleset)
+                    else:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
+                        content = bind_gb.roleset
+
+                elif bind_gb.guest:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
+
+                elif bind_gb.everyone:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
+
+        elif bind_type == "asset":
+            # TODO: Include name and ID together.
+            prefix = "People who own the asset "
+            content = bind_id
+        elif bind_type == "badge":
+            prefix = "People who own the badge "
+            content = bind_id
+        elif bind_type == "gamepass":
+            prefix = "People who own the gamepass "
+            content = bind_id
+
+        final_bind_str = (
+            f"- _{prefix} {f'**{content}**' if content else ''} receive the "
+            f"role{'s' if len(roles) > 1  else ''} {role_str}"
+            f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
+        )
+        bind_strings.append(final_bind_str)
+
+    output = "\n".join(bind_strings[:5])
+    if len(bind_strings) > 5:
+        output += (
+            f"\n_... and {len(bind_strings) - 5} more. "
+            f"Click [here](https://www.blox.link/dashboard/guilds/{guild_id}/binds) to view the rest!_"
+        )
+    return output
 
 
 async def create_bind(
