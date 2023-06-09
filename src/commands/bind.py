@@ -1,5 +1,8 @@
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import RobloxNotFound
+from resources.assets import get_asset
+from resources.badges import get_badge
+from resources.gamepasses import get_gamepass
 from resources.groups import get_group
 from resources.binds import count_binds, get_bind_desc, create_bind
 from resources.models import CommandContext
@@ -154,7 +157,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
             content = f"{min_rank}** and **{max_rank}"
     else:
         prefix = "People who own"
-        content = f"{roleset_data} <ITEM/ASSET/BADGE ID> (TBD)"
+        content = f"this {roleset_data}"
 
     # Check for duplicates & update accordingly. Removes old entry and appends again
     role_list = role_data.keys()
@@ -466,7 +469,7 @@ class BindCommand:
         ]
     )
     async def group(self, ctx: CommandContext):
-        """bind a group to your server"""
+        """Bind a group to your server"""
 
         group_id = ctx.options["group_id"]
         bind_mode = ctx.options["bind_mode"]
@@ -535,3 +538,61 @@ class BindCommand:
             await ctx.response.send(
                 f'Your group binding for group "{group.name}" ({group_id}) has been saved.'
             )
+
+    @bloxlink.subcommand(
+        options=[
+            CommandOption(
+                type=OptionType.INTEGER,
+                name="asset_id",
+                description="What is your asset ID?",
+                is_required=True,
+            )
+        ]
+    )
+    async def asset(self, ctx: CommandContext):
+        """Bind an asset to your server"""
+
+        asset_id = ctx.options["asset_id"]
+
+        try:
+            asset = await get_asset(asset_id)
+        except RobloxNotFound:
+            # Can't be ephemeral sadly bc of the defer state for the command.
+            await ctx.response.send(
+                f"The asset ID ({asset_id}) you gave is either invalid or does not exist."
+            )
+            return
+
+        bind_count = await count_binds(ctx.guild_id, asset.id)
+
+        embed = hikari.Embed(
+            title="New Asset Bind", description=f"> ###Binding Asset - {asset.name} ({asset.id})***"
+        )
+
+        # embed.add_field(
+        #     "Current Binds",
+        #     value=(
+        #         "No binds exist for this asset! Click the button below to create your first bind."
+        #         if bind_count == 0
+        #         else await get_bind_desc(ctx.guild_id, asset.id)
+        #     ),
+        #     inline=True,
+        # )
+
+        # embed.add_field(name="New Binds", value="*The binds you're making will be added here!*", inline=True)
+
+        button_menu = (
+            bloxlink.rest.build_message_action_row()
+            .add_interactive_button(
+                hikari.ButtonStyle.PRIMARY,
+                f"bind_menu:add_roles_button:asset:{asset_id}",
+                label="Bind new role",
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SUCCESS,
+                f"bind_menu:save_button:asset:{asset_id}",
+                label="Save changes",
+            )
+        )
+
+        await ctx.response.send(embed=embed, components=button_menu)
