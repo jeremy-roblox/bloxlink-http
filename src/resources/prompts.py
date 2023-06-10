@@ -47,7 +47,7 @@ async def build_interactive_bind_base(
     embed.add_field(
         f"Current Binds",
         value=(
-            "No binds exist for this group. Click the button below to create your first bind!"
+            f"No binds exist for this {bind_type}. Click the button below to create your first bind!"
             if bind_count == 0
             else await get_bind_desc(guild_id, bind_id, bind_type)
         ),
