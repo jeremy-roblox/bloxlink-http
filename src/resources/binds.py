@@ -48,9 +48,9 @@ async def get_bind_desc(
         if bind_type and bind_gb.type != bind_type:
             continue
 
-        roles = bind_gb.roles
+        roles = bind_gb.roles if bind_gb.roles else []
         role_str = ", ".join(f"<@&{val}>" for val in roles)
-        remove_roles = bind_gb.removeRoles
+        remove_roles = bind_gb.removeRoles if bind_gb.removeRoles else []
         remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
 
         bind_type = bind_gb.type
