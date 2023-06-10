@@ -122,24 +122,32 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     is_group_bind = True
 
+    # Depending on user choices, this segment will either be roleset data or the bind type. Determine that here.
     roleset_data = custom_data[1]
     if SPLIT_CHAR in roleset_data:
         roleset_data = roleset_data.split(SPLIT_CHAR)
     elif roleset_data in ("asset", "badge", "gamepass"):
         is_group_bind = False
 
+    # Final segment only exists if this is a group bind.
     if is_group_bind:
         bind_choice = custom_data[2]
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
 
-    # Save current configuration to the description.
-    new_description = original_message.embeds[0].description.split("\n")
+    # Save current configuration to the right field.
+    # Start by getting the field and then build the updated field value.
+    new_description = original_message.embeds[0].fields[1].value.split("\n")
+
+    default_field_str = "*The binds you're making will be added here!*"
+    if default_field_str in new_description:
+        new_description.remove(default_field_str)
 
     if "Pending changes:" not in new_description:
         new_description.append("Pending changes:")
 
+    # Generate the bind string for the field.
     prefix = ""
     content = ""
     role_mention_str = ", ".join(f"<@&{val}>" for val in role_data.keys())
@@ -160,7 +168,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         prefix = "People who own"
         content = f"this {roleset_data}"
 
-    # Check for duplicates & update accordingly. Removes old entry and appends again
+    # Check for duplicates in the field & update accordingly. Removes old entry and appends again
     role_list = role_data.keys()
     for item in new_description:
         if item[3:].startswith(f"{prefix} **{content}**"):
@@ -184,13 +192,16 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     )
     new_description.append(new_bind_str)
 
+    # Update title if necessary
     original_title = original_message.embeds[0].title
     new_title = (
         original_title if "[UNSAVED CHANGES]" in original_title else f"{original_title} [UNSAVED CHANGES]"
     )
-    new_embed = hikari.Embed(title=new_title, description="\n".join(new_description))
 
-    original_message.embeds[0] = new_embed
+    # Update the embed with the new bindings made.
+    new_embed = original_message.embeds[0]
+    new_embed.title = new_title
+    new_embed.fields[1].value = "\n".join(new_description)
 
     # Save to the original message
     await original_message.edit(embed=new_embed)
@@ -228,7 +239,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
         original_message = await channel.fetch_message(original_message_id)
         original_embed = original_message.embeds[0]
 
-        original_desc_list = original_embed.description.splitlines()
+        original_desc_list = original_embed.fields[1].value.splitlines()
         last_item = original_desc_list[-1]
 
         role_data = {}
@@ -241,7 +252,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
         original_desc_list[-1] = last_item
 
         description = "\n".join(original_desc_list)
-        original_embed.description = description
+        original_embed.fields[1].value = description
 
         await original_message.edit(embed=original_embed)
 
@@ -306,9 +317,17 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     guild_id = interaction.guild_id
 
     embed = message.embeds[0]
-    bindings = embed.description.split("\n")[2:]
+    new_binds_field = embed.fields[1]
+    bindings = new_binds_field.value.splitlines()[1:]
 
     bind_type, prompt_id = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=4)
+
+    if len(bindings) == 0:
+        return (
+            interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+            .set_content("You have no new bindings to save!")
+            .set_flags(hikari.MessageFlag.EPHEMERAL)
+        )
 
     for bind in bindings:
         # remove underscores and bulletpoint
@@ -413,16 +432,13 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
                 )
 
             else:
-                raise NotImplementedError("No matching group bind type was found.")
+                raise NotImplementedError(f"No matching group bind type was found. - Bind string: {bind}")
 
         elif bind_type in ("asset", "badge", "gamepass"):
             raise NotImplementedError("Alternative bind type found.")
 
-    reset_embed = hikari.Embed(
-        title=f"New {bind_type.capitalize()} Bind",
-        description=await get_bind_desc(interaction.guild_id, int(prompt_id)),
-    )
-    await message.edit(embed=reset_embed)
+    prompt = await build_interactive_bind_base(bind_type, prompt_id, interaction.guild_id)
+    await message.edit(embed=prompt.embed)
 
     return (
         interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
