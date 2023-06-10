@@ -10,6 +10,7 @@ from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, GROUP_RANK_CR
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
 from .utils import fetch
+from typing import Literal
 import hikari
 import re
 
@@ -32,7 +33,7 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
 async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
-    bind_type: str["group" | "asset" | "badge" | "gamepass"] = None,
+    bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
 ):
     bind_strings = []
 
@@ -122,7 +123,7 @@ async def get_bind_desc(
 
 async def create_bind(
     guild_id: int | str,
-    bind_type: str["group" | "asset" | "gamepass" | "badge"],
+    bind_type: Literal["group", "asset", "badge", "gamepass"],
     bind_id: int,
     roles: list[str] = None,
     remove_roles: list[str] = None,
