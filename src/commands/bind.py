@@ -150,7 +150,6 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     # Generate the bind string for the field.
     prefix = ""
     content = ""
-    role_mention_str = ", ".join(f"<@&{val}>" for val in role_data.keys())
 
     if is_group_bind:
         prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
@@ -188,7 +187,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     role_mention_str = ", ".join(f"<@&{val}>" for val in role_list)
     new_bind_str = (
         f"- _{prefix} **{content}** will receive "
-        f"role{'s' if len(role_data.keys()) > 1  else ''} {role_mention_str}_"
+        f"role{'s' if len(role_list) > 1  else ''} {role_mention_str}_"
     )
     new_description.append(new_bind_str)
 
