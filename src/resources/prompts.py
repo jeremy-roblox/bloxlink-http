@@ -1,7 +1,13 @@
 from resources.bloxlink import instance as bloxlink
 from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA
-from resources.groups import get_group
+from resources.exceptions import RobloxNotFound
+from resources.assets import get_asset, RobloxAsset
+from resources.badges import get_badge, RobloxBadge
+from resources.gamepasses import get_gamepass, RobloxGamepass
+from resources.groups import get_group, RobloxGroup
+from resources.binds import get_bind_desc, count_binds
 from dataclasses import dataclass, field
+from typing import Literal
 import hikari
 
 
@@ -9,6 +15,62 @@ import hikari
 class EmbedPrompt:
     embed: hikari.Embed = hikari.Embed()
     components: list = field(default_factory=list)
+
+
+async def build_interactive_bind_base(
+    bind_type: Literal["group", "asset", "gamepass", "badge"], bind_id: int | str, guild_id: int
+) -> EmbedPrompt:
+    capital_type = bind_type.capitalize()
+    bind_id = bind_id if isinstance(bind_id, str) else str(bind_id)
+
+    entity = None
+    try:
+        if bind_type == "group":
+            entity = await get_group(bind_id)
+        elif bind_type == "asset":
+            entity = await get_asset(bind_id)
+        elif bind_type == "badge":
+            entity = await get_badge(bind_id)
+        elif bind_type == "gamepass":
+            entity = await get_gamepass(bind_id)
+    except RobloxNotFound:
+        # Handled later.
+        pass
+
+    bind_info = f"{entity.name} ({entity.id})" if entity else f"*(Name not available)* {bind_id}"
+    embed = hikari.Embed(
+        title=f"New {capital_type} Bind",
+        description=f"> ### Binding {capital_type} - {bind_info}",
+    )
+
+    bind_count = await count_binds(guild_id, bind_id)
+    embed.add_field(
+        f"Current Binds",
+        value=(
+            "No binds exist for this group. Click the button below to create your first bind!"
+            if bind_count == 0
+            else await get_bind_desc(guild_id, bind_id, bind_type)
+        ),
+        inline=True,
+    )
+
+    embed.add_field(name="New Binds", value="*The binds you're making will be added here!*", inline=True)
+
+    button_menu = (
+        bloxlink.rest.build_message_action_row()
+        .add_interactive_button(
+            hikari.ButtonStyle.PRIMARY,
+            f"bind_menu:add_roles_button:{bind_type}:{bind_id}",
+            label="Create a bind",
+        )
+        .add_interactive_button(
+            hikari.ButtonStyle.SUCCESS,
+            f"bind_menu:save_button:{bind_type}:{bind_id}",
+            label="Save changes",
+        )
+    )
+
+    return EmbedPrompt(embed, button_menu)
 
 
 def build_group_criteria_prompt(

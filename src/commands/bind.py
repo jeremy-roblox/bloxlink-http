@@ -17,6 +17,7 @@ from resources.prompts import (
     build_role_selection_prompt,
     build_roleset_selection_prompt,
     build_group_criteria_prompt,
+    build_interactive_bind_base,
 )
 from hikari.commands import CommandOption, OptionType
 import hikari
@@ -483,61 +484,20 @@ class BindCommand:
             )
             return
 
-        bind_count = await count_binds(ctx.guild_id, group.id)
-
         if bind_mode == "specific_roles":
-            embed = hikari.Embed(
-                title="New Group Bind",
-                description=(
-                    "No binds exist for this group! Click the button below to create your first bind."
-                    if bind_count == 0
-                    else await get_bind_desc(ctx.guild_id, group.id)
-                ),
-            )
+            prompt = await build_interactive_bind_base("group", group_id, ctx.guild_id)
 
-            # embed.add_field(
-            #     "Current Binds",
-            #     value=(
-            #         "No binds exist for this group! Click the button below to create your first bind."
-            #         if bind_count == 0
-            #         else await get_bind_desc(ctx.guild_id, group.id)
-            #     ),
-            #     inline=True,
-            # )
+            await ctx.response.send(embed=prompt.embed, components=prompt.components)
 
-            # embed.add_field(
-            #     name="New Binds", value="*The binds you're making will be added here!*", inline=True
-            # )
-
-            button_menu = (
-                bloxlink.rest.build_message_action_row()
-                .add_interactive_button(
-                    hikari.ButtonStyle.PRIMARY,
-                    f"bind_menu:add_roles_button:group:{group_id}",
-                    label="Bind new role",
-                )
-                .add_interactive_button(
-                    hikari.ButtonStyle.SUCCESS,
-                    f"bind_menu:save_button:group:{group_id}",
-                    label="Save changes",
-                )
-            )
-
-            await ctx.response.send(embed=embed, components=button_menu)
-
-            # We're done here. Button clicks invoke above functions
         elif bind_mode == "entire_group":
+            # Isn't interactive - just makes the binding and tells the user if it worked or not.
+            response = f'Your group binding for group "{group.name}" ({group_id}) has been saved.'
             try:
                 await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id)
             except NotImplementedError:
-                await ctx.response.send(
-                    f'You already have a group binding for group "{group.name}" ({group_id}). No changes were made.'
-                )
-                return
+                response = f'You already have a group binding for group "{group.name}" ({group_id}). No changes were made.'
 
-            await ctx.response.send(
-                f'Your group binding for group "{group.name}" ({group_id}) has been saved.'
-            )
+            await ctx.response.send(response)
 
     @bloxlink.subcommand(
         options=[
@@ -555,7 +515,7 @@ class BindCommand:
         asset_id = ctx.options["asset_id"]
 
         try:
-            asset = await get_asset(asset_id)
+            await get_asset(asset_id)
         except RobloxNotFound:
             # Can't be ephemeral sadly bc of the defer state for the command.
             await ctx.response.send(
@@ -563,36 +523,6 @@ class BindCommand:
             )
             return
 
-        bind_count = await count_binds(ctx.guild_id, asset.id)
+        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id)
 
-        embed = hikari.Embed(
-            title="New Asset Bind", description=f"> ###Binding Asset - {asset.name} ({asset.id})***"
-        )
-
-        # embed.add_field(
-        #     "Current Binds",
-        #     value=(
-        #         "No binds exist for this asset! Click the button below to create your first bind."
-        #         if bind_count == 0
-        #         else await get_bind_desc(ctx.guild_id, asset.id)
-        #     ),
-        #     inline=True,
-        # )
-
-        # embed.add_field(name="New Binds", value="*The binds you're making will be added here!*", inline=True)
-
-        button_menu = (
-            bloxlink.rest.build_message_action_row()
-            .add_interactive_button(
-                hikari.ButtonStyle.PRIMARY,
-                f"bind_menu:add_roles_button:asset:{asset_id}",
-                label="Bind new role",
-            )
-            .add_interactive_button(
-                hikari.ButtonStyle.SUCCESS,
-                f"bind_menu:save_button:asset:{asset_id}",
-                label="Save changes",
-            )
-        )
-
-        await ctx.response.send(embed=embed, components=button_menu)
+        await ctx.response.send(embed=prompt.embed, components=prompt.components)
