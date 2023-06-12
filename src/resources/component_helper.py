@@ -128,7 +128,7 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def button_author_validation(author_segment: int = 2):
+def button_author_validation(author_segment: int = 2, ephemeral: bool = True):
     """Handle same-author validation for buttons. Automatically defers.
 
     Ensures that the author of the command is the one who can press buttons.
@@ -148,12 +148,16 @@ def button_author_validation(author_segment: int = 2):
                 # fails to show up.
                 return (
                     interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-                    .set_content("You are not the person who ran this command!")
-                    .set_flags(hikari.MessageFlag.EPHEMERAL)
+                    .set_content(
+                        f"You {f'(<@{interaction.member.id}>) ' if not ephemeral else ''}"
+                        "are not the person who ran this command!"
+                    )
+                    .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
                 )
             else:
                 await interaction.create_initial_response(
-                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.MessageFlag.EPHEMERAL
+                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                    flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
                 )
 
             # Trigger original method
