@@ -128,13 +128,16 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def button_author_validation(author_segment: int = 2, ephemeral: bool = True):
-    """Handle same-author validation for buttons. Automatically defers.
+def button_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
+    """Handle same-author validation for buttons.
+    Utilized to ensure that the author of the command is the only one who can press buttons.
 
-    Ensures that the author of the command is the one who can press buttons.
-
-    The original author is presumed to be the first element in the custom_id after the
-    command name (in the case of viewbinds) - (index 1 raw, segment 2 for get_custom_id_data).
+    Args:
+        author_segment (int): The segment (as preferred by get_custom_id_data) where the original author's ID
+            will be located in.
+        ephemeral (bool): Set if the response should be ephemeral or not. Default is true.
+            A user mention will be included in the response if not ephemeral.
+        defer (bool): Set if the response should be deferred by the handler. Default is true.
     """
 
     def func_wrapper(func):
@@ -155,15 +158,18 @@ def button_author_validation(author_segment: int = 2, ephemeral: bool = True):
                     .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
                 )
             else:
-                await interaction.create_initial_response(
-                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
-                    flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
-                )
+                if defer:
+                    await interaction.create_initial_response(
+                        hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                        flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
+                    )
 
             # Trigger original method
-            await func(interaction)
-
-            return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+            func_resp = await func(interaction)
+            if not defer:
+                return func_resp
+            else:
+                return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
 
         return response_wrapper
 
