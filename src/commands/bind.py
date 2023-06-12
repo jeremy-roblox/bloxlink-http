@@ -476,6 +476,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         "bind:sel_rmv_role": bind_menu_select_remove_roles,
         "bind_menu:save_button": bind_menu_save_button,
     },
+    dm_enabled=False,
 )
 class BindCommand:
     """bind Discord role(s) to Roblox entities"""

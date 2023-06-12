@@ -130,6 +130,7 @@ def new_command(command: Any, **kwargs):
         rest_subcommands,
         kwargs.get("accepted_custom_ids"),
         kwargs.get("autocomplete_handlers"),
+        kwargs.get("dm_enabled"),
     )
 
     slash_commands[command_name] = new_command
@@ -157,6 +158,9 @@ async def sync_commands(bot: hikari.RESTBot):
         if new_command_data.options:
             for option in new_command_data.options:
                 command.add_option(option)
+
+        if new_command_data.dm_enabled is not None:
+            command.set_is_dm_enabled(new_command_data.dm_enabled)
 
         commands.append(command)
 
@@ -203,6 +207,7 @@ class Command:
         rest_subcommands: list[hikari.CommandOption] = None,
         accepted_custom_ids: list[str] = None,
         autocomplete_handlers: list[str] = None,
+        dm_enabled: bool = None,
     ):
         self.name = command_name
         self.fn = fn
@@ -215,6 +220,7 @@ class Command:
         self.rest_subcommands = rest_subcommands
         self.accepted_custom_ids = accepted_custom_ids or {}
         self.autocomplete_handlers = autocomplete_handlers or {}
+        self.dm_enabled = dm_enabled
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         # TODO: check for permissions
