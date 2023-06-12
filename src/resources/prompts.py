@@ -18,7 +18,10 @@ class EmbedPrompt:
 
 
 async def build_interactive_bind_base(
-    bind_type: Literal["group", "asset", "gamepass", "badge"], bind_id: int | str, guild_id: int
+    bind_type: Literal["group", "asset", "gamepass", "badge"],
+    bind_id: int | str,
+    guild_id: int,
+    author_id: int,
 ) -> EmbedPrompt:
     capital_type = bind_type.capitalize()
     bind_id = bind_id if isinstance(bind_id, str) else str(bind_id)
@@ -60,12 +63,12 @@ async def build_interactive_bind_base(
         bloxlink.rest.build_message_action_row()
         .add_interactive_button(
             hikari.ButtonStyle.PRIMARY,
-            f"bind_menu:add_roles_button:{bind_type}:{bind_id}",
+            f"bind_menu:add_roles_button:{bind_type}:{bind_id}:{author_id}",
             label="Create a bind",
         )
         .add_interactive_button(
             hikari.ButtonStyle.SUCCESS,
-            f"bind_menu:save_button:{bind_type}:{bind_id}",
+            f"bind_menu:save_button:{bind_type}:{bind_id}:{author_id}",
             label="Save changes",
         )
     )

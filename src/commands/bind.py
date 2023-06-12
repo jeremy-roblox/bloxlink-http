@@ -11,6 +11,7 @@ from resources.component_helper import (
     set_custom_id_data,
     set_components,
     get_custom_id_data,
+    button_author_validation,
 )
 from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA, GROUP_RANK_CRITERIA_TEXT
 from resources.prompts import (
@@ -268,6 +269,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
     )
 
 
+@button_author_validation(author_segment=5)
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     """
     Handles what will occur on the add role button press.
@@ -289,7 +291,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         )
         return
 
-    await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
+    # await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
     bind_type, bind_id = get_custom_id_data(custom_id, segment_min=3, segment_max=4)
 
@@ -320,6 +322,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         await interaction.execute(embed=prompt.embed, components=prompt.components)
 
 
+@button_author_validation(author_segment=5, defer=False)
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     """
     Saves the configuration found in the description of the embed to the database.
@@ -335,7 +338,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
     if len(bindings) == 0:
         return (
-            interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
+            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
             .set_content("You have no new bindings to save!")
             .set_flags(hikari.MessageFlag.EPHEMERAL)
         )
@@ -448,7 +451,10 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         elif bind_type in ("asset", "badge", "gamepass"):
             raise NotImplementedError("Alternative bind type found.")
 
-    prompt = await build_interactive_bind_base(bind_type, prompt_id, interaction.guild_id)
+    # This rebuilds the entire prompt (components and all), but we only need the embed from it.
+    prompt = await build_interactive_bind_base(
+        bind_type, prompt_id, interaction.guild_id, interaction.member.id
+    )
     await message.edit(embed=prompt.embed)
 
     return (
@@ -512,7 +518,7 @@ class BindCommand:
             return
 
         if bind_mode == "specific_roles":
-            prompt = await build_interactive_bind_base("group", group_id, ctx.guild_id)
+            prompt = await build_interactive_bind_base("group", group_id, ctx.guild_id, ctx.member.id)
 
             await ctx.response.send(embed=prompt.embed, components=prompt.components)
 
@@ -550,6 +556,6 @@ class BindCommand:
             )
             return
 
-        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id)
+        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id, ctx.member.id)
 
         await ctx.response.send(embed=prompt.embed, components=prompt.components)
