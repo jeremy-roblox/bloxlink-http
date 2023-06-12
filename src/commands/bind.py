@@ -153,11 +153,11 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     if is_group_bind:
         prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
-        content = ""
         if bind_choice in ("equ", "gte", "lte"):
             content = roleset_data
         elif bind_choice in ("gst", "all"):
-            content = "<GROUP ID> (TBD)"
+            prefix = prefix.replace("this group", "").strip()
+            content = "this group"
         elif bind_choice == "rng":
             min_rank = roleset_data[0]
             max_rank = roleset_data[1]
@@ -178,6 +178,8 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
             if "these roles removed:" in item:
                 split_item = item.split("these roles removed")
                 original_roles = re.findall(DISCORD_ID_REGEX, split_item[0])
+            else:
+                original_roles = re.findall(DISCORD_ID_REGEX, item)
 
             role_list = list(set(role_list).union(set(original_roles)))
 
@@ -276,6 +278,16 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     """
     custom_id = interaction.custom_id
     message = interaction.message
+
+    # Limit number of binds that can be made to 5 at most in one prompt session before saving.
+    field_content = message.embeds[0].fields[1].value.splitlines()
+    if len(field_content) > 5:
+        await interaction.create_initial_response(
+            hikari.ResponseType.MESSAGE_CREATE,
+            content="You can only make up to five bindings at once in a prompt! Please save first before continuing to add more.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )
+        return
 
     await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
