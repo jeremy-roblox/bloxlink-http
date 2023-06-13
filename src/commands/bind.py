@@ -51,7 +51,6 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
         interaction.custom_id, segment_min=3, segment_max=5
     )
 
-    print("select_criteria", interaction.custom_id)
     prompt = None
 
     if show_roleset_menu:
@@ -88,8 +87,6 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     message = interaction.message
     roleset_choices = interaction.values
 
-    print("select_roleset", interaction.custom_id)
-
     original_message_id, author_id, bind_choice = get_custom_id_data(
         interaction.custom_id, segment_min=3, segment_max=5
     )
@@ -122,13 +119,10 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     """
     message = interaction.message
 
-    print("inter vals", interaction.values)
     role_data = {}
     for item in interaction.values:
         item_data = item.split(SPLIT_CHAR)
         role_data[item_data[1]] = item_data[0]
-
-    print("select_role", interaction.custom_id)
 
     custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=6)
     original_message_id = custom_data[0]
