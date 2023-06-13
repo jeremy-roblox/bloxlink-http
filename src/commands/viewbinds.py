@@ -4,7 +4,7 @@ from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.pagination import Paginator
-from resources.component_helper import get_custom_id_data, set_components, button_author_validation
+from resources.component_helper import get_custom_id_data, set_components, component_author_validation
 from resources.exceptions import RobloxAPIError
 import hikari
 
@@ -54,7 +54,7 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
     return interaction.build_response(choices[:25])
 
 
-@button_author_validation()
+@component_author_validation()
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 

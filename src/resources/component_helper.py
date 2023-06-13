@@ -128,13 +128,13 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def button_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
-    """Handle same-author validation for buttons.
+def component_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
+    """Handle same-author validation for components.
     Utilized to ensure that the author of the command is the only one who can press buttons.
 
     Args:
         author_segment (int): The segment (as preferred by get_custom_id_data) where the original author's ID
-            will be located in.
+            will be located in. Defaults to 2.
         ephemeral (bool): Set if the response should be ephemeral or not. Default is true.
             A user mention will be included in the response if not ephemeral.
         defer (bool): Set if the response should be deferred by the handler. Default is true.

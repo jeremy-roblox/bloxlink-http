@@ -292,7 +292,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     # await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
-    bind_type, bind_id = get_custom_id_data(custom_id, segment_min=3, segment_max=4)
+    bind_type, bind_id, author_id = get_custom_id_data(custom_id, segment_min=3, segment_max=5)
 
     embed = hikari.Embed(title="Binding Role Interactive Wizard")
 
@@ -304,7 +304,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
         group = await get_group(bind_id)
 
-        prompt = build_group_criteria_prompt(f"{message.id}:{bind_id}", embed=embed)
+        prompt = build_group_criteria_prompt(f"{message.id}:{bind_id}:{author_id}", embed=embed)
 
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
