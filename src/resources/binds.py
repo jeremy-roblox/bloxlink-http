@@ -95,14 +95,14 @@ async def get_bind_desc(
                     prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
 
         elif bind_type == "asset":
-            # TODO: Include name and ID together.
-            prefix = "People who own the asset "
+            # TODO: Include name and ID together?
+            prefix = "People who own the asset"
             content = bind_id
         elif bind_type == "badge":
-            prefix = "People who own the badge "
+            prefix = "People who own the badge"
             content = bind_id
         elif bind_type == "gamepass":
-            prefix = "People who own the gamepass "
+            prefix = "People who own the gamepass"
             content = bind_id
 
         final_bind_str = (

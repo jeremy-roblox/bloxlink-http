@@ -475,7 +475,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
     return (
         interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
-        .set_content("Saved your binds")
+        .set_content("Your bindings have been saved!")
         .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
 
