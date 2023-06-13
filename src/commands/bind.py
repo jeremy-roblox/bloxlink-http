@@ -28,6 +28,7 @@ import re
 DISCORD_ID_REGEX = r"(\d{17,})"
 
 
+@component_author_validation(author_segment=4, defer=False)
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     """
     Handles the group bind criteria selection response & sets up the next prompt accordingly.
@@ -43,7 +44,9 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
     show_roleset_menu: bool = bind_choice in ("equ", "gte", "lte", "rng")
 
-    original_message_id, group_id = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=4)
+    original_message_id, author_id, group_id = get_custom_id_data(
+        interaction.custom_id, segment_min=3, segment_max=5
+    )
 
     print("select_criteria", interaction.custom_id)
     prompt = None
@@ -51,17 +54,21 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     if show_roleset_menu:
         value_count = 1 if bind_choice != "rng" else 2
         prompt = await build_roleset_selection_prompt(
-            f"{original_message_id}:{bind_choice}",
+            f"{original_message_id}:{author_id}:{bind_choice}",
             group_id,
+            author_id,
             min_values=value_count,
             max_values=value_count,
             embed=message.embeds[0],
         )
     else:
         # Skip to the role selection prompt.
-        # custom_id has double colons because that is where a roleset would go (segment 4).
+        # custom_id has double colons because that is where a roleset would go (segment 5).
         prompt = await build_role_selection_prompt(
-            f"{original_message_id}::{bind_choice}", interaction.guild_id, embed=message.embeds[0]
+            f"{original_message_id}:{author_id}::{bind_choice}",
+            interaction.guild_id,
+            author_id,
+            embed=message.embeds[0],
         )
 
     await interaction.create_initial_response(
@@ -69,6 +76,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     )
 
 
+@component_author_validation(author_segment=4, defer=False)
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     """
     Handles the selected group rank response, one or two depending on the bind condition.
@@ -79,17 +87,18 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
     print("select_roleset", interaction.custom_id)
 
-    original_message_id = get_custom_id_data(interaction.custom_id, 3)
-    bind_choice = get_custom_id_data(interaction.custom_id, 4)
-    # print("here", original_message_id)
+    original_message_id, author_id, bind_choice = get_custom_id_data(
+        interaction.custom_id, segment_min=3, segment_max=5
+    )
 
     # show discord role menu
     roleset_str = (
         f"{roleset_choices[0]}{f'{SPLIT_CHAR}{roleset_choices[1]}' if len(roleset_choices) > 1 else ''}"
     )
     prompt = await build_role_selection_prompt(
-        f"{original_message_id}:{roleset_str}:{bind_choice}",
+        f"{original_message_id}:{author_id}:{roleset_str}:{bind_choice}",
         interaction.guild_id,
+        author_id,
         embed=message.embeds[0],
     )
 
@@ -99,6 +108,7 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
     return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
+@component_author_validation(author_segment=4, defer=False)
 async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     """
     Handles the role selection prompt response.
@@ -117,13 +127,14 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     print("select_role", interaction.custom_id)
 
-    custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
+    custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=6)
     original_message_id = custom_data[0]
+    author_id = custom_data[1]
 
     is_group_bind = True
 
     # Depending on user choices, this segment will either be roleset data or the bind type. Determine that here.
-    roleset_data = custom_data[1]
+    roleset_data = custom_data[2]
     if SPLIT_CHAR in roleset_data:
         roleset_data = roleset_data.split(SPLIT_CHAR)
     elif roleset_data in ("asset", "badge", "gamepass"):
@@ -131,7 +142,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Final segment only exists if this is a group bind.
     if is_group_bind:
-        bind_choice = custom_data[2]
+        bind_choice = custom_data[3]
 
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
@@ -209,8 +220,9 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Setup remove role prompt
     prompt = await build_role_selection_prompt(
-        custom_id=original_message_id,
+        custom_id=f"{original_message_id}:{author_id}",
         guild_id=interaction.guild_id,
+        author_id=author_id,
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
         include_none=True,
         remove_text=True,
@@ -223,6 +235,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
+@component_author_validation(author_segment=4, defer=False)
 async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction):
     """
     Handles the response from the selection prompt asking if users want roles to be removed.
@@ -304,12 +317,12 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
         group = await get_group(bind_id)
 
-        prompt = build_group_criteria_prompt(f"{message.id}:{bind_id}:{author_id}", embed=embed)
+        prompt = build_group_criteria_prompt(f"{message.id}:{author_id}:{bind_id}", author_id, embed=embed)
 
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
         prompt = await build_role_selection_prompt(
-            f"{message.id}:{bind_type}", interaction.guild_id, embed=embed
+            f"{message.id}:{author_id}:{bind_type}", interaction.guild_id, author_id, embed=embed
         )
 
     else:
@@ -481,7 +494,8 @@ async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
             .set_flags(hikari.MessageFlag.EPHEMERAL)
         )
 
-    prompt = build_numbered_item_selection(f"{message.id}", bindings)
+    author_id = get_custom_id_data(custom_id=interaction.custom_id, segment=3)
+    prompt = build_numbered_item_selection(f"{message.id}:{author_id}", bindings, author_id)
     await interaction.create_initial_response(
         hikari.ResponseType.MESSAGE_CREATE,
         embed=prompt.embed,
@@ -490,6 +504,7 @@ async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
     )
 
 
+@component_author_validation(author_segment=4, defer=False)
 async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
     """Handles the removal of a binding from the list."""
 
@@ -526,6 +541,7 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
     )
 
 
+@component_author_validation(author_segment=3, defer=False)
 async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
     await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
 
