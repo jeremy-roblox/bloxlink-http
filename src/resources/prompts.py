@@ -109,10 +109,14 @@ def build_group_criteria_prompt(
         .set_placeholder(placeholder)
     )
 
+    button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+    )
+
     for key, val in GROUP_RANK_CRITERIA.items():
         criteria_menu.add_option(val, key)
 
-    return EmbedPrompt(embed, [criteria_menu.parent])
+    return EmbedPrompt(embed, [criteria_menu.parent, button_menu])
 
 
 async def build_roleset_selection_prompt(
@@ -146,6 +150,10 @@ async def build_roleset_selection_prompt(
         f"bind:sel_rank:{custom_id}", placeholder=placeholder, min_values=min_values, max_values=max_values
     )
 
+    button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+    )
+
     for roleset_id, roleset_name in group.rolesets.items():
         if roleset_name != "Guest" and len(roleset_menu.options) < 25:
             roleset_menu.add_option(roleset_name, roleset_name)
@@ -153,7 +161,7 @@ async def build_roleset_selection_prompt(
     if max_values > len(roleset_menu.options):
         roleset_menu.set_max_values(len(roleset_menu.options))
 
-    return EmbedPrompt(embed, [roleset_menu.parent])
+    return EmbedPrompt(embed, [roleset_menu.parent, button_menu])
 
 
 async def build_role_selection_prompt(
@@ -189,13 +197,17 @@ async def build_role_selection_prompt(
 
     if include_none:
         embed.description = (
-            embed.description
-            + f"\nDon't want any roles {'removed' if remove_text else 'given'}? Choose the option named `[SKIP]`!"
+            embed.description + f"\nDon't want any roles {'removed' if remove_text else 'given'}? "
+            "Choose the option named `[SKIP]`, or press the `Cancel` button!"
         )
 
     custom_segment = "sel_role" if not remove_text else "sel_rmv_role"
     role_menu = bloxlink.rest.build_message_action_row().add_text_menu(
         f"bind:{custom_segment}:{custom_id}", placeholder=placeholder, min_values=min_values
+    )
+
+    button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
     )
 
     guild_roles = await bloxlink.fetch_roles(guild_id)
@@ -214,7 +226,7 @@ async def build_role_selection_prompt(
 
     role_menu.set_max_values(len(role_menu.options))
 
-    return EmbedPrompt(embed=embed, components=[role_menu.parent])
+    return EmbedPrompt(embed=embed, components=[role_menu.parent, button_menu])
 
 
 def build_numbered_item_selection(
@@ -259,6 +271,10 @@ def build_numbered_item_selection(
         min_values=min_values,
     )
 
+    button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+    )
+
     counter = 1
     for bind in item_list:
         description_list.append(f"{counter}. {bind[2:]}")
@@ -268,4 +284,4 @@ def build_numbered_item_selection(
     selection_menu.set_max_values(len(selection_menu.options))
 
     embed.description = "\n".join(description_list)
-    return EmbedPrompt(embed=embed, components=[selection_menu.parent])
+    return EmbedPrompt(embed=embed, components=[selection_menu.parent, button_menu])

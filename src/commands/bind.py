@@ -526,6 +526,16 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
     )
 
 
+async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
+    await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
+
+    return (
+        interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+        .set_content("Prompt cancelled.")
+        .set_flags(hikari.MessageFlag.EPHEMERAL)
+    )
+
+
 @bloxlink.command(
     category="Administration",
     defer=True,
@@ -539,6 +549,7 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
         "bind_menu:save_button": bind_menu_save_button,
         "bind_menu:discard_button": bind_menu_discard_button,
         "bind_menu:discard_selection": bind_menu_discard_binding,
+        "bind_menu:cancel": bind_menu_cancel_button,
     },
     dm_enabled=False,
 )
