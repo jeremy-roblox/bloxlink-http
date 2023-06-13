@@ -28,6 +28,9 @@ import re
 DISCORD_ID_REGEX = r"(\d{17,})"
 
 
+# ------------------ VVV Bind Flow Component Handlers VVV ------------------
+
+
 @component_author_validation(author_segment=4, defer=False)
 async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     """
@@ -281,6 +284,9 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
     )
 
 
+# ------------------ VVV Primary Bind Prompt Buttons VVV ------------------
+
+
 @component_author_validation(author_segment=5)
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     """
@@ -504,6 +510,9 @@ async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
     )
 
 
+# ------------------ VVV Additional/Misc Component Handlers VVV ------------------
+
+
 @component_author_validation(author_segment=4, defer=False)
 async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
     """Handles the removal of a binding from the list."""
@@ -550,6 +559,9 @@ async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
         .set_content("Prompt cancelled.")
         .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
+
+
+# ------------------ VVV Command/Subcommands VVV ------------------
 
 
 @bloxlink.command(
