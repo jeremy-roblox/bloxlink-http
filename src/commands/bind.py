@@ -287,7 +287,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
 # ------------------ VVV Primary Bind Prompt Buttons VVV ------------------
 
 
-@component_author_validation(author_segment=5)
+@component_author_validation(author_segment=5, defer=False)
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     """
     Handles what will occur on the add role button press.
@@ -302,19 +302,17 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     # Limit number of binds that can be made to 5 at most in one prompt session before saving.
     field_content = message.embeds[0].fields[1].value.splitlines()
     if len(field_content) > 5:
-        await interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_CREATE,
-            content="You can only make up to five bindings at once in a prompt! Please save first before continuing to add more.",
-            flags=hikari.MessageFlag.EPHEMERAL,
+        response = interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+        response.set_content(
+            "You can only make up to five bindings at once in a prompt! "
+            "Please save first before continuing to add more."
         )
-        return
-
-    # await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
+        response.set_flags(hikari.MessageFlag.EPHEMERAL)
+        return response
 
     bind_type, bind_id, author_id = get_custom_id_data(custom_id, segment_min=3, segment_max=5)
 
     embed = hikari.Embed(title="Binding Role Interactive Wizard")
-
     prompt = None
 
     if bind_type == "group":
@@ -335,11 +333,11 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         raise NotImplementedError(f"The bind type {bind_type} is not handled yet!")
 
     if prompt:
-        await interaction.execute(
-            embed=prompt.embed,
-            components=prompt.components,
-            # flags=hikari.MessageFlag.EPHEMERAL,
+        await interaction.create_initial_response(
+            hikari.ResponseType.MESSAGE_CREATE, embed=prompt.embed, components=prompt.components
         )
+
+    return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
 
 
 @component_author_validation(author_segment=5, defer=False)
@@ -552,7 +550,14 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
 
 @component_author_validation(author_segment=3, defer=False)
 async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
-    await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
+    if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
+        await interaction.create_initial_response(
+            hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]
+        )
+
+        return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+    else:
+        await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
 
     return (
         interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
