@@ -83,6 +83,7 @@ async def build_interactive_bind_base(
 
 def build_group_criteria_prompt(
     custom_id: str,
+    author_id: str | int,
     placeholder: str = "Choose the condition for this bind.",
     embed: hikari.Embed = None,
 ) -> EmbedPrompt:
@@ -91,6 +92,8 @@ def build_group_criteria_prompt(
 
     Args:
         custom_id (str): String that is suffixed to the base custom_id string of "bind:sel_crit"
+        author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
+            This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         embed (hikari.Embed): Optional base-embed. The description of the embed will be changed to match the logic for this prompt.
 
@@ -110,7 +113,7 @@ def build_group_criteria_prompt(
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
     )
 
     for key, val in GROUP_RANK_CRITERIA.items():
@@ -122,6 +125,7 @@ def build_group_criteria_prompt(
 async def build_roleset_selection_prompt(
     custom_id: str,
     group_id: int,
+    author_id: str | int,
     placeholder: str = "Bind this Group rank",
     min_values: int = 1,
     max_values: int = 1,
@@ -133,6 +137,8 @@ async def build_roleset_selection_prompt(
     Args:
         custom_id (str): The custom_id for the selection component, automatically prefixed with "bind:sel_rank"
         group_id (int): The ID of the group whose roles will be shown to the user.
+        author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
+            This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
         max_values (int): Optional maximum number of values that can be selected.
@@ -151,7 +157,7 @@ async def build_roleset_selection_prompt(
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
     )
 
     for roleset_id, roleset_name in group.rolesets.items():
@@ -167,6 +173,7 @@ async def build_roleset_selection_prompt(
 async def build_role_selection_prompt(
     custom_id: str,
     guild_id: int,
+    author_id: str | int,
     placeholder: str = "Attach this Discord role to the people who apply to this bind.",
     min_values: int = 1,
     include_none: bool = False,
@@ -180,6 +187,8 @@ async def build_role_selection_prompt(
         custom_id (str): The custom_id for the selection component,
             automatically prefixed with "bind:sel_role" or "bind:sel_rmv_role" depending on the remove_text argument.
         guild_id (int): The ID of the guild whose roles will be shown to the user to select from.
+        author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
+            This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
         include_none (bool): Include the "[SKIP]" option in the list, allowing someone to not choose any roles.
@@ -207,7 +216,7 @@ async def build_role_selection_prompt(
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
     )
 
     guild_roles = await bloxlink.fetch_roles(guild_id)
@@ -232,6 +241,7 @@ async def build_role_selection_prompt(
 def build_numbered_item_selection(
     custom_id: str,
     item_list: list[str],
+    author_id: str | int,
     placeholder: str = "Select which item should be removed.",
     label_prefix: str = "Item",
     min_values: int = 1,
@@ -245,6 +255,8 @@ def build_numbered_item_selection(
         custom_id (str): The custom_id for the selection component,
             automatically prefixed with "bind:sel_role" or "bind:sel_rmv_role" depending on the remove_text argument.
         item_list (list[str]): List of items that can be selected from.
+        author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
+            This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         label_prefix (str): String that will be prefixed before each listed item when shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
@@ -271,7 +283,7 @@ def build_numbered_item_selection(
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, "bind_menu:cancel", label="Cancel"
+        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
     )
 
     counter = 1
