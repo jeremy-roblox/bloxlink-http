@@ -509,6 +509,7 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
         bindings.remove(item)
 
     if len(bindings) == 0:
+        embed.title = embed.title.replace("[UNSAVED CHANGES]", "").strip()
         bindings.append("*The binds you're making will be added here!*")
     else:
         bindings.insert(0, first_line)
