@@ -103,7 +103,7 @@ def build_group_criteria_prompt(
     embed = hikari.Embed() if not embed else embed
     embed.description = (
         "This menu will let you connect a Group rank to a "
-        "Discord role.\nPlease choose the criteria for this bind."
+        "Discord role!\n\nLets get started by choosing what ranks, or who, this binding should apply to."
     )
 
     criteria_menu = (
@@ -148,7 +148,11 @@ async def build_roleset_selection_prompt(
         An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
     """
     embed = hikari.Embed() if not embed else embed
-    embed.description = "Very good! Now, choose the roleset from your group that should receive the role."
+    embed.description = (
+        "Very good!\nNow, choose the rank"
+        f"{' range ' if min_values > 1 else ' '}"
+        "from your group that should receive the role given by this bind."
+    )
 
     group = await get_group(str(group_id))
 
@@ -176,8 +180,9 @@ async def build_role_selection_prompt(
     author_id: str | int,
     placeholder: str = "Attach this Discord role to the people who apply to this bind.",
     min_values: int = 1,
-    include_none: bool = False,
+    skip_button: bool = False,
     remove_text: bool = False,
+    process_starter_text: bool = False,
     embed: hikari.Embed = None,
 ) -> EmbedPrompt:
     """
@@ -191,8 +196,10 @@ async def build_role_selection_prompt(
             This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
-        include_none (bool): Include the "[SKIP]" option in the list, allowing someone to not choose any roles.
+        skip_button (bool): Change the Cancel button to say Skip instead when True. Also tells the user to click it to skip.
         remove_text (bool): When True, change the text to reflect the logic of selecting roles to remove, rather than add.
+        process_starter_text (bool): When True, the prompt talks to the user as if they are in the middle of the process.
+            Set it to False for all other bind types, since they start here (role selection, not removal).
         embed (hikari.Embed): Optional base-embed. The description of the embed will be changed to match the logic for this prompt.
 
     Returns:
@@ -200,14 +207,30 @@ async def build_role_selection_prompt(
     """
     embed = hikari.Embed() if not embed else embed
     suffix = "receive" if not remove_text else "have removed"
-    embed.description = (
-        f"Choose the role(s) from your server that you want members who qualify for this bind to {suffix}."
+    prefix = ""
+    if not process_starter_text:
+        prefix = "Good choice! Now," if not remove_text else "Finally,"
+    else:
+        prefix = (
+            "This prompt will let you connect the asset, badge, "
+            "or gamepass you are binding to a Discord role!\n\nLet's get started by"
+        )
+
+    final_suffix = (
+        " in your server if they qualify for this bind."
+        if not process_starter_text
+        else " if they own this asset/badge/gamepass."
     )
 
-    if include_none:
+    embed.description = (
+        f"{prefix} {'choose' if not process_starter_text else 'choosing'} the role(s)"
+        f" that you want people to **{suffix}** {final_suffix}"
+    )
+
+    if skip_button:
         embed.description = (
-            embed.description + f"\nDon't want any roles {'removed' if remove_text else 'given'}? "
-            "Choose the option named `[SKIP]`, or press the `Cancel` button!"
+            embed.description + f"\n\n*Don't want any roles {'removed' if remove_text else 'given'}? "
+            "Press the `Skip` button!*"
         )
 
     custom_segment = "sel_role" if not remove_text else "sel_rmv_role"
@@ -216,13 +239,12 @@ async def build_role_selection_prompt(
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
+        hikari.ButtonStyle.SECONDARY,
+        f"bind_menu:cancel:{author_id}",
+        label="Cancel" if not skip_button else "Skip",
     )
 
     guild_roles = await bloxlink.fetch_roles(guild_id)
-
-    if include_none:
-        role_menu.add_option("[SKIP]", "None")
 
     for role_id, role_data in guild_roles.items():
         if (

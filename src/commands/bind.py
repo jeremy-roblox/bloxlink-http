@@ -227,7 +227,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         guild_id=interaction.guild_id,
         author_id=author_id,
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
-        include_none=True,
+        skip_button=True,
         remove_text=True,
         embed=message.embeds[0],
     )
@@ -326,7 +326,11 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
         prompt = await build_role_selection_prompt(
-            f"{message.id}:{author_id}:{bind_type}", interaction.guild_id, author_id, embed=embed
+            f"{message.id}:{author_id}:{bind_type}",
+            interaction.guild_id,
+            author_id,
+            embed=embed,
+            process_starter_text=True,
         )
 
     else:

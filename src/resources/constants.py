@@ -43,10 +43,10 @@ SPLIT_CHAR = "\U0001D15D"
 
 # Utilized for bind command logic.
 GROUP_RANK_CRITERIA = {
-    "equ": "Rank must match exactly...",
+    "equ": "Rank must exactly match...",
     "gte": "Rank must be greater than or equal to...",
     "lte": "Rank must be less than or equal to...",
-    "rng": "Rank must be within 2 rolesets...",
+    "rng": "Rank must be between or equal to two other ranks...",
     "gst": "User must NOT be a member of this group.",
     "all": "User must be a member of this group.",
 }
