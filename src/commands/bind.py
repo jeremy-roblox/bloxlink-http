@@ -11,7 +11,7 @@ from resources.component_helper import (
     set_custom_id_data,
     set_components,
     get_custom_id_data,
-    button_author_validation,
+    component_author_validation,
 )
 from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA, GROUP_RANK_CRITERIA_TEXT
 from resources.prompts import (
@@ -268,7 +268,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
     )
 
 
-@button_author_validation(author_segment=5)
+@component_author_validation(author_segment=5)
 async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     """
     Handles what will occur on the add role button press.
@@ -323,7 +323,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         )
 
 
-@button_author_validation(author_segment=5, defer=False)
+@component_author_validation(author_segment=5, defer=False)
 async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     """
     Saves the configuration found in the description of the embed to the database.
@@ -465,7 +465,7 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     )
 
 
-@button_author_validation(author_segment=3, defer=False)
+@component_author_validation(author_segment=3, defer=False)
 async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
     """Brings up a menu allowing the user to remove bindings from the new embed field."""
 
