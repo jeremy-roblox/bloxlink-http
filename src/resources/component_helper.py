@@ -165,11 +165,7 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
                     )
 
             # Trigger original method
-            func_resp = await func(interaction)
-            if not defer:
-                return func_resp
-            else:
-                return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+            return await func(interaction)
 
         return response_wrapper
 
