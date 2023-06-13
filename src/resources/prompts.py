@@ -62,6 +62,11 @@ async def build_interactive_bind_base(
     button_menu = (
         bloxlink.rest.build_message_action_row()
         .add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            f"bind_menu:discard_button:{author_id}",
+            label="Discard a bind",
+        )
+        .add_interactive_button(
             hikari.ButtonStyle.PRIMARY,
             f"bind_menu:add_roles_button:{bind_type}:{bind_id}:{author_id}",
             label="Create a bind",
@@ -210,3 +215,57 @@ async def build_role_selection_prompt(
     role_menu.set_max_values(len(role_menu.options))
 
     return EmbedPrompt(embed=embed, components=[role_menu.parent])
+
+
+def build_numbered_item_selection(
+    custom_id: str,
+    item_list: list[str],
+    placeholder: str = "Select which item should be removed.",
+    label_prefix: str = "Item",
+    min_values: int = 1,
+    max_values: int = None,
+    embed: hikari.Embed = None,
+) -> EmbedPrompt:
+    """
+    Builds and returns the embed and components necessary for the Discord role selection menu prompt.
+
+    Args:
+        custom_id (str): The custom_id for the selection component,
+            automatically prefixed with "bind:sel_role" or "bind:sel_rmv_role" depending on the remove_text argument.
+        item_list (list[str]): List of items that can be selected from.
+        placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
+        min_values (int): Optional minimum number of values that can be selected.
+        max_values (int): Optional maximum number of values that can be selected.
+        include_none (bool): Include the "[SKIP]" option in the list, allowing someone to not choose any roles.
+        remove_text (bool): When True, change the text to reflect the logic of selecting roles to remove, rather than add.
+        embed (hikari.Embed): Optional base-embed. The description of the embed will be changed to match the logic for this prompt.
+
+    Returns:
+        An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
+    """
+    embed = hikari.Embed() if not embed else embed
+    description_list = [f"Choose which binding you want removed from the list."]
+
+    item_list = item_list[:25]
+
+    if max_values is None:
+        max_values = len(item_list)
+    if min_values > max_values:
+        min_values = max_values
+
+    selection_menu = bloxlink.rest.build_message_action_row().add_text_menu(
+        f"bind_menu:discard_selection:{custom_id}",
+        placeholder=placeholder,
+        min_values=min_values,
+    )
+
+    counter = 1
+    for bind in item_list:
+        description_list.append(f"{counter}. {bind[2:]}")
+        selection_menu.add_option(f"{label_prefix} {counter}", counter)
+        counter += 1
+
+    selection_menu.set_max_values(len(selection_menu.options))
+
+    embed.description = "\n".join(description_list)
+    return EmbedPrompt(embed=embed, components=[selection_menu.parent])

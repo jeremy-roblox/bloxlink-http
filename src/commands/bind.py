@@ -19,6 +19,7 @@ from resources.prompts import (
     build_roleset_selection_prompt,
     build_group_criteria_prompt,
     build_interactive_bind_base,
+    build_numbered_item_selection,
 )
 from hikari.commands import CommandOption, OptionType
 import hikari
@@ -63,11 +64,9 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
             f"{original_message_id}::{bind_choice}", interaction.guild_id, embed=message.embeds[0]
         )
 
-    if prompt:
-        message.embeds[0] = prompt.embed
-        await set_components(message, components=prompt.components)
-
-    return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+    await interaction.create_initial_response(
+        hikari.ResponseType.MESSAGE_UPDATE, embed=prompt.embed, components=prompt.components
+    )
 
 
 async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
@@ -295,9 +294,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     bind_type, bind_id = get_custom_id_data(custom_id, segment_min=3, segment_max=4)
 
-    embed = hikari.Embed(
-        title="Binding Role Interactive Wizard",
-    )
+    embed = hikari.Embed(title="Binding Role Interactive Wizard")
 
     prompt = None
 
@@ -319,7 +316,11 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
         raise NotImplementedError(f"The bind type {bind_type} is not handled yet!")
 
     if prompt:
-        await interaction.execute(embed=prompt.embed, components=prompt.components)
+        await interaction.execute(
+            embed=prompt.embed,
+            components=prompt.components,
+            # flags=hikari.MessageFlag.EPHEMERAL,
+        )
 
 
 @button_author_validation(author_segment=5, defer=False)
@@ -464,6 +465,66 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
     )
 
 
+@button_author_validation(author_segment=3, defer=False)
+async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
+    """Brings up a menu allowing the user to remove bindings from the new embed field."""
+
+    message = interaction.message
+    embed = message.embeds[0]
+    new_binds_field = embed.fields[1]
+    bindings = new_binds_field.value.splitlines()[1:]
+
+    if len(bindings) == 0:
+        return (
+            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+            .set_content("You have no new bindings to discard!")
+            .set_flags(hikari.MessageFlag.EPHEMERAL)
+        )
+
+    prompt = build_numbered_item_selection(f"{message.id}", bindings)
+    await interaction.create_initial_response(
+        hikari.ResponseType.MESSAGE_CREATE,
+        embed=prompt.embed,
+        components=prompt.components,
+        flags=hikari.MessageFlag.EPHEMERAL,
+    )
+
+
+async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
+    """Handles the removal of a binding from the list."""
+
+    original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
+    channel = await interaction.fetch_channel()
+    original_message = await channel.fetch_message(original_message_id)
+
+    embed = original_message.embeds[0]
+    binds_field = embed.fields[1]
+    bindings = binds_field.value.splitlines()
+
+    first_line = bindings[0]
+    bindings = bindings[1:]
+
+    items_to_remove = [bindings[int(item) - 1] for item in interaction.values]
+    for item in items_to_remove:
+        bindings.remove(item)
+
+    if len(bindings) == 0:
+        bindings.append("*The binds you're making will be added here!*")
+    else:
+        bindings.insert(0, first_line)
+
+    binds_field.value = "\n".join(bindings)
+
+    await original_message.edit(embed=embed)
+
+    await interaction.create_initial_response(
+        hikari.ResponseType.MESSAGE_UPDATE,
+        content="Binding removed.",
+        embeds=[],
+        components=[],
+    )
+
+
 @bloxlink.command(
     category="Administration",
     defer=True,
@@ -475,6 +536,8 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         "bind:sel_role": bind_menu_select_role,
         "bind:sel_rmv_role": bind_menu_select_remove_roles,
         "bind_menu:save_button": bind_menu_save_button,
+        "bind_menu:discard_button": bind_menu_discard_button,
+        "bind_menu:discard_selection": bind_menu_discard_binding,
     },
     dm_enabled=False,
 )
