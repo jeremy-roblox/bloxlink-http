@@ -95,15 +95,14 @@ async def get_bind_desc(
                     prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
 
         elif bind_type == "asset":
-            # TODO: Include name and ID together?
             prefix = "People who own the asset"
-            content = bind_id
+            content = await named_string_builder(bind_type, bind_id, include_name=True, include_id=False)
         elif bind_type == "badge":
             prefix = "People who own the badge"
-            content = bind_id
+            content = await named_string_builder(bind_type, bind_id, include_name=True, include_id=False)
         elif bind_type == "gamepass":
             prefix = "People who own the gamepass"
-            content = bind_id
+            content = await named_string_builder(bind_type, bind_id, include_name=True, include_id=False)
 
         final_bind_str = (
             f"- _{prefix} {f'**{content}**' if content else ''} receive the "
@@ -526,10 +525,11 @@ async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, i
                 except RobloxNotFound:
                     return f"*(Invalid Gamepass)* ({bind_id})"
 
+    id_str = str(bind_id) if not include_name else f"({bind_id})"
     return " ".join(
         [
             f"**{name}**" if include_name else "",
-            f"({bind_id})" if include_id else "",
+            id_str if include_id else "",
         ]
     ).strip()
 
