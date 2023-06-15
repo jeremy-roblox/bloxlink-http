@@ -101,6 +101,7 @@ def build_group_criteria_prompt(
         An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
     """
     embed = hikari.Embed() if not embed else embed
+    embed.title = embed.title if embed.title else "Make a Bind! - Binding Criteria Selection"
     embed.description = (
         "This menu will let you connect a Group rank to a "
         "Discord role!\n\nLets get started by choosing what ranks, or who, this binding should apply to."
@@ -148,6 +149,7 @@ async def build_roleset_selection_prompt(
         An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
     """
     embed = hikari.Embed() if not embed else embed
+    embed.title = embed.title if embed.title else "Make a Bind! - Group Rank Selection"
     embed.description = (
         "Very good!\nNow, choose the rank"
         f"{' range ' if min_values > 1 else ' '}"
@@ -206,6 +208,12 @@ async def build_role_selection_prompt(
         An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
     """
     embed = hikari.Embed() if not embed else embed
+    if not embed.title:
+        embed.title = (
+            f"Make a Bind! - "
+            f"{'Discord Role Selection' if not remove_text else 'Discord Role Removal Selection'}"
+        )
+
     suffix = "receive" if not remove_text else "have removed"
     prefix = ""
     if not process_starter_text:
@@ -280,6 +288,7 @@ def build_numbered_item_selection(
         An EmbedPrompt which consists of the embed to use, and a list of components for this prompt.
     """
     embed = hikari.Embed() if not embed else embed
+    embed.title = embed.title if embed.title else "Remove an unsaved binding!"
     description_list = [f"Choose which binding you want removed from the list."]
 
     item_list = item_list[:25]

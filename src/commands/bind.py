@@ -61,7 +61,6 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
             author_id,
             min_values=value_count,
             max_values=value_count,
-            embed=message.embeds[0],
         )
     else:
         # Skip to the role selection prompt.
@@ -70,7 +69,6 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
             f"{original_message_id}:{author_id}::{bind_choice}",
             interaction.guild_id,
             author_id,
-            embed=message.embeds[0],
         )
 
     await interaction.create_initial_response(
@@ -99,7 +97,6 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
         f"{original_message_id}:{author_id}:{roleset_str}:{bind_choice}",
         interaction.guild_id,
         author_id,
-        embed=message.embeds[0],
     )
 
     message.embeds[0] = prompt.embed
@@ -224,7 +221,6 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
         skip_button=True,
         remove_text=True,
-        embed=message.embeds[0],
     )
 
     message.embeds[0] = prompt.embed
@@ -303,7 +299,6 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
     bind_type, bind_id, author_id = get_custom_id_data(custom_id, segment_min=3, segment_max=5)
 
-    embed = hikari.Embed(title="Binding Role Interactive Wizard")
     prompt = None
 
     if bind_type == "group":
@@ -312,7 +307,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
         group = await get_group(bind_id)
 
-        prompt = build_group_criteria_prompt(f"{message.id}:{author_id}:{bind_id}", author_id, embed=embed)
+        prompt = build_group_criteria_prompt(f"{message.id}:{author_id}:{bind_id}", author_id)
 
     elif bind_type in ("asset", "badge", "gamepass"):
         # Direct the user straight to the role selection prompt.
@@ -320,7 +315,6 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
             f"{message.id}:{author_id}:{bind_type}",
             interaction.guild_id,
             author_id,
-            embed=embed,
             process_starter_text=True,
         )
 
