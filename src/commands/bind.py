@@ -169,7 +169,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Discord's role selection shows roles tied to a bot/integration. Don't add those.
     role_list = [
-        role_id
+        str(role_id)
         for role_id, role in interaction.resolved.roles.items()
         if role.bot_id == None and role.integration_id == None
     ]
