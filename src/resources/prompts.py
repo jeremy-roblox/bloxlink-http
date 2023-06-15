@@ -178,7 +178,7 @@ async def build_role_selection_prompt(
     custom_id: str,
     guild_id: int,
     author_id: str | int,
-    placeholder: str = "Attach this Discord role to the people who apply to this bind.",
+    placeholder: str = "Search and choose from your Discord roles!",
     min_values: int = 1,
     skip_button: bool = False,
     remove_text: bool = False,
@@ -234,8 +234,12 @@ async def build_role_selection_prompt(
         )
 
     custom_segment = "sel_role" if not remove_text else "sel_rmv_role"
-    role_menu = bloxlink.rest.build_message_action_row().add_text_menu(
-        f"bind:{custom_segment}:{custom_id}", placeholder=placeholder, min_values=min_values
+    role_menu = bloxlink.rest.build_message_action_row().add_select_menu(
+        hikari.ComponentType.ROLE_SELECT_MENU,
+        f"bind:{custom_segment}:{custom_id}",
+        placeholder=placeholder,
+        min_values=min_values if not skip_button else 0,
+        max_values=25,
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
@@ -244,20 +248,7 @@ async def build_role_selection_prompt(
         label="Cancel" if not skip_button else "Skip",
     )
 
-    guild_roles = await bloxlink.fetch_roles(guild_id)
-
-    for role_id, role_data in guild_roles.items():
-        if (
-            role_data.name != "@everyone"
-            and not role_data.bot_id
-            and not role_data.integration_id
-            and len(role_menu.options) < 25
-        ):
-            role_menu.add_option(role_data.name, f"{role_data.name}{SPLIT_CHAR}{str(role_id)}")
-
-    role_menu.set_max_values(len(role_menu.options))
-
-    return EmbedPrompt(embed=embed, components=[role_menu.parent, button_menu])
+    return EmbedPrompt(embed=embed, components=[role_menu, button_menu])
 
 
 def build_numbered_item_selection(

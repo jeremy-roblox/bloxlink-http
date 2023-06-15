@@ -119,25 +119,20 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     """
     message = interaction.message
 
-    role_data = {}
-    for item in interaction.values:
-        item_data = item.split(SPLIT_CHAR)
-        role_data[item_data[1]] = item_data[0]
-
     custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=6)
     original_message_id = custom_data[0]
     author_id = custom_data[1]
 
     is_group_bind = True
 
-    # Depending on user choices, this segment will either be roleset data or the bind type. Determine that here.
+    # Depending on user choices, this segment (5) will either be roleset data or the bind type. Determine that here.
     roleset_data = custom_data[2]
     if SPLIT_CHAR in roleset_data:
         roleset_data = roleset_data.split(SPLIT_CHAR)
     elif roleset_data in ("asset", "badge", "gamepass"):
         is_group_bind = False
 
-    # Final segment only exists if this is a group bind.
+    # Final segment (6) only exists if this is a group bind.
     if is_group_bind:
         bind_choice = custom_data[3]
 
@@ -146,7 +141,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Save current configuration to the right field.
     # Start by getting the field and then build the updated field value.
-    new_description = original_message.embeds[0].fields[1].value.split("\n")
+    new_description = original_message.embeds[0].fields[1].value.splitlines()
 
     default_field_str = "*The binds you're making will be added here!*"
     if default_field_str in new_description:
@@ -175,8 +170,14 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         prefix = "People who own"
         content = f"this {roleset_data}"
 
+    # Discord's role selection shows roles tied to a bot/integration. Don't add those.
+    role_list = [
+        role_id
+        for role_id, role in interaction.resolved.roles.items()
+        if role.bot_id == None and role.integration_id == None
+    ]
+
     # Check for duplicates in the field & update accordingly. Removes old entry and appends again
-    role_list = role_data.keys()
     for item in new_description:
         if item[3:].startswith(f"{prefix} **{content}**"):
             original_roles = []
@@ -239,13 +240,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
     """
     original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
 
-    skip_bool = False
-    for item in interaction.values:
-        if "None" in item:
-            skip_bool = True
-            break
-
-    if not skip_bool:
+    if len(interaction.values) != 0:
         channel = await interaction.fetch_channel()
         original_message = await channel.fetch_message(original_message_id)
         original_embed = original_message.embeds[0]
@@ -253,11 +248,12 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
         original_desc_list = original_embed.fields[1].value.splitlines()
         last_item = original_desc_list[-1]
 
-        role_data = {}
-        for item in interaction.values:
-            item_data = item.split(SPLIT_CHAR)
-            role_data[item_data[1]] = item_data[0]
-        role_mention_str = ", ".join(f"<@&{val}>" for val in role_data.keys())
+        role_list = [
+            role_id
+            for role_id, role in interaction.resolved.roles.items()
+            if role.bot_id == None and role.integration_id == None
+        ]
+        role_mention_str = ", ".join(f"<@&{val}>" for val in role_list)
 
         last_item = last_item[:-1] + f", and will have these roles removed: {role_mention_str}_"
         original_desc_list[-1] = last_item
@@ -271,7 +267,8 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
     return (
         interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
         .set_content(
-            f"Bind added to your in-progress workflow! [Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
+            f"Bind added to your in-progress workflow! "
+            f"[Click here](https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id})"
             " and click the Save button to save the bind to your server!"
         )
         .set_flags(hikari.MessageFlag.EPHEMERAL)
