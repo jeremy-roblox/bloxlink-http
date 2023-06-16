@@ -15,6 +15,7 @@ class Paginator:
         page_number=0,
         max_items=10,
         custom_formatter=None,
+        base_custom_id: str = "viewbinds",
         extra_custom_ids="",
         item_filter=None,
     ):
@@ -24,6 +25,7 @@ class Paginator:
         self.items = items if not item_filter else item_filter(items)
         self.max_pages = math.ceil(len(self.items) / max_items)
         self.max_items = max_items
+        self.base_custom_id = base_custom_id
         self.custom_formatter = custom_formatter
         self.extra_custom_ids = extra_custom_ids
 
@@ -60,7 +62,7 @@ class Paginator:
         # Previous button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
+            f"{self.base_custom_id}:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
             label=UNICODE_LEFT,
             is_disabled=True if self.page_number == 0 else False,
         )
@@ -68,7 +70,7 @@ class Paginator:
         # Next button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
+            f"{self.base_custom_id}:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label=UNICODE_RIGHT,
             is_disabled=True if max_items == len(self.items) else False,
         )
