@@ -169,9 +169,14 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
         f"or </unbind:836429412810358805> to delete a bind.\n{UNICODE_BLANK}"
     )
 
+    output_list = []
+    for bind in items:
+        bind_str = f"{len(output_list) + 1}. {await bind.get_bind_string(viewbind_styling=True)}"
+        output_list.append(bind_str)
+
     embed.add_field(
         name="Your Binds",
-        value="\n".join([await item.get_bind_string(guild_id, viewbind_styling=True) for item in items]),
+        value="\n".join(output_list),
     )
     embed.set_footer(f"Page {page_number + 1}/{max_pages}")
 
