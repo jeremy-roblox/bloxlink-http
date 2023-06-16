@@ -1,11 +1,9 @@
 from resources.binds import GuildBind, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
-from resources.groups import get_group
 from resources.models import CommandContext
-from resources.constants import RED_COLOR, UNICODE_BLANK
+from resources.constants import UNICODE_BLANK, REPLY_CONT, REPLY_EMOTE, SPLIT_CHAR
 from resources.pagination import Paginator
-from resources.component_helper import get_custom_id_data, set_components, component_author_validation
-from resources.exceptions import RobloxAPIError
+from resources.component_helper import get_custom_id_data, component_author_validation
 import hikari
 
 
@@ -54,11 +52,11 @@ async def unbind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
     return interaction.build_response(choices[:25])
 
 
-@component_author_validation()
-async def viewbinds_button(interaction: hikari.ComponentInteraction):
+@component_author_validation(author_segment=3)
+async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
-    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=2)
+    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
 
     author_id = int(custom_id_data[0])
     page_number = int(custom_id_data[1])
@@ -78,12 +76,18 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
         page_number,
         max_items=MAX_BINDS_PER_PAGE,
         custom_formatter=viewbinds_paginator_formatter,
+        base_custom_id="unbind:page",
         extra_custom_ids=f"{category}:{id_filter}",
-        item_filter=viewbinds_item_filter(id_filter, category),
+        item_filter=bind_filter(id_filter, category),
     )
 
     embed = await paginator.embed
     components = paginator.components
+    components.add_interactive_button(
+        hikari.ButtonStyle.DANGER,
+        f"unbind:discard:{user_id}",
+        label="Discard a bind",
+    )
 
     message.embeds[0] = embed
 
@@ -95,6 +99,120 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
+    )
+
+
+@component_author_validation(author_segment=3, defer=False)
+async def unbind_discard_button(interaction: hikari.ComponentInteraction):
+    """Brings up a menu allowing the user to remove bindings from the new embed field."""
+
+    message = interaction.message
+    embed = message.embeds[0]
+
+    binds_field = embed.fields[0]
+    numbered_lines = condense_bind_string(binds_field.value)
+    binds_list = numbered_lines.values()
+
+    if len(binds_list) == 0:
+        return (
+            interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+            .set_content("You have no bindings to discard!")
+            .set_flags(hikari.MessageFlag.EPHEMERAL)
+        )
+
+    embed = hikari.Embed()
+    embed.title = "Remove an unsaved binding!"
+    embed.description = "Choose which binding you want removed from the list above."
+
+    author_id = get_custom_id_data(interaction.custom_id, segment=3)
+    selection_menu = bloxlink.rest.build_message_action_row().add_text_menu(
+        f"unbind:sel_discard:{message.id}:{author_id}",
+        placeholder="Select which bind should be removed.",
+        min_values=0,
+    )
+
+    button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
+        hikari.ButtonStyle.SECONDARY, f"unbind:cancel:{author_id}", label="Cancel"
+    )
+
+    for x in range(len(binds_list)):
+        selection_menu.add_option(f"Bind #{x + 1}", x + 1)
+
+    selection_menu.set_max_values(len(selection_menu.options))
+
+    await interaction.create_initial_response(
+        hikari.ResponseType.MESSAGE_CREATE,
+        embed=embed,
+        components=[selection_menu.parent, button_menu],
+        flags=hikari.MessageFlag.EPHEMERAL,
+    )
+
+
+@component_author_validation(author_segment=4, defer=False)
+async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
+    """Handles the removal of a binding from the list."""
+
+    original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
+    channel = await interaction.fetch_channel()
+    original_message = await channel.fetch_message(original_message_id)
+
+    embed = original_message.embeds[0]
+    binds_field = embed.fields[0]
+    split_field_value = binds_field.value.splitlines()
+
+    bindings_dict = condense_bind_string(binds_field.value, join_char=SPLIT_CHAR)
+    bindings = list(bindings_dict.values())
+
+    items_to_remove = []
+    for item in interaction.values:
+        items_to_remove.append(bindings[int(item) - 1])
+
+        # Strikethru matches in original embed for this page session.
+        strikethru = False
+        for x in range(len(split_field_value)):
+            line = split_field_value[x]
+            if line[0].isdigit():
+                strikethru = False
+
+            if line.startswith(item):
+                strikethru = True
+
+            if strikethru:
+                split_field_value[x] = f"~~{line}~~"
+
+    binds_field = "\n".join(split_field_value)
+    embed.fields[0].value = binds_field
+
+    for item in items_to_remove:
+        split = item.split(SPLIT_CHAR)
+        print("we should be deleting the bind(s) from the db here")
+
+    await interaction.edit_message(original_message, embed=embed)
+    # await original_message.edit(embed=embed)
+
+    await interaction.create_initial_response(
+        hikari.ResponseType.MESSAGE_UPDATE,
+        content="Binding removed.",
+        embeds=[],
+        components=[],
+    )
+
+
+@component_author_validation(author_segment=3, defer=False)
+async def unbind_cancel_button(interaction: hikari.ComponentInteraction):
+    if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
+        await interaction.create_initial_response(
+            hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]
+        )
+
+        return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+    else:
+        await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
+
+    return (
+        interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
+        .set_content("Prompt cancelled.")
+        .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
 
 
@@ -119,12 +237,16 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
         ),
     ],
     accepted_custom_ids={
-        "unbind:page": viewbinds_button,
+        "unbind:page": unbind_pagination_button,
+        "unbind:discard": unbind_discard_button,
+        "unbind:sel_discard": unbind_discard_binding,
+        "unbind:cancel": unbind_cancel_button,
     },
     autocomplete_handlers={
         "category": unbind_category_autocomplete,
         "id": unbind_id_autocomplete,
     },
+    dm_enabled=False,
 )
 class UnbindCommand:
     """Delete some binds from your server"""
@@ -144,12 +266,19 @@ class UnbindCommand:
             max_items=MAX_BINDS_PER_PAGE,
             items=guild_data.binds,
             custom_formatter=viewbinds_paginator_formatter,
+            base_custom_id="unbind:page",
             extra_custom_ids=f"{category}:{id_option}",
-            item_filter=viewbinds_item_filter(id_option, category),
+            item_filter=bind_filter(id_option, category),
         )
 
         embed = await paginator.embed
         components = paginator.components
+
+        components.add_interactive_button(
+            hikari.ButtonStyle.DANGER,
+            f"unbind:discard:{user_id}",
+            label="Discard a bind",
+        )
 
         await ctx.response.send(embed=embed, components=components)
 
@@ -182,50 +311,28 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
 
     return embed
 
-    # TODO: Probably should either move the above logic out of here,
-    # and/or bring the build_page_embed logic into here.
-    # return await build_page_embed(item_map, page_number, max_pages)
 
-
-def viewbinds_item_filter(id_filter, category_filter):
+def bind_filter(id_filter, category_filter):
     def wrapper(items):
         return json_binds_to_guild_binds(items, category=category_filter, id_filter=id_filter)
 
     return wrapper
 
 
-async def build_page_embed(page_components, page_num, page_max) -> hikari.Embed:
-    embed = hikari.Embed()
-    embed.title = "**Bloxlink Role Binds**"
+def condense_bind_string(bind_description: str, join_char=" ") -> dict:
+    bindings = bind_description.splitlines()
 
-    embed.description = (
-        "Use </bind:836429412810358807> to make a new bind, "
-        f"or </unbind:836429412810358805> to delete a bind.\n{UNICODE_BLANK}"
-    )
-    embed.set_footer(f"Page {page_num + 1}/{page_max}")
+    joined_lines = dict()
+    last_digit = 1
+    for bind in bindings:
+        if bind[0].isdigit():
+            last_digit = bind[0]
 
-    if page_components["linked_group"]:
-        embed.add_field("Linked Groups", "\n".join(page_components["linked_group"]), inline=True)
+        bind = bind.replace(REPLY_EMOTE, "")
+        bind = bind.replace(REPLY_CONT, "")
 
-    if page_components["group_roles"]:
-        rank_map = page_components["group_roles"]
-        for group in rank_map.keys():
-            try:
-                embed.add_field(
-                    f"{(await get_group(group)).name} ({group})",
-                    "\n".join(rank_map[group]),
-                    inline=True,
-                )
-            except RobloxAPIError:
-                embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
+        existing_val = joined_lines.get(last_digit, "")
+        existing_val += f"{bind}{join_char}"
+        joined_lines[last_digit] = existing_val
 
-    if page_components["asset"]:
-        embed.add_field("Assets", "\n".join(page_components["asset"]))
-
-    if page_components["badge"]:
-        embed.add_field("Badges", "\n".join(page_components["badge"]))
-
-    if page_components["gamepass"]:
-        embed.add_field("Gamepasses", "\n".join(page_components["gamepass"]))
-
-    return embed
+    return joined_lines
