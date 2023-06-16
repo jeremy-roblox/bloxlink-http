@@ -175,9 +175,7 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
         bind_type = bind.determine_type()
         include_id = True if bind_type != "group_roles" else False
 
-        bind_string = await bind.get_bind_string(
-            guild_id=guild_id, include_id=include_id, include_name=include_id
-        )
+        bind_string = await bind.get_bind_string(include_id=include_id, include_name=include_id)
 
         for types in item_map:
             if types == "group_roles" and bind_type == types:
