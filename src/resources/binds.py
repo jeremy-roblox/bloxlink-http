@@ -147,6 +147,25 @@ async def create_bind(
         raise NotImplementedError("No bind_id was passed when trying to make a bind.")
 
 
+async def delete_bind(
+    guild_id: int | str,
+    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_id: int,
+    **bind_data,
+):
+    subquery = {
+        "binds": {
+            "bind": {
+                "type": bind_type,
+                "id": int(bind_id),
+                **bind_data,
+            }
+        }
+    }
+
+    await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
+
+
 async def apply_binds(
     member: hikari.Member | dict,
     guild_id: hikari.Snowflake,
