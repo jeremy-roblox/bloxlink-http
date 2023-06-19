@@ -1,10 +1,11 @@
-from resources.binds import GuildBind, json_binds_to_guild_binds
+from resources.binds import GuildBind, json_binds_to_guild_binds, delete_bind
 from resources.bloxlink import instance as bloxlink
 from resources.models import CommandContext
 from resources.constants import UNICODE_BLANK, REPLY_CONT, REPLY_EMOTE, SPLIT_CHAR
 from resources.pagination import Paginator
 from resources.component_helper import get_custom_id_data, component_author_validation
 import hikari
+import re
 
 
 MAX_BINDS_PER_PAGE = 5
@@ -85,17 +86,13 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
     components = paginator.components
     components.add_interactive_button(
         hikari.ButtonStyle.DANGER,
-        f"unbind:discard:{user_id}",
+        f"unbind:discard:{user_id}:{category}:{id_filter}",
         label="Discard a bind",
     )
 
     message.embeds[0] = embed
 
-    # Handles emojis as expected
     await interaction.edit_message(message, embed=embed, components=[components])
-
-    # TODO: Breaks emojis in the reply somehow?
-    # await set_components(message, components=[components])
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
@@ -104,13 +101,13 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
 
 @component_author_validation(author_segment=3, defer=False)
 async def unbind_discard_button(interaction: hikari.ComponentInteraction):
-    """Brings up a menu allowing the user to remove bindings from the new embed field."""
+    """Brings up a menu allowing the user to remove bindings."""
 
     message = interaction.message
     embed = message.embeds[0]
 
-    binds_field = embed.fields[0]
-    numbered_lines = condense_bind_string(binds_field.value)
+    bind_strings = "\n".join(embed.description.splitlines()[2:])
+    numbered_lines = condense_bind_string(bind_strings)
     binds_list = numbered_lines.values()
 
     if len(binds_list) == 0:
@@ -121,12 +118,13 @@ async def unbind_discard_button(interaction: hikari.ComponentInteraction):
         )
 
     embed = hikari.Embed()
-    embed.title = "Remove an unsaved binding!"
+    embed.title = "Remove a binding!"
     embed.description = "Choose which binding you want removed from the list above."
 
-    author_id = get_custom_id_data(interaction.custom_id, segment=3)
+    author_id, category, id_option = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=5)
+
     selection_menu = bloxlink.rest.build_message_action_row().add_text_menu(
-        f"unbind:sel_discard:{message.id}:{author_id}",
+        f"unbind:sel_discard:{message.id}:{author_id}:{category}:{id_option}",
         placeholder="Select which bind should be removed.",
         min_values=0,
     )
@@ -152,43 +150,90 @@ async def unbind_discard_button(interaction: hikari.ComponentInteraction):
 async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
     """Handles the removal of a binding from the list."""
 
-    original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
+    original_message_id, author_id, category, id_option = get_custom_id_data(
+        interaction.custom_id, segment_min=3, segment_max=6
+    )
+
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
 
     embed = original_message.embeds[0]
-    binds_field = embed.fields[0]
-    split_field_value = binds_field.value.splitlines()
+    bind_strings = "\n".join(embed.description.splitlines()[2:])
 
-    bindings_dict = condense_bind_string(binds_field.value, join_char=SPLIT_CHAR)
+    bindings_dict = condense_bind_string(bind_strings, join_char=SPLIT_CHAR)
     bindings = list(bindings_dict.values())
 
-    items_to_remove = []
-    for item in interaction.values:
-        items_to_remove.append(bindings[int(item) - 1])
-
-        # Strikethru matches in original embed for this page session.
-        strikethru = False
-        for x in range(len(split_field_value)):
-            line = split_field_value[x]
-            if line[0].isdigit():
-                strikethru = False
-
-            if line.startswith(item):
-                strikethru = True
-
-            if strikethru:
-                split_field_value[x] = f"~~{line}~~"
-
-    binds_field = "\n".join(split_field_value)
-    embed.fields[0].value = binds_field
+    items_to_remove = [bindings[int(item) - 1] for item in interaction.values]
 
     for item in items_to_remove:
         split = item.split(SPLIT_CHAR)
-        print("we should be deleting the bind(s) from the db here")
+        split = list(filter(None, split))
 
-    await interaction.edit_message(original_message, embed=embed)
-    # await original_message.edit(embed=embed)
+        # Get number within parenthesis (anchored to end of str), remove parenthesis
+        group_id = re.findall(r"(\(\d{1,}\))$", split[0])[0][1:-1]
+
+        rank_ids = []
+        bind_type = ""
+        bind_data = {}
+
+        # Non entire-group bindings
+        if len(split) > 1:
+            rank_str = split[1]
+            if "or above:" in rank_str:
+                bind_type = "gte"
+            elif "or below:" in rank_str:
+                bind_type = "lte"
+            elif "Non-group members" in rank_str:
+                bind_type = "gst"
+            elif "All group members" in rank_str:
+                bind_type = "all"
+
+            rank_ids = re.findall(r"(\(\d{1,}\))", split[1])
+            rank_ids = [int(x[1:-1]) for x in rank_ids]
+
+            if len(rank_ids) == 2:
+                bind_type = "rng"
+            elif not bind_type:
+                bind_type = "equ"
+
+        if bind_type == "equ":
+            bind_data["roleset"] = rank_ids[0]
+        elif bind_type == "rng":
+            bind_data["min"] = rank_ids[0]
+            bind_data["max"] = rank_ids[1]
+        elif bind_type == "gte":
+            # bind_data["min"] = rank_ids[0]
+            bind_data["roleset"] = -rank_ids[0]
+        elif bind_type == "lte":
+            bind_data["max"] = rank_ids[0]
+        elif bind_type == "gst":
+            bind_data["guest"] = True
+        elif bind_type == "all":
+            bind_data["everyone"] = True
+
+        await delete_bind(interaction.guild_id, category, group_id, **bind_data)
+
+    guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
+    paginator = Paginator(
+        interaction.guild_id,
+        interaction.member.id,
+        guild_data.binds,
+        max_items=MAX_BINDS_PER_PAGE,
+        custom_formatter=viewbinds_paginator_formatter,
+        base_custom_id="unbind:page",
+        extra_custom_ids=f"{category}:{id_option}",
+        item_filter=bind_filter(id_option, category),
+    )
+
+    embed = await paginator.embed
+    components = paginator.components
+    components.add_interactive_button(
+        hikari.ButtonStyle.DANGER,
+        f"unbind:discard:{author_id}:{category}:{id_option}",
+        label="Discard a bind",
+    )
+
+    await original_message.edit(embed=embed, components=[components])
 
     await interaction.create_initial_response(
         hikari.ResponseType.MESSAGE_UPDATE,
@@ -274,11 +319,13 @@ class UnbindCommand:
         embed = await paginator.embed
         components = paginator.components
 
-        components.add_interactive_button(
-            hikari.ButtonStyle.DANGER,
-            f"unbind:discard:{user_id}",
-            label="Discard a bind",
-        )
+        # Only show if there's binds to remove.
+        if len(embed.description.splitlines()) > 3:
+            components.add_interactive_button(
+                hikari.ButtonStyle.DANGER,
+                f"unbind:discard:{user_id}:{category}:{id_option}",
+                label="Discard a bind",
+            )
 
         await ctx.response.send(embed=embed, components=components)
 
@@ -293,20 +340,15 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
         )
         return embed
 
-    embed.description = (
-        "Select from your bindings which bind you want to remove!, "
-        f"or </unbind:836429412810358805> to delete a bind.\n{UNICODE_BLANK}"
-    )
+    embed.description = "> Select which bind you want to remove!" f"\n\n"
 
     output_list = []
     for bind in items:
         bind_str = f"{len(output_list) + 1}. {await bind.get_bind_string(viewbind_styling=True)}"
         output_list.append(bind_str)
 
-    embed.add_field(
-        name="Your Binds",
-        value="\n".join(output_list),
-    )
+    embed.description = embed.description + "\n".join(output_list)
+
     embed.set_footer(f"Page {page_number + 1}/{max_pages}")
 
     return embed
