@@ -41,10 +41,14 @@ async def unbind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
             filtered_binds = set(
                 x.id
                 for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if str(x.id).startswith(id_option)
+                if str(x.id).startswith(id_option) and x.type == category_option.value
             )
         else:
-            filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds])
+            filtered_binds = set(
+                x.id
+                for x in [GuildBind(**bind) for bind in guild_data.binds]
+                if x.type == category_option.value
+            )
 
         for bind in filtered_binds:
             choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
