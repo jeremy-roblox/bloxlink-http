@@ -91,7 +91,7 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
     components.add_interactive_button(
         hikari.ButtonStyle.DANGER,
         f"unbind:discard:{user_id}:{category}:{id_filter}",
-        label="Discard a bind",
+        label="Remove a bind",
     )
 
     message.embeds[0] = embed
@@ -345,7 +345,7 @@ class UnbindCommand:
             components.add_interactive_button(
                 hikari.ButtonStyle.DANGER,
                 f"unbind:discard:{user_id}:{category}:{id_option}",
-                label="Discard a bind",
+                label="Remove a bind",
             )
 
         await ctx.response.send(embed=embed, components=components)
