@@ -474,10 +474,10 @@ class GuildBind(BaseGuildBind):
                             rank_string = f"Rank {roleset_str}:"
 
                     elif self.everyone:
-                        rank_string = "**All group members:**"
+                        rank_string = "**All group members**:"
 
                     elif self.guest:
-                        rank_string = "**Non-group members:**"
+                        rank_string = "**Non-group members**:"
 
                     # Append only accepts one value at a time, so do this.
                     if name_id_string:

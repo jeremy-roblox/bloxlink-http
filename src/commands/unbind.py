@@ -111,13 +111,13 @@ async def unbind_discard_button(interaction: hikari.ComponentInteraction):
     embed = message.embeds[0]
 
     bind_strings = "\n".join(embed.description.splitlines()[2:])
-    numbered_lines = condense_bind_string(bind_strings)
-    binds_list = numbered_lines.values()
+    numbered_lines = condense_bind_string(bind_strings, join_char=SPLIT_CHAR)
+    binds_list = list(numbered_lines.values())
 
     if len(binds_list) == 0:
         return (
             interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-            .set_content("You have no bindings to discard!")
+            .set_content("You have no bindings to remove!")
             .set_flags(hikari.MessageFlag.EPHEMERAL)
         )
 
@@ -138,7 +138,20 @@ async def unbind_discard_button(interaction: hikari.ComponentInteraction):
     )
 
     for x in range(len(binds_list)):
-        selection_menu.add_option(f"Bind #{x + 1}", x + 1)
+        split_bind_str = binds_list[x].split(SPLIT_CHAR)
+        split_bind_str = list(filter(None, split_bind_str))
+
+        bind_str = split_bind_str[1][:-1] if len(split_bind_str) > 1 else split_bind_str[0][3:]
+        bind_description = f"Group: {split_bind_str[0][3:]}" if len(split_bind_str) > 1 else ""
+
+        bind_str = bind_str.replace("**", "")
+        bind_description = bind_description.replace("**", "")
+
+        selection_menu.add_option(
+            f"#{x + 1}: {bind_str}"[:100],
+            x + 1,
+            description=bind_description[:100],
+        )
 
     selection_menu.set_max_values(len(selection_menu.options))
 
@@ -147,6 +160,10 @@ async def unbind_discard_button(interaction: hikari.ComponentInteraction):
         embed=embed,
         components=[selection_menu.parent, button_menu],
         flags=hikari.MessageFlag.EPHEMERAL,
+    )
+
+    return interaction.build_deferred_response(
+        hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
     )
 
 
@@ -234,7 +251,7 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
     components.add_interactive_button(
         hikari.ButtonStyle.DANGER,
         f"unbind:discard:{author_id}:{category}:{id_option}",
-        label="Discard a bind",
+        label="Remove a bind",
     )
 
     await original_message.edit(embed=embed, components=[components])
