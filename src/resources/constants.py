@@ -55,6 +55,6 @@ GROUP_RANK_CRITERIA_TEXT = {
     "gte": "People with a rank greater than or equal to",
     "lte": "People with a rank less than or equal to",
     "rng": "People with a rank between",
-    "gst": "People who are not in this group",
-    "all": "People who are in this group",
+    "gst": "People who are not in **this group**",
+    "all": "People who are in **this group**",
 }
