@@ -15,10 +15,19 @@ class Response:
         **kwargs,
     ):
         if self.responded:
-            await self.interaction.execute(content, embed=embed, components=components, **kwargs)
+            if isinstance(components, list):
+                await self.interaction.execute(content, embed=embed, components=components, **kwargs)
+            else:
+                await self.interaction.execute(content, embed=embed, component=components, **kwargs)
+
         else:
             self.responded = True
 
-            await self.interaction.create_initial_response(
-                hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
-            )
+            if isinstance(components, list):
+                await self.interaction.create_initial_response(
+                    hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
+                )
+            else:
+                await self.interaction.create_initial_response(
+                    hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
+                )
