@@ -444,7 +444,7 @@ class GuildBind(BaseGuildBind):
                         rank_string = f"Rank {min_str} or above:"
 
                     elif self.max is not None:
-                        min_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
+                        max_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
                         rank_string = f"Rank {max_str} or below:"
 
                     elif self.roleset is not None:
