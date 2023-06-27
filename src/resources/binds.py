@@ -433,39 +433,24 @@ class GuildBind(BaseGuildBind):
                     # Every other group binding type (range, guest, everyone, single ID)
                     rank_string = ""
 
-                    rolesets = dict()
-                    try:
-                        group = await groups.get_group(self.id)
-                        rolesets = group.rolesets
-                    except RobloxNotFound:
-                        # We can pass here since for the rest of the data, the default for no
-                        # item will be to insert the id by itself, rather than including the name
-                        pass
-
                     if self.min is not None and self.max is not None:
-                        min_name = rolesets.get(self.min, "")
-                        max_name = rolesets.get(self.max, "")
+                        min_str = await roleset_to_string(self.id, self.min, include_id=True, bold_name=True)
+                        max_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
 
-                        min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
-                        max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
                         rank_string = f"Ranks {min_str} to {max_str}:"
 
                     elif self.min is not None:
-                        min_name = rolesets.get(self.min, "")
-                        min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
+                        min_str = await roleset_to_string(self.id, self.min, include_id=True, bold_name=True)
                         rank_string = f"Rank {min_str} or above:"
 
                     elif self.max is not None:
-                        max_name = rolesets.get(self.max, "")
-                        max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
+                        min_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
                         rank_string = f"Rank {max_str} or below:"
-                        pass
 
                     elif self.roleset is not None:
                         abs_roleset = abs(self.roleset)
-                        roleset_name = rolesets.get(abs_roleset, "")
-                        roleset_str = (
-                            f"**{roleset_name}** ({abs_roleset})" if roleset_name else f"{abs_roleset}"
+                        roleset_str = await roleset_to_string(
+                            self.id, abs_roleset, include_id=True, bold_name=True
                         )
 
                         if self.roleset <= 0:
@@ -596,6 +581,26 @@ async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, i
             id_str if include_id else "",
         ]
     ).strip()
+
+
+async def roleset_to_string(group_id: int, roleset: int, include_id: bool = True, bold_name: bool = False):
+    rolesets = dict()
+    try:
+        group = await groups.get_group(group_id)
+        rolesets = group.rolesets
+    except RobloxNotFound:
+        # We can pass here since for the rest of the data, the default for no
+        # item will be to insert the id by itself, rather than including the name
+        pass
+
+    roleset_name = rolesets.get(roleset, "")
+    if not roleset_name:
+        return str(roleset)
+
+    if bold_name:
+        roleset_name = f"**{roleset_name}**"
+
+    return f"{roleset_name} ({roleset})" if include_id else roleset_name
 
 
 def join_bind_strings(strings: list):
