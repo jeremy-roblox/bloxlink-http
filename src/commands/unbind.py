@@ -17,7 +17,7 @@ import math
 import json
 
 
-MAX_BINDS_PER_PAGE = 25
+MAX_BINDS_PER_PAGE = 15
 
 
 async def unbind_category_autocomplete(interaction: hikari.AutocompleteInteraction):
@@ -100,6 +100,10 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
 async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
     """Handles the removal of a binding from the list."""
 
+    await interaction.create_initial_response(
+        hikari.ResponseType.DEFERRED_MESSAGE_CREATE, flags=hikari.MessageFlag.EPHEMERAL
+    )
+
     author_id, category, id_option = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=6)
 
     for item in interaction.values:
@@ -122,11 +126,9 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
     await bloxlink.rest.edit_message(
         interaction.channel_id, interaction.message.id, embed=embed, components=components
     )
+    await interaction.edit_initial_response("Your chosen bindings have been removed.")
 
-    resp = interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-    resp.set_content("Your chosen bindings have been removed.")
-    resp.set_flags(hikari.MessageFlag.EPHEMERAL)
-    return resp
+    return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
 
 
 @component_author_validation(author_segment=3, defer=False)
