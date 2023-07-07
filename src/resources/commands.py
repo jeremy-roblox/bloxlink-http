@@ -62,6 +62,7 @@ async def handle_command(interaction: hikari.CommandInteraction):
         response=response,
         resolved=interaction.resolved,
         options=command_options,
+        interaction=interaction,
     )
 
     await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)

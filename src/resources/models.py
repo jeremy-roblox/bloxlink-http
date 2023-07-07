@@ -6,7 +6,15 @@ import hikari
 from .response import Response
 
 
-__all__ = ("UserData", "GuildData", "RobloxAccount", "CommandContext", "BaseGuildBind", "PremiumModel", "MISSING")
+__all__ = (
+    "UserData",
+    "GuildData",
+    "RobloxAccount",
+    "CommandContext",
+    "BaseGuildBind",
+    "PremiumModel",
+    "MISSING",
+)
 
 
 def default_field(obj):
@@ -58,7 +66,10 @@ class CommandContext:
     resolved: hikari.ResolvedOptionData
     options: dict[str, str | int]
 
+    interaction: hikari.CommandInteraction
+
     response: Response
+
 
 @dataclass(slots=True)
 class PremiumModel:
@@ -76,7 +87,9 @@ class PremiumModel:
             if "premium" in self.features:
                 buffer.append("Basic - Premium commands")
             if "pro" in self.features:
-                buffer.append("Pro - Unlocks the Pro bot and a few [enterprise features](https://blox.link/pricing)")
+                buffer.append(
+                    "Pro - Unlocks the Pro bot and a few [enterprise features](https://blox.link/pricing)"
+                )
 
         return "\n".join(buffer) or "Not premium"
 
