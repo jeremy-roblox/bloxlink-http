@@ -19,14 +19,17 @@ if __name__ == "__main__":
     )
 
     for directory in MODULES:
-        files = [name for name in listdir('src/'+directory.replace('.', '/')) if name[:1] != "." and name[:2] != "__" and name != "_DS_Store"]
+        files = [
+            name
+            for name in listdir("src/" + directory.replace(".", "/"))
+            if name[:1] != "." and name[:2] != "__" and name != "_DS_Store"
+        ]
 
         for filename in [f.replace(".py", "") for f in files]:
-            if filename in ('bot', '__init__'):
+            if filename in ("bot", "__init__"):
                 continue
 
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
-
 
     bot.set_listener(hikari.CommandInteraction, handle_command)
     bot.set_listener(hikari.ComponentInteraction, handle_component)
