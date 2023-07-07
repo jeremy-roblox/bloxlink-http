@@ -55,6 +55,8 @@ class Bloxlink(hikari.RESTBot):
             return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
         except redis.RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
+        except asyncio.TimeoutError as ex:
+            raise TimeoutError("No response was recieved.") from ex
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
         res = await self.relay(
