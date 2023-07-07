@@ -1,10 +1,14 @@
 from resources.bloxlink import instance as bloxlink
 from resources.models import CommandContext
 import hikari
+import logging
+
+logger = logging.getLogger("verify_all")
 
 
 @bloxlink.command(
     category="Administration",
+    defer=True,
     permissions=hikari.Permissions.MANAGE_GUILD | hikari.Permissions.MANAGE_ROLES,
 )
 class VerifyallCommand:
@@ -26,4 +30,17 @@ class VerifyallCommand:
                     saying that the scan is complete?
         """
 
-        await ctx.response.send(content="Server will start being scanned soon:tm:.")
+        try:
+            await bloxlink.relay(
+                "VERIFYALL", payload={"guild_id": ctx.guild_id, "channel_id": ctx.interaction.channel_id}
+            )
+
+            await ctx.response.send(content="Server will start being scanned soon:tm:.")
+        except (RuntimeError, TimeoutError) as ex:
+            await ctx.response.send(
+                content="There was an issue when starting to scan your server. Try again later."
+            )
+            logger.error(f"An issue was encountered contacting the gateway - {ex}")
+
+        # Use to confirm if the server got the request or not
+        # yes: send next resposne, no: explode the world (say there was an issue, try later)
