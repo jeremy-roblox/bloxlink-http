@@ -622,13 +622,16 @@ class BindCommand:
 
         elif bind_mode == "entire_group":
             # Isn't interactive - just makes the binding and tells the user if it worked or not.
-            response = f'Your group binding for group "{group.name}" ({group_id}) has been saved.'
+            # TODO: ask if the bot can create roles that match their group rolesets
+
             try:
                 await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id)
             except NotImplementedError:
-                response = f'You already have a group binding for group "{group.name}" ({group_id}). No changes were made.'
+                await ctx.response.send(f"You already have a group binding for group [{group.name}](<https://www.roblox.com/groups/{group.id}/->). No changes were made.")
+                return
 
-            await ctx.response.send(response)
+            await ctx.response.send(f"Your group binding for group [{group.name}](https://www.roblox.com/groups/{group.id}/-) has been saved. "
+                                    "When people join your server, they will receive a Discord role that corresponds to their group rank. ")
 
     @bloxlink.subcommand(
         options=[
