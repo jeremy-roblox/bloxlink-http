@@ -22,37 +22,127 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
         if hasattr(action_row_or_component, "build"):
             iterate_components.append(action_row_or_component)
         else:
+            # Keep action row components together.
+            temp = []
             for component in action_row_or_component.components:
-                iterate_components.append(component)
+                temp.append(component)
+            iterate_components.append(temp)
 
     for component in iterate_components:
         # print("component=", component)
         if hasattr(component, "build"):
             new_components.append(component)
 
+        elif isinstance(component, list):
+            """Components in a list = in an action row."""
+            row = bloxlink.rest.build_message_action_row()
+            for subcomponent in component:
+                if isinstance(subcomponent, hikari.SelectMenuComponent):
+                    new_select_menu = row.add_select_menu(
+                        subcomponent.type,
+                        subcomponent.custom_id,
+                        placeholder=subcomponent.placeholder,
+                        min_values=subcomponent.min_values,
+                        max_values=subcomponent.max_values,
+                        is_disabled=subcomponent.is_disabled,
+                    )
+
+                    if subcomponent.type == hikari.ComponentType.TEXT_SELECT_MENU:
+                        for option in subcomponent.options:
+                            new_select_menu = new_select_menu.add_option(
+                                option.label,
+                                option.value,
+                                description=option.description,
+                                emoji=option.emoji,
+                                is_default=option.is_default,
+                            )
+
+                elif isinstance(subcomponent, hikari.ButtonComponent):
+                    if subcomponent.style == hikari.ButtonStyle.LINK:
+                        if not subcomponent.emoji:
+                            row.add_link_button(
+                                subcomponent.url,
+                                label=subcomponent.label,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                        else:
+                            row.add_link_button(
+                                subcomponent.url,
+                                emoji=subcomponent.emoji,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                    else:
+                        if not subcomponent.emoji:
+                            row.add_interactive_button(
+                                subcomponent.style,
+                                subcomponent.custom_id,
+                                label=subcomponent.label,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                        else:
+                            row.add_interactive_button(
+                                subcomponent.style,
+                                subcomponent.custom_id,
+                                emoji=subcomponent.emoji,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+
+            new_components.append(row)
+
         elif isinstance(component, hikari.SelectMenuComponent):
-            new_select_menu = bloxlink.rest.build_message_action_row().add_select_menu(
-                component.type, component.custom_id, placeholder=component.placeholder
+            new_select_menu = row.add_select_menu(
+                subcomponent.type,
+                subcomponent.custom_id,
+                placeholder=subcomponent.placeholder,
+                min_values=subcomponent.min_values,
+                max_values=subcomponent.max_values,
+                is_disabled=subcomponent.is_disabled,
             )
 
-            for option in component.options:
-                new_select_menu = (
-                    new_select_menu.add_option(option.label, option.value)
-                    .set_is_default(option.value in values)
-                    .add_to_menu()
-                )
-
-            new_select_menu = new_select_menu.add_to_container()
+            if subcomponent.type == hikari.ComponentType.TEXT_SELECT_MENU:
+                for option in subcomponent.options:
+                    new_select_menu = new_select_menu.add_option(
+                        option.label,
+                        option.value,
+                        description=option.description,
+                        emoji=option.emoji,
+                        is_default=option.is_default,
+                    )
 
             new_components.append(new_select_menu)
 
         elif isinstance(component, hikari.ButtonComponent):
-            # print("new button component", component.custom_id)
-            new_button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-                component.style, component.custom_id, label=component.label
-            )
+            row = bloxlink.rest.build_message_action_row()
+            if component.style == hikari.ButtonStyle.LINK:
+                if not component.emoji:
+                    row.add_link_button(
+                        component.url,
+                        label=component.label,
+                        is_disabled=component.is_disabled,
+                    )
+                else:
+                    row.add_link_button(
+                        component.url,
+                        emoji=component.emoji,
+                        is_disabled=component.is_disabled,
+                    )
+            else:
+                if not component.emoji:
+                    row.add_interactive_button(
+                        component.style,
+                        component.custom_id,
+                        label=component.label,
+                        is_disabled=component.is_disabled,
+                    )
+                else:
+                    row.add_interactive_button(
+                        component.style,
+                        component.custom_id,
+                        emoji=component.emoji,
+                        is_disabled=component.is_disabled,
+                    )
 
-            new_components.append(new_button_menu)
+            new_components.append(row)
 
     await message.edit(embeds=message.embeds, components=new_components)
 
