@@ -153,11 +153,10 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     if is_group_bind:
         prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
+        # "gst" & "all" choices are not handled becuse they have the content included in
+        # the prefix string already.
         if bind_choice in ("equ", "gte", "lte"):
             content = roleset_data
-        elif bind_choice in ("gst", "all"):
-            prefix = prefix.replace("this group", "").strip()
-            content = "this group"
         elif bind_choice == "rng":
             min_rank = roleset_data[0]
             max_rank = roleset_data[1]
@@ -174,9 +173,11 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         if role.bot_id == None and role.integration_id == None
     ]
 
+    content = f"**{content}**" if content else ""
+
     # Check for duplicates in the field & update accordingly. Removes old entry and appends again
     for item in new_description:
-        if item[3:].startswith(f"{prefix} **{content}**"):
+        if item[3:].startswith(f"{prefix} {content}"):
             original_roles = []
 
             # Only get roles to be given, we'll just discard the roles to remove if an entry is there.
@@ -194,8 +195,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     role_mention_str = ", ".join(f"<@&{val}>" for val in role_list)
     new_bind_str = (
-        f"- _{prefix} **{content}** will receive "
-        f"role{'s' if len(role_list) > 1  else ''} {role_mention_str}_"
+        f"- _{prefix} {content} will receive " f"role{'s' if len(role_list) > 1  else ''} {role_mention_str}_"
     )
     new_description.append(new_bind_str)
 
