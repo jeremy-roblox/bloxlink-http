@@ -14,6 +14,7 @@ from threading import Lock
 import uuid
 import json
 from typing import Optional
+import yuyo
 
 logger = logging.getLogger()
 
@@ -25,7 +26,7 @@ from .models import UserData, GuildData
 instance: "Bloxlink" = None
 
 
-class Bloxlink(hikari.RESTBot):
+class Bloxlink(yuyo.AsgiBot):
     def __init__(self, *args, **kwargs):
         global instance
 

@@ -6,18 +6,55 @@ from resources.bloxlink import Bloxlink
 from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
 import logging
 import hikari
+import uvicorn
+from blacksheep import Application
+
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
+bot = Bloxlink(
+    public_key=DISCORD_PUBLIC_KEY,
+    token=DISCORD_TOKEN,
+    token_type=hikari.TokenType.BOT,
+    asgi_managed=False,
+)
+bot.interaction_server.set_listener(hikari.CommandInteraction, handle_command)
+bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_component)
+bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
+
+# Blacksheep app server
+app = Application()
+
+# IMPORTANT NOTE, blacksheep expects a trailing /
+# in the URL that is given to discord because this is a mount.
+# Example: "example.org/bot/" works, but "example.org/bot" does not (this results in a 307 reply, which discord doesn't honor).
+app.mount("/bot", bot)
+
+
+@app.route("/")
+async def test1():
+    return "Hello world!"
+
+
+@app.route("/test")
+async def test():
+    return "Hello world!"
+
+
+@app.on_start
+async def handle_start(_):
+    await bot.start()
+    print("starting bot?")
+    await sync_commands(bot)
+
+
+@app.on_stop
+async def handle_stop(_):
+    await bot.close()
+
 
 if __name__ == "__main__":
-    bot = Bloxlink(
-        public_key=DISCORD_PUBLIC_KEY,
-        token=DISCORD_TOKEN,
-        token_type=hikari.TokenType.BOT,
-    )
-
     for directory in MODULES:
         files = [
             name
@@ -31,8 +68,9 @@ if __name__ == "__main__":
 
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
-    bot.set_listener(hikari.CommandInteraction, handle_command)
-    bot.set_listener(hikari.ComponentInteraction, handle_component)
-    bot.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
-    bot.add_startup_callback(sync_commands)
-    bot.run(host=env.get("HOST", SERVER_HOST), port=env.get("PORT", SERVER_PORT))
+    uvicorn.run(
+        app,
+        host=env.get("HOST", SERVER_HOST),
+        port=env.get("PORT", SERVER_PORT),
+        log_config=None,
+    )
