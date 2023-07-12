@@ -69,6 +69,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
             f"{original_message_id}:{author_id}::{bind_choice}",
             interaction.guild_id,
             author_id,
+            original_message_id,
         )
 
     await interaction.create_initial_response(
@@ -97,6 +98,7 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
         f"{original_message_id}:{author_id}:{roleset_str}:{bind_choice}",
         interaction.guild_id,
         author_id,
+        original_message_id,
     )
 
     message.embeds[0] = prompt.embed
@@ -218,6 +220,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
         custom_id=f"{original_message_id}:{author_id}",
         guild_id=interaction.guild_id,
         author_id=author_id,
+        original_message_id=original_message_id,
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
         skip_button=True,
         remove_text=True,
@@ -315,6 +318,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
             f"{message.id}:{author_id}:{bind_type}",
             interaction.guild_id,
             author_id,
+            message.id,
             process_starter_text=True,
         )
 
@@ -539,9 +543,27 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
 
 @component_author_validation(author_segment=3, defer=False)
 async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
+    # Inferring that the only place we're allowed to skip is the role removal prompt.
+    # Can't link to the original message unless we start passing along the original message id
+    # to the cancel button custom_id
+
+    original_message_id = get_custom_id_data(interaction.custom_id, segment=4)
+    message_string = (
+        f"https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id}"
+    )
+
+    response = (
+        "Your prompt has been cancelled."
+        if "cancel" in interaction.custom_id
+        else (
+            f"Bind added to your in-progress workflow! "
+            f"[Click here]({message_string}) and click the Save button to save the bind to your server!"
+        )
+    )
+
     if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
         await interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]
+            hikari.ResponseType.MESSAGE_UPDATE, content=response, components=[], embeds=[]
         )
 
         return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
@@ -550,7 +572,7 @@ async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
 
     return (
         interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-        .set_content("Prompt cancelled.")
+        .set_content(response)
         .set_flags(hikari.MessageFlag.EPHEMERAL)
     )
 
@@ -572,6 +594,7 @@ async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
         "bind_menu:discard_button": bind_menu_discard_button,
         "bind_menu:discard_selection": bind_menu_discard_binding,
         "bind_menu:cancel": bind_menu_cancel_button,
+        "bind_menu:skip": bind_menu_cancel_button,
     },
     dm_enabled=False,
 )
@@ -627,11 +650,15 @@ class BindCommand:
             try:
                 await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id)
             except NotImplementedError:
-                await ctx.response.send(f"You already have a group binding for group [{group.name}](<https://www.roblox.com/groups/{group.id}/->). No changes were made.")
+                await ctx.response.send(
+                    f"You already have a group binding for group [{group.name}](<https://www.roblox.com/groups/{group.id}/->). No changes were made."
+                )
                 return
 
-            await ctx.response.send(f"Your group binding for group [{group.name}](https://www.roblox.com/groups/{group.id}/-) has been saved. "
-                                    "When people join your server, they will receive a Discord role that corresponds to their group rank. ")
+            await ctx.response.send(
+                f"Your group binding for group [{group.name}](https://www.roblox.com/groups/{group.id}/-) has been saved. "
+                "When people join your server, they will receive a Discord role that corresponds to their group rank. "
+            )
 
     @bloxlink.subcommand(
         options=[

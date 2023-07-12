@@ -180,6 +180,7 @@ async def build_role_selection_prompt(
     custom_id: str,
     guild_id: int,
     author_id: str | int,
+    original_message_id: str | int,
     placeholder: str = "Search and choose from your Discord roles!",
     min_values: int = 1,
     skip_button: bool = False,
@@ -195,6 +196,8 @@ async def build_role_selection_prompt(
             automatically prefixed with "bind:sel_role" or "bind:sel_rmv_role" depending on the remove_text argument.
         guild_id (int): The ID of the guild whose roles will be shown to the user to select from.
         author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
+            This is not added to the custom_id parameter for the prompt that is built.
+        original_message_id (str | int): The original message ID, used to set the custom ID for the cancel button.
             This is not added to the custom_id parameter for the prompt that is built.
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
@@ -250,9 +253,10 @@ async def build_role_selection_prompt(
         max_values=25,
     )
 
+    cancel_id = "cancel" if not skip_button else "skip"
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
         hikari.ButtonStyle.SECONDARY,
-        f"bind_menu:cancel:{author_id}",
+        f"bind_menu:{cancel_id}:{author_id}:{original_message_id}",
         label="Cancel" if not skip_button else "Skip",
     )
 
