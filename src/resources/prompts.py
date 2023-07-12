@@ -22,6 +22,7 @@ async def build_interactive_bind_base(
     bind_id: int | str,
     guild_id: int,
     author_id: int,
+    disable_save: bool = False,
 ) -> EmbedPrompt:
     capital_type = bind_type.capitalize()
     bind_id = bind_id if isinstance(bind_id, str) else str(bind_id)
@@ -65,6 +66,7 @@ async def build_interactive_bind_base(
             hikari.ButtonStyle.SECONDARY,
             f"bind_menu:discard_button:{author_id}",
             label="Discard a bind",
+            is_disabled=disable_save,
         )
         .add_interactive_button(
             hikari.ButtonStyle.PRIMARY,
@@ -75,6 +77,7 @@ async def build_interactive_bind_base(
             hikari.ButtonStyle.SUCCESS,
             f"bind_menu:save_button:{bind_type}:{bind_id}:{author_id}",
             label="Save changes",
+            is_disabled=disable_save,
         )
     )
 

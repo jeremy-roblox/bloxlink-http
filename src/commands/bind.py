@@ -203,6 +203,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     # Update title if necessary
     original_title = original_message.embeds[0].title
+    original_title = original_title.replace("[SAVED]", "")
     new_title = (
         original_title if "[UNSAVED CHANGES]" in original_title else f"{original_title} [UNSAVED CHANGES]"
     )
@@ -212,8 +213,12 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     new_embed.title = new_title
     new_embed.fields[1].value = "\n".join(new_description)
 
-    # Save to the original message
-    await original_message.edit(embed=new_embed)
+    original_message.embeds[0] = new_embed
+
+    # Since a bind has been made, enable the save and discard buttons.
+    original_message.components[0][0].is_disabled = False
+    original_message.components[0][2].is_disabled = False
+    await set_components(original_message)
 
     # Setup remove role prompt
     prompt = await build_role_selection_prompt(
@@ -462,11 +467,11 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
         elif bind_type in ("asset", "badge", "gamepass"):
             raise NotImplementedError("Alternative bind type found.")
 
-    # This rebuilds the entire prompt (components and all), but we only need the embed from it.
     prompt = await build_interactive_bind_base(
-        bind_type, prompt_id, interaction.guild_id, interaction.member.id
+        bind_type, prompt_id, interaction.guild_id, interaction.member.id, disable_save=True
     )
-    await message.edit(embed=prompt.embed)
+    prompt.embed.title += " [SAVED]"
+    await message.edit(embed=prompt.embed, component=prompt.components)
 
     return (
         interaction.build_response(hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE)
@@ -526,12 +531,14 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
     if len(bindings) == 0:
         embed.title = embed.title.replace("[UNSAVED CHANGES]", "").strip()
         bindings.append("*The binds you're making will be added here!*")
+        original_message.components[0][0].is_disabled = True
+        original_message.components[0][2].is_disabled = True
     else:
         bindings.insert(0, first_line)
 
     binds_field.value = "\n".join(bindings)
 
-    await original_message.edit(embed=embed)
+    await set_components(original_message)
 
     await interaction.create_initial_response(
         hikari.ResponseType.MESSAGE_UPDATE,
@@ -639,7 +646,7 @@ class BindCommand:
             return
 
         if bind_mode == "specific_roles":
-            prompt = await build_interactive_bind_base("group", group_id, ctx.guild_id, ctx.member.id)
+            prompt = await build_interactive_bind_base("group", group_id, ctx.guild_id, ctx.member.id, True)
 
             await ctx.response.send(embed=prompt.embed, components=prompt.components)
 
@@ -684,6 +691,6 @@ class BindCommand:
             )
             return
 
-        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id, ctx.member.id)
+        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id, ctx.member.id, True)
 
         await ctx.response.send(embed=prompt.embed, components=prompt.components)
