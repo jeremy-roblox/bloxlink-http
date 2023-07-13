@@ -29,11 +29,6 @@ bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autoc
 webserver.mount("/bot", bot)
 
 
-@webserver.route("/test")
-async def test():
-    return "Hello world!"
-
-
 @webserver.on_start
 async def handle_start(_):
     await bot.start()
