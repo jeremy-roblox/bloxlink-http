@@ -139,12 +139,10 @@ def new_command(command: Any, **kwargs):
 
 
 async def sync_commands(bot: hikari.RESTBot):
-    from resources.bloxlink import instance as bloxlink
-
     commands = []
 
     for new_command_data in slash_commands.values():
-        command: hikari.commands.SlashCommandBuilder = bloxlink.rest.slash_command_builder(
+        command: hikari.commands.SlashCommandBuilder = bot.rest.slash_command_builder(
             new_command_data.name, new_command_data.description
         )
 
@@ -161,7 +159,7 @@ async def sync_commands(bot: hikari.RESTBot):
 
         commands.append(command)
 
-    await bloxlink.rest.set_application_commands(
+    await bot.rest.set_application_commands(
         application=DISCORD_APPLICATION_ID,
         commands=commands,
     )
