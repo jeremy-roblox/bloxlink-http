@@ -1,13 +1,13 @@
 from os import environ as env, listdir
 from resources.constants import MODULES
-from config import SERVER_HOST, SERVER_PORT
+from config import SERVER_HOST, SERVER_PORT, SERVER_AUTH
 from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
 from resources.bloxlink import Bloxlink
 from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
 import logging
 import hikari
 import uvicorn
-from blacksheep import Application
+from blacksheep import Application, Request, Response, unauthorized
 
 
 logger = logging.getLogger()
@@ -24,32 +24,54 @@ bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_componen
 bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
 
 # Blacksheep app server
-app = Application()
+webserver = Application()
 
 # IMPORTANT NOTE, blacksheep expects a trailing /
 # in the URL that is given to discord because this is a mount.
 # Example: "example.org/bot/" works, but "example.org/bot" does not (this results in a 307 reply, which discord doesn't honor).
-app.mount("/bot", bot)
+webserver.mount("/bot", bot)
 
 
-@app.route("/")
+async def simple_auth(request: Request, handler):
+    """
+    Simple way of ensuring that only valid requests can be sent to the bot
+    via the Authorization header.
+    """
+    auth_header = request.get_first_header(b"Authorization")
+    unauth = unauthorized("You are not authorized to use this endpoint.")
+
+    if not auth_header:
+        return unauth
+
+    auth_header = auth_header.decode()
+    if auth_header != SERVER_AUTH:
+        return unauth
+
+    response = await handler(request)
+    return response
+
+
+webserver.middlewares.append(simple_auth)
+
+
+@webserver.route("/")
 async def test1():
     return "Hello world!"
 
 
-@app.route("/test")
+@webserver.route("/test")
 async def test():
     return "Hello world!"
 
 
-@app.on_start
+@webserver.on_start
 async def handle_start(_):
     await bot.start()
     print("starting bot?")
     await sync_commands(bot)
 
 
-@app.on_stop
+@webserver.on_stop
 async def handle_stop(_):
     await bot.close()
 
@@ -69,7 +91,7 @@ if __name__ == "__main__":
             bot.load_module(f"{directory.replace('/','.')}.{filename}")
 
     uvicorn.run(
-        app,
+        webserver,
         host=env.get("HOST", SERVER_HOST),
         port=env.get("PORT", SERVER_PORT),
         log_config=None,
