@@ -2,7 +2,7 @@ hikari[speedups, server]==2.0.0.dev118
 hikari-yuyo[asgi]==1.14.2
 motor==2.3
 hiredis
-redis>=4.2.0rc1
+redis>=4.2.0
 requests==2.28.2
 dnspython==2.2.1
 psutil==5.9.0
