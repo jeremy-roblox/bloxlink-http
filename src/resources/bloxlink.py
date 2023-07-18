@@ -31,14 +31,17 @@ class Bloxlink(yuyo.AsgiBot):
         global instance
 
         super().__init__(*args, **kwargs)
-
+        self.started_at = datetime.utcnow()
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
         self.mongo.get_io_loop = asyncio.get_running_loop
-        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
-        self.redis_messages = RedisMessageCollector(self.redis)
-        self.started_at = datetime.utcnow()
 
         instance = self
+
+    async def start(self) -> Coroutine[any, any, None]:
+        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+        self.redis_messages = RedisMessageCollector(self.redis)
+
+        return await super().start()
 
     @property
     def uptime(self) -> timedelta:
@@ -53,7 +56,7 @@ class Bloxlink(yuyo.AsgiBot):
             await self.redis.publish(
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
-            return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
+            return await self.redis_messages.get_message(reply_channel, timeout=timeout)
         except redis.RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
         except asyncio.TimeoutError as ex:
