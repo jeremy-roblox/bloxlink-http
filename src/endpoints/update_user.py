@@ -1,7 +1,12 @@
-from blacksheep import FromJSON, ok, Request
+from blacksheep import FromJSON, ok, Request, accepted
 from blacksheep.server.controllers import APIController, get, post
 from dataclasses import dataclass
-import hikari
+
+from resources.bloxlink import instance as bloxlink
+import resources.binds as binds
+import resources.users as users
+
+import asyncio
 
 
 @dataclass
@@ -31,10 +36,28 @@ class Update(APIController):
 
     @post("/users")
     async def post_user(content: FromJSON[UpdateBody]):
-        content = content.value
-        # TODO: for each member in content.members, convert to hikari member & apply binds
-        # Need to decide if the gateway could just send a bunch of chunks at once, or if it
-        # should send one at a time, waiting for the reply (for an OK) before trying again
+        content: UpdateBody = content.value
 
-        # Might also need a way to tell the gateway to stop if necessary?
-        return ok(f"POST request to this route was valid. Recieved {content}")
+        # Update users in the background and instantly respond with 202 status.
+        asyncio.create_task(_update_users(content))
+
+        return accepted(f"OK. Received {content}")
+
+
+async def _update_users(content: UpdateBody):
+    members = content.members
+    guild_id = content.guild_id
+    channel_id = content.channel_id
+
+    for member in members:
+        if member.get("is_bot", False):
+            continue
+
+        print(f"Updating member: {member['name']}")
+
+        roblox_account = await users.get_user_account(member["id"], guild_id=guild_id, raise_errors=False)
+        message_response = await binds.apply_binds(member, guild_id, roblox_account, moderate_user=True)
+        print(message_response)
+
+    if content.is_done:
+        await bloxlink.rest.create_message(channel_id, content="Your server has finished updating everyone!")
