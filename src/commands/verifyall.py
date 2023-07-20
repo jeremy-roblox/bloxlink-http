@@ -5,6 +5,7 @@ import logging
 import json
 
 logger = logging.getLogger("verify_all")
+CHUNK_LIMIT = 1
 
 
 @bloxlink.command(
@@ -34,7 +35,11 @@ class VerifyallCommand:
         try:
             req = await bloxlink.relay(
                 "VERIFYALL",
-                payload={"guild_id": ctx.interaction.guild_id, "channel_id": ctx.interaction.channel_id},
+                payload={
+                    "guild_id": ctx.interaction.guild_id,
+                    "channel_id": ctx.interaction.channel_id,
+                    "chunk_limit": CHUNK_LIMIT,
+                },
             )
 
             # ngl this is disgusting to do, but is required based on how .relay works.
