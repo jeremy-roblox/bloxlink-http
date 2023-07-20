@@ -84,7 +84,7 @@ async def create_bind(
 
 
 async def apply_binds(
-    member: hikari.Member,
+    member: hikari.Member | dict,
     guild_id: hikari.Snowflake,
     roblox_account: users.RobloxAccount = None,
     *,
@@ -93,10 +93,35 @@ async def apply_binds(
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
-    guild: hikari.guilds.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+    guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+
+    role_ids = []
+    member_id = None
+    username = ""
+    nickname = ""
+    avatar_url = ""
+    user_tag = ""
+
+    if isinstance(member, hikari.Member):
+        role_ids = member.role_ids
+        member_id = member.id
+        username = member.username
+        nickname = member.nickname
+        avatar_url = member.display_avatar_url.url
+        user_tag = f"{username}#{member.discriminator}"
+    elif isinstance(member, dict):
+        role_ids = member.get("role_ids", [])
+        member_id = member.get("id")
+        username = member.get("username", None)
+        if not username:
+            username = member.get("name", "")
+        nickname = member.get("nickname", "")
+        avatar_url = member.get("avatar_url", "")
+        user_tag = f"{username}#{member.get('discriminator')}"
+
     member_roles: dict = {}
 
-    for member_role_id in member.role_ids:
+    for member_role_id in role_ids:
         if role := guild.roles.get(member_role_id):
             member_roles[role.id] = {
                 "id": role.id,
@@ -106,17 +131,17 @@ async def apply_binds(
 
     user_binds, user_binds_response = await fetch(
         "POST",
-        f"{BOT_API}/binds/{member.id}",
+        f"{BOT_API}/binds/{member_id}",
         headers={"Authorization": BOT_API_AUTH},
         body={
             "guild": {
                 "id": guild.id,
                 "roles": [
-                    {"id": r.id, "name": r.name, "managed": bool(r.bot_id) and role.name != "@everyone"}
+                    {"id": r.id, "name": r.name, "managed": bool(r.bot_id) and r.name != "@everyone"}
                     for r in guild.roles.values()
                 ],
             },
-            "member": {"id": member.id, "roles": member_roles},
+            "member": {"id": member_id, "roles": member_roles},
             "roblox_account": roblox_account.to_dict() if roblox_account else None,
         },
     )
@@ -174,7 +199,7 @@ async def apply_binds(
                 f"{BOT_API}/nickname/parse/",
                 headers={"Authorization": BOT_API_AUTH},
                 body={
-                    "user_data": {"name": member.username, "nick": member.nickname, "id": member.id},
+                    "user_data": {"name": username, "nick": nickname, "id": member_id},
                     "guild_id": guild.id,
                     "guild_name": guild.name,
                     "roblox_account": roblox_account.to_dict() if roblox_account else None,
@@ -187,13 +212,14 @@ async def apply_binds(
             else:
                 raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
 
-            if guild.owner_id == member.id:
+            if str(guild.owner_id) == str(member_id):
                 warnings.append(
                     f"Since you're the Server Owner, I cannot modify your nickname.\nNickname: {chosen_nickname}"
                 )
             else:
                 try:
-                    await member.edit(nickname=chosen_nickname)
+                    await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
+                    # await member.edit(nickname=chosen_nickname)
                 except hikari.errors.ForbiddenError:
                     warnings.append("I don't have permission to change the nickname of this user.")
                 else:
@@ -203,11 +229,18 @@ async def apply_binds(
         if add_roles or remove_roles:
             # since this overwrites their roles, we need to add in their current roles
             # then, we remove the remove_roles from the set
-            await member.edit(
-                roles=set(getattr(r, "id", r) for r in add_roles + member.role_ids).difference(
+            await bloxlink.rest.edit_member(
+                guild_id,
+                member_id,
+                roles=set(getattr(r, "id", r) for r in add_roles + role_ids).difference(
                     [r.id for r in remove_roles]
-                )
+                ),
             )
+            # await member.edit(
+            #     roles=set(getattr(r, "id", r) for r in add_roles + member.role_ids).difference(
+            #         [r.id for r in remove_roles]
+            #     )
+            # )
 
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.")
@@ -217,8 +250,8 @@ async def apply_binds(
             title="Member Updated",
         )
         embed.set_author(
-            name=str(member),
-            icon=member.display_avatar_url.url,
+            name=user_tag,
+            icon=avatar_url,
             url=roblox_account.profile_link if roblox_account else None,
         )
 
