@@ -18,20 +18,12 @@ class VerifyallCommand:
 
     async def __main__(self, ctx: CommandContext):
         """
-        Flow concept:
-            - User runs verifyall
-            - Request sent to gateway
-                - Gateway chunks the server
-                - Sends requests to an endpoint of HTTP server (this) to update the user(s)
-                Repeat request sending until user list is empty
+        Sets up a scan to update everyone in a guild.
 
-        Initial request information:
-            - Server ID, channel ID?
-                Server ID - so we know which guild to chunk and update people in
-                Channel ID - have the gateway send a message when the scan is done
-                    saying that the scan is complete?
+        Makes a request to the gateway over redis to chunk the guild members.
+        The gateway then will sent a request to the update endpoint (endpoints/update_user.py)
+        where the users will then be handled to be updated.
         """
-
         try:
             req = await bloxlink.relay(
                 "VERIFYALL",

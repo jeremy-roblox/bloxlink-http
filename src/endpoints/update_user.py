@@ -30,6 +30,8 @@ class UpdateBody:
 
 
 class Update(APIController):
+    """Results in a path of <URL>/api/update/..."""
+
     @get("/users")
     async def get_user(self, request: Request):
         return ok("GET request to this route was valid.")
@@ -60,4 +62,8 @@ async def _update_users(content: UpdateBody):
         print(message_response)
 
     if content.is_done:
+        # This is technically a lie since the gateway sends chunks of users, so the final chunk will likely
+        # be processed along with other chunks, so the bot could potentially not be "done" yet.
+        # Could be prevented with state tracking somehow? TBD
+
         await bloxlink.rest.create_message(channel_id, content="Your server has finished updating everyone!")
