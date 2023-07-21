@@ -1,4 +1,5 @@
 from resources.bloxlink import instance as bloxlink
+from resources.exceptions import Message
 from resources.models import CommandContext
 import hikari
 import logging
@@ -42,16 +43,15 @@ class VerifyallCommand:
 
             status = data.get("status")
             if "error" in status:
-                errors = data.get("errors")
-                logger.error(f"Gateway response error to /verifyall: {errors}")
-                await ctx.response.send(
-                    content="There was an issue when trying to update all your server members. Try again later."
+                message = data.get("message")
+                logger.error(f"Gateway response error to /verifyall: {message}")
+                raise Message(
+                    "There was an issue when trying to update all your server members. Try again later."
                 )
-                return
 
             await ctx.response.send(content="Your server members will be updated shortly!")
         except (RuntimeError, TimeoutError) as ex:
-            await ctx.response.send(
-                content="There was an issue when starting to scan your server. Try again later."
-            )
             logger.error(f"An issue was encountered contacting the gateway - {ex};{ex.__cause__}")
+            raise Message(
+                "There was an issue when trying to update all your server members. Try again later."
+            )
