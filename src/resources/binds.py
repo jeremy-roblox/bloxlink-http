@@ -219,7 +219,6 @@ async def apply_binds(
             else:
                 try:
                     await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
-                    # await member.edit(nickname=chosen_nickname)
                 except hikari.errors.ForbiddenError:
                     warnings.append("I don't have permission to change the nickname of this user.")
                 else:
@@ -236,11 +235,6 @@ async def apply_binds(
                     [r.id for r in remove_roles]
                 ),
             )
-            # await member.edit(
-            #     roles=set(getattr(r, "id", r) for r in add_roles + member.role_ids).difference(
-            #         [r.id for r in remove_roles]
-            #     )
-            # )
 
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.")
