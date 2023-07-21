@@ -9,7 +9,7 @@ CHUNK_LIMIT = 1
 
 
 @bloxlink.command(
-    category="Administration",
+    category="Premium",
     defer=True,
     permissions=hikari.Permissions.MANAGE_GUILD | hikari.Permissions.MANAGE_ROLES,
 )
