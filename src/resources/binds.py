@@ -149,7 +149,7 @@ async def apply_binds(
     if user_binds_response.status == 200:
         user_binds = user_binds["binds"]
     else:
-        raise Message("Something went wrong!")
+        raise Message("Something went wrong getting this user's relevant bindings!")
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
 
