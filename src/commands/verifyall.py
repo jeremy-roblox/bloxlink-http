@@ -6,7 +6,7 @@ import logging
 import json
 
 logger = logging.getLogger("verify_all")
-CHUNK_LIMIT = 1
+CHUNK_LIMIT = 1000
 
 
 @bloxlink.command(
