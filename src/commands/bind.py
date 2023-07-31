@@ -1,29 +1,30 @@
-from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxNotFound
+import re
+from typing import Literal
+
+import hikari
+from hikari.commands import CommandOption, OptionType
+
 from resources.assets import get_asset
 from resources.badges import get_badge
+from resources.binds import create_bind
+from resources.bloxlink import instance as bloxlink
+from resources.component_helper import (
+    component_author_validation,
+    get_custom_id_data,
+    set_components,
+)
+from resources.constants import GROUP_RANK_CRITERIA_TEXT, SPLIT_CHAR
+from resources.exceptions import RobloxNotFound
 from resources.gamepasses import get_gamepass
 from resources.groups import get_group
-from resources.binds import count_binds, get_bind_desc, create_bind
 from resources.models import CommandContext
-from resources.component_helper import (
-    check_all_modified,
-    set_custom_id_data,
-    set_components,
-    get_custom_id_data,
-    component_author_validation,
-)
-from resources.constants import SPLIT_CHAR, GROUP_RANK_CRITERIA, GROUP_RANK_CRITERIA_TEXT
 from resources.prompts import (
-    build_role_selection_prompt,
-    build_roleset_selection_prompt,
     build_group_criteria_prompt,
     build_interactive_bind_base,
     build_numbered_item_selection,
+    build_role_selection_prompt,
+    build_roleset_selection_prompt,
 )
-from hikari.commands import CommandOption, OptionType
-import hikari
-import re
 
 DISCORD_ID_REGEX = r"(\d{17,})"
 
@@ -465,7 +466,13 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
                 raise NotImplementedError(f"No matching group bind type was found. - Bind string: {bind}")
 
         elif bind_type in ("asset", "badge", "gamepass"):
-            raise NotImplementedError("Alternative bind type found.")
+            await create_bind(
+                guild_id,
+                bind_type,
+                bind_id=int(prompt_id),
+                roles=role_ids,
+                remove_roles=remove_role_ids,
+            )
 
     prompt = await build_interactive_bind_base(
         bind_type, prompt_id, interaction.guild_id, interaction.member.id, disable_save=True
@@ -680,17 +687,73 @@ class BindCommand:
     async def asset(self, ctx: CommandContext):
         """Bind an asset to your server"""
 
-        asset_id = ctx.options["asset_id"]
+        await self._handle_command(ctx, "asset")
 
-        try:
-            await get_asset(asset_id)
-        except RobloxNotFound:
-            # Can't be ephemeral sadly bc of the defer state for the command.
-            await ctx.response.send(
-                f"The asset ID ({asset_id}) you gave is either invalid or does not exist."
+    @bloxlink.subcommand(
+        options=[
+            CommandOption(
+                type=OptionType.INTEGER,
+                name="badge_id",
+                description="What is your badge ID?",
+                is_required=True,
             )
-            return
+        ]
+    )
+    async def badge(self, ctx: CommandContext):
+        """Bind a badge to your server"""
 
-        prompt = await build_interactive_bind_base("asset", asset_id, ctx.guild_id, ctx.member.id, True)
+        await self._handle_command(ctx, "badge")
 
-        await ctx.response.send(embed=prompt.embed, components=prompt.components)
+    @bloxlink.subcommand(
+        options=[
+            CommandOption(
+                type=OptionType.INTEGER,
+                name="gamepass_id",
+                description="What is your gamepass ID?",
+                is_required=True,
+            )
+        ]
+    )
+    async def gamepass(self, ctx: CommandContext):
+        """Bind a gamepass to your server"""
+
+        await self._handle_command(ctx, "gamepass")
+
+    async def _handle_command(
+        self,
+        ctx: CommandContext,
+        cmd_type: Literal["group", "asset", "badge", "gamepass"],
+    ):
+        """
+        Handle initial command input and response.
+
+        It is primarily intended to be used for the asset, badge, and gamepass types.
+        The group command is handled by itself in its respective command method.
+        """
+        match cmd_type:
+            case "group":
+                # Placeholder in case we ever move group input handling here.
+                pass
+            case "asset" | "badge" | "gamepass":
+                input_id = ctx.options[f"{cmd_type}_id"]
+
+                try:
+                    match cmd_type:
+                        case "asset":
+                            await get_asset(input_id)
+                        case "badge":
+                            await get_badge(input_id)
+                        case "gamepass":
+                            await get_gamepass(input_id)
+                except RobloxNotFound:
+                    # Can't be ephemeral sadly bc of the defer state for the command.
+                    await ctx.response.send(
+                        f"The {cmd_type} ID ({input_id}) you gave is either invalid or does not exist."
+                    )
+                    return
+
+                prompt = await build_interactive_bind_base(
+                    cmd_type, input_id, ctx.guild_id, ctx.member.id, True
+                )
+
+                await ctx.response.send(embed=prompt.embed, components=prompt.components)
