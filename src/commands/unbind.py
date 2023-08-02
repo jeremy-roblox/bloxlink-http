@@ -3,8 +3,8 @@ import math
 
 import hikari
 
+from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.binds import (
-    GuildBind,
     delete_bind,
     json_binds_to_guild_binds,
     named_string_builder,
@@ -17,52 +17,6 @@ from resources.models import CommandContext
 from resources.prompts import EmbedPrompt
 
 MAX_BINDS_PER_PAGE = 15
-
-
-async def unbind_category_autocomplete(interaction: hikari.AutocompleteInteraction):
-    guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-    bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
-
-    return interaction.build_response(
-        [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
-    )
-
-
-async def unbind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
-    choices = [
-        # base option
-        hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
-    ]
-
-    options = {o.name.lower(): o for o in interaction.options}
-
-    category_option = options.get("category")
-    id_option = options.get("id").value.lower() if options.get("id") else None
-
-    # Only show more options if the category option has been set by the user.
-    if category_option:
-        guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-        # Conversion to GuildBind is because it's easier to get the typing for filtering.
-        if id_option:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if str(x.id).startswith(id_option) and x.type == category_option.value
-            )
-        else:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if x.type == category_option.value
-            )
-
-        for bind in filtered_binds:
-            choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
-
-    # Due to discord limitations, only return the first 25 choices.
-    return interaction.build_response(choices[:25])
 
 
 @component_author_validation(author_segment=3)
@@ -174,8 +128,8 @@ async def unbind_cancel_button(interaction: hikari.ComponentInteraction):
         "unbind:cancel": unbind_cancel_button,
     },
     autocomplete_handlers={
-        "category": unbind_category_autocomplete,
-        "id": unbind_id_autocomplete,
+        "category": bind_category_autocomplete,
+        "id": bind_id_autocomplete,
     },
     dm_enabled=False,
 )
