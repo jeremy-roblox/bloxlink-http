@@ -1,21 +1,19 @@
+import json
+import math
+
+import hikari
+
 from resources.binds import (
     GuildBind,
-    json_binds_to_guild_binds,
     delete_bind,
+    json_binds_to_guild_binds,
     named_string_builder,
     roleset_to_string,
 )
 from resources.bloxlink import instance as bloxlink
+from resources.component_helper import component_author_validation, get_custom_id_data
+from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 from resources.models import CommandContext
-from resources.constants import (
-    UNICODE_LEFT,
-    UNICODE_RIGHT,
-)
-from resources.component_helper import get_custom_id_data, component_author_validation
-import hikari
-import math
-import json
-
 
 MAX_BINDS_PER_PAGE = 15
 
