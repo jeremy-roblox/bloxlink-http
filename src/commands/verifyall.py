@@ -1,9 +1,11 @@
+import json
+import logging
+
+import hikari
+
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import Message
 from resources.models import CommandContext
-import hikari
-import logging
-import json
 
 logger = logging.getLogger("verify_all")
 CHUNK_LIMIT = 1000
@@ -36,10 +38,7 @@ class VerifyallCommand:
             )
 
             # ngl this is disgusting to do, but is required based on how .relay works.
-            data = req.get("data")
-            data = data.decode("utf-8")
-            data = json.loads(data)
-            data = data.get("data")
+            data = json.loads(req.get("data").decode("utf-8")).get("data")
 
             status = data.get("status")
             if "error" in status:
