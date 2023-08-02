@@ -1,14 +1,14 @@
-from blacksheep import FromJSON, ok, Request, accepted
-from blacksheep.server.controllers import APIController, get, post
-from dataclasses import dataclass
-
-from resources.bloxlink import instance as bloxlink
-from resources.exceptions import BloxlinkForbidden, Message
-import resources.binds as binds
-import resources.users as users
-
 import asyncio
 import logging
+from dataclasses import dataclass
+
+from blacksheep import FromJSON, Request, accepted, ok
+from blacksheep.server.controllers import APIController, get, post
+
+import resources.binds as binds
+import resources.users as users
+from resources.bloxlink import instance as bloxlink
+from resources.exceptions import BloxlinkForbidden, Message
 
 
 @dataclass
@@ -42,8 +42,8 @@ class Update(APIController):
     async def post_user(content: FromJSON[UpdateBody]):
         content: UpdateBody = content.value
 
-        # Update users in the background and instantly respond with 202 status.
-        asyncio.create_task(_update_users(content))
+        # Update users, send response only when this is done (or there is an issue?)
+        await _update_users(content)
 
         return accepted(f"OK. Received {content}")
 
