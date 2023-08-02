@@ -14,6 +14,7 @@ from threading import Lock
 import uuid
 import json
 from typing import Optional
+import yuyo
 
 logger = logging.getLogger()
 
@@ -25,19 +26,22 @@ from .models import UserData, GuildData
 instance: "Bloxlink" = None
 
 
-class Bloxlink(hikari.RESTBot):
+class Bloxlink(yuyo.AsgiBot):
     def __init__(self, *args, **kwargs):
         global instance
 
         super().__init__(*args, **kwargs)
-
+        self.started_at = datetime.utcnow()
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
         self.mongo.get_io_loop = asyncio.get_running_loop
-        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
-        self.redis_messages = RedisMessageCollector(self.redis)
-        self.started_at = datetime.utcnow()
 
         instance = self
+
+    async def start(self) -> Coroutine[any, any, None]:
+        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+        self.redis_messages = RedisMessageCollector(self.redis)
+
+        return await super().start()
 
     @property
     def uptime(self) -> timedelta:
@@ -52,9 +56,11 @@ class Bloxlink(hikari.RESTBot):
             await self.redis.publish(
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
-            return await self.redis_messages.get_message(f"REPLY:{nonce}", timeout=timeout)
+            return await self.redis_messages.get_message(reply_channel, timeout=timeout)
         except redis.RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
+        except asyncio.TimeoutError as ex:
+            raise TimeoutError("No response was recieved.") from ex
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
         res = await self.relay(

@@ -169,11 +169,12 @@ class RobloxAccount(PartialMixin):
 
 
 async def get_user_account(
-    user: hikari.User, guild_id: int = None, raise_errors=True
+    user: hikari.User | str, guild_id: int = None, raise_errors=True
 ) -> RobloxAccount | None:
     """get a user's linked Roblox account"""
 
-    bloxlink_user: UserData = await bloxlink.fetch_user_data(str(user.id), "robloxID", "robloxAccounts")
+    user_id = str(user.id) if isinstance(user, hikari.User) else str(user)
+    bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
 
     if guild_id:
         guild_account = (bloxlink_user.robloxAccounts or {}).get(str(guild_id))
@@ -223,7 +224,11 @@ async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) 
 
     embed.add_field(name="Username", value=f"@{roblox_account.username}", inline=True)
     embed.add_field(name="ID", value=roblox_account.id, inline=True)
-    embed.add_field(name="Description", value= roblox_account.description[:500] if roblox_account.description else "None provided", inline=False)
+    embed.add_field(
+        name="Description",
+        value=roblox_account.description[:500] if roblox_account.description else "None provided",
+        inline=False,
+    )
 
     embed.set_thumbnail(roblox_account.avatar)
 
