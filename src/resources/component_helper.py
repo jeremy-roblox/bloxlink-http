@@ -22,43 +22,127 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
         if hasattr(action_row_or_component, "build"):
             iterate_components.append(action_row_or_component)
         else:
+            # Keep action row components together.
+            temp = []
             for component in action_row_or_component.components:
-                iterate_components.append(component)
+                temp.append(component)
+            iterate_components.append(temp)
 
     for component in iterate_components:
-        print("component=", component)
+        # print("component=", component)
         if hasattr(component, "build"):
             new_components.append(component)
 
+        elif isinstance(component, list):
+            """Components in a list = in an action row."""
+            row = bloxlink.rest.build_message_action_row()
+            for subcomponent in component:
+                if isinstance(subcomponent, hikari.SelectMenuComponent):
+                    new_select_menu = row.add_select_menu(
+                        subcomponent.type,
+                        subcomponent.custom_id,
+                        placeholder=subcomponent.placeholder,
+                        min_values=subcomponent.min_values,
+                        max_values=subcomponent.max_values,
+                        is_disabled=subcomponent.is_disabled,
+                    )
+
+                    if subcomponent.type == hikari.ComponentType.TEXT_SELECT_MENU:
+                        for option in subcomponent.options:
+                            new_select_menu = new_select_menu.add_option(
+                                option.label,
+                                option.value,
+                                description=option.description,
+                                emoji=option.emoji,
+                                is_default=option.is_default,
+                            )
+
+                elif isinstance(subcomponent, hikari.ButtonComponent):
+                    if subcomponent.style == hikari.ButtonStyle.LINK:
+                        if not subcomponent.emoji:
+                            row.add_link_button(
+                                subcomponent.url,
+                                label=subcomponent.label,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                        else:
+                            row.add_link_button(
+                                subcomponent.url,
+                                emoji=subcomponent.emoji,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                    else:
+                        if not subcomponent.emoji:
+                            row.add_interactive_button(
+                                subcomponent.style,
+                                subcomponent.custom_id,
+                                label=subcomponent.label,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+                        else:
+                            row.add_interactive_button(
+                                subcomponent.style,
+                                subcomponent.custom_id,
+                                emoji=subcomponent.emoji,
+                                is_disabled=subcomponent.is_disabled,
+                            )
+
+            new_components.append(row)
+
         elif isinstance(component, hikari.SelectMenuComponent):
-            new_select_menu = (
-                bloxlink.rest.build_message_action_row()
-                .add_select_menu(component.custom_id)
-                .set_placeholder(component.placeholder)
+            new_select_menu = row.add_select_menu(
+                subcomponent.type,
+                subcomponent.custom_id,
+                placeholder=subcomponent.placeholder,
+                min_values=subcomponent.min_values,
+                max_values=subcomponent.max_values,
+                is_disabled=subcomponent.is_disabled,
             )
 
-            for option in component.options:
-                new_select_menu = (
-                    new_select_menu.add_option(option.label, option.value)
-                    .set_is_default(option.value in values)
-                    .add_to_menu()
-                )
-
-            new_select_menu = new_select_menu.add_to_container()
+            if subcomponent.type == hikari.ComponentType.TEXT_SELECT_MENU:
+                for option in subcomponent.options:
+                    new_select_menu = new_select_menu.add_option(
+                        option.label,
+                        option.value,
+                        description=option.description,
+                        emoji=option.emoji,
+                        is_default=option.is_default,
+                    )
 
             new_components.append(new_select_menu)
 
         elif isinstance(component, hikari.ButtonComponent):
-            print("new button component", component.custom_id)
-            new_button_menu = (
-                bloxlink.rest.build_message_action_row()
-                .add_button(component.style, component.custom_id)
-                .set_label(component.label)
-            )
+            row = bloxlink.rest.build_message_action_row()
+            if component.style == hikari.ButtonStyle.LINK:
+                if not component.emoji:
+                    row.add_link_button(
+                        component.url,
+                        label=component.label,
+                        is_disabled=component.is_disabled,
+                    )
+                else:
+                    row.add_link_button(
+                        component.url,
+                        emoji=component.emoji,
+                        is_disabled=component.is_disabled,
+                    )
+            else:
+                if not component.emoji:
+                    row.add_interactive_button(
+                        component.style,
+                        component.custom_id,
+                        label=component.label,
+                        is_disabled=component.is_disabled,
+                    )
+                else:
+                    row.add_interactive_button(
+                        component.style,
+                        component.custom_id,
+                        emoji=component.emoji,
+                        is_disabled=component.is_disabled,
+                    )
 
-            new_button_menu = new_button_menu.add_to_container()
-
-            new_components.append(new_button_menu)
+            new_components.append(row)
 
     await message.edit(embeds=message.embeds, components=new_components)
 
@@ -73,7 +157,7 @@ def get_custom_id_data(
     if message:
         for action_row in message.components:
             for component in action_row.components:
-                print(component.custom_id)
+                # print(component.custom_id)
                 if component.custom_id.startswith(custom_id):
                     custom_id = component.custom_id
 
@@ -134,13 +218,16 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def button_author_validation(author_segment: int = 2):
-    """Handle same-author validation for buttons. Automatically defers.
+def component_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
+    """Handle same-author validation for components.
+    Utilized to ensure that the author of the command is the only one who can press buttons.
 
-    Ensures that the author of the command is the one who can press buttons.
-
-    The original author is presumed to be the first element in the custom_id after the
-    command name (in the case of viewbinds) - (index 1 raw, segment 2 for get_custom_id_data).
+    Args:
+        author_segment (int): The segment (as preferred by get_custom_id_data) where the original author's ID
+            will be located in. Defaults to 2.
+        ephemeral (bool): Set if the response should be ephemeral or not. Default is true.
+            A user mention will be included in the response if not ephemeral.
+        defer (bool): Set if the response should be deferred by the handler. Default is true.
     """
 
     def func_wrapper(func):
@@ -154,18 +241,21 @@ def button_author_validation(author_segment: int = 2):
                 # fails to show up.
                 return (
                     interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-                    .set_content("You are not the person who ran this command!")
-                    .set_flags(hikari.MessageFlag.EPHEMERAL)
+                    .set_content(
+                        f"You {f'(<@{interaction.member.id}>) ' if not ephemeral else ''}"
+                        "are not the person who ran this command!"
+                    )
+                    .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
                 )
             else:
-                await interaction.create_initial_response(
-                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.MessageFlag.EPHEMERAL
-                )
+                if defer:
+                    await interaction.create_initial_response(
+                        hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                        flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
+                    )
 
             # Trigger original method
-            await func(interaction)
-
-            return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+            return await func(interaction)
 
         return response_wrapper
 

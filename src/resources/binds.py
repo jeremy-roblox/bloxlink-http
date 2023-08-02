@@ -2,11 +2,15 @@ from __future__ import annotations
 from .models import BaseGuildBind, GuildData, MISSING
 import resources.users as users
 import resources.groups as groups
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message
-from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE
+import resources.assets as assets
+import resources.badges as badges
+import resources.gamepasses as gamepasses
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxNotFound
+from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, GROUP_RANK_CRITERIA_TEXT
 from resources.secrets import BOT_API, BOT_API_AUTH
 from .bloxlink import instance as bloxlink
 from .utils import fetch
+from typing import Literal
 import hikari
 import re
 
@@ -26,14 +30,39 @@ async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
     )
 
 
-async def get_bind_desc(guild_id: int | str, group_id: int | str = None):
-    return "TODO: show existing binds"
+async def get_bind_desc(
+    guild_id: int | str,
+    bind_id: int | str = None,
+    bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
+):
+    bind_strings = []
+
+    guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
+
+    for bind in guild_binds:
+        bind_gb = GuildBind(**bind)
+
+        if bind_id and str(bind_gb.id) != str(bind_id):
+            continue
+
+        if bind_type and bind_gb.type != bind_type:
+            continue
+
+        bind_strings.append(await bind_gb.get_bind_string(viewbind_styling=False))
+
+    output = "\n".join(bind_strings[:5])
+    if len(bind_strings) > 5:
+        output += (
+            f"\n_... and {len(bind_strings) - 5} more. "
+            f"Click [here](https://www.blox.link/dashboard/guilds/{guild_id}/binds) to view the rest!_"
+        )
+    return output
 
 
 async def create_bind(
     guild_id: int | str,
-    bind_type: str["group" | "asset" | "gamepass" | "badge"],
-    bind_id: int = None,
+    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_id: int,
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
@@ -41,15 +70,31 @@ async def create_bind(
 ):
     """creates a new guild bind. if it already exists, the roles will be appended"""
 
-    guild_binds: GuildData = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
+    guild_binds: list = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
 
-    existing_binds = list(
-        filter(
-            lambda b: b["bind"]["type"] == bind_type
-            and (b["bind"].get("id") == bind_id if bind_id else True),
-            guild_binds,
-        )
-    )
+    existing_binds = []
+    for bind in guild_binds:
+        b = bind["bind"]
+
+        if b["type"] != bind_type:
+            continue
+        if b.get("id") != bind_id:
+            continue
+
+        if len(bind_data) > 0:
+            cond = (
+                (b.get("roleset") == bind_data.get("roleset") if "roleset" in bind_data else False)
+                or (b.get("min") == bind_data.get("min") if "min" in bind_data else False)
+                or (b.get("max") == bind_data.get("max") if "max" in bind_data else False)
+                or (b.get("guest") == bind_data.get("guest") if "guest" in bind_data else False)
+                or (b.get("everyone") == bind_data.get("everyone") if "everyone" in bind_data else False)
+            )
+            if not cond:
+                continue
+        elif len(b) > 2 and len(bind_data) == 0:
+            continue
+
+        existing_binds.append(bind)
 
     if not existing_binds:
         new_bind = {
@@ -69,18 +114,37 @@ async def create_bind(
         # group, badge, gamepass, and asset binds
         if len(existing_binds) > 1:
             # invalid bind. binds with IDs should only have one entry.
-            raise NotImplementedError()
+            raise NotImplementedError(
+                "Binds with IDs should only have one entry. More than one duplicate was found."
+            )
         else:
             if roles:
-                # TODO: compare current role IDs with the server and remove invalid roles
-                existing_binds[0]["roles"] = list(
-                    set(existing_binds[0].get("roles", []) + roles)
-                )  # add roles and removes duplicates
+                # Remove invalid guild roles
+                guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
+                existing_roles = set(existing_binds[0].get("roles", []) + roles)
+
+                # Moves binding to the end of the array, if we wanted order to stay could get the
+                # index, then remove, then insert again at that index.
+                guild_binds.remove(existing_binds[0])
+
+                existing_binds[0]["roles"] = list(guild_roles & existing_roles)
+                guild_binds.append(existing_binds[0])
             else:
-                raise NotImplementedError()
+                # In ideal circumstances, this case should be for entire group bindings only
+                raise NotImplementedError("No roles to be assigned were passed.")
+
+            if remove_roles:
+                # Override roles to remove rather than append.
+                guild_binds.remove(existing_binds[0])
+
+                existing_binds[0]["removeRoles"] = remove_roles
+                guild_binds.append(existing_binds[0])
+
+            await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+
     else:
         # everything else
-        raise NotImplementedError()
+        raise NotImplementedError("No bind_id was passed when trying to make a bind.")
 
 
 async def apply_binds(
@@ -276,113 +340,214 @@ class GuildBind(BaseGuildBind):
 
     async def get_bind_string(
         self,
-        guild_id: int,
         include_id: bool = True,
         include_name: bool = True,
-        group_data: groups.RobloxGroup = None,
+        viewbind_styling: bool = True,
     ) -> str:
-        """Returns a string representing the bind, formatted in the way /viewbinds expects it."""
+        """Returns a string representing the bind, formatted in the way /viewbinds expects it.
 
-        # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
-        role_string = ", ".join([f"<@&{role}>" for role in self.roles])
-        remove_role_str = ""
-        if self.removeRoles:
-            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
-            # remove_role_str = (
-            #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
-            # )
+        Args:
+            include_id (bool): For viewbind styling, include the ID in the output.
+            include_name (bool): For viewbind styling, include the name of the entity in the output.
+            viewbind_styling (bool): Determine if the output should visually match what the viewbind prompt
+                shows, or if it should appear as the text-based output used in the bind prompt.
 
-        name_id_string = (
-            named_string_builder(self.type, self.id, include_id, include_name)
-            if not group_data
-            else named_string_builder(self.type, self.id, include_id, include_name, group_data)
-        )
-        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
-        role_string = f"Role(s): {role_string}"
+        Returns:
+            String representation of this binding.
+        """
 
-        output_list = []
+        if viewbind_styling:
+            # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
+            role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
+            remove_role_str = ""
 
-        if self.type == "group":
-            if not group_data:
-                raise BloxlinkException("Group data needs to be given if the type is a group.")
+            if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
+                remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
+                # remove_role_str = (
+                #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
+                # )
 
-            # Entire group binding.
-            if not self.roles or self.roles == "undefined" or self.roles == "null":
-                output_list = [name_id_string, nickname_string]
-                if remove_role_str:
-                    output_list.append(remove_role_str)
+            name_id_string = await named_string_builder(self.type, self.id, include_id, include_name)
 
+            nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
+            role_string = f"Role(s): {role_string}"
+
+            output_list = []
+
+            if self.type == "group":
+                # Entire group binding.
+                if not self.roles or self.roles == "undefined" or self.roles == "null":
+                    output_list = [name_id_string]
+                    if nickname_string:
+                        output_list.append(nickname_string)
+                    if remove_role_str:
+                        output_list.append(remove_role_str)
+
+                else:
+                    # Every other group binding type (range, guest, everyone, single ID)
+                    rank_string = ""
+
+                    rolesets = dict()
+                    try:
+                        group = await groups.get_group(self.id)
+                        rolesets = group.rolesets
+                    except RobloxNotFound:
+                        # We can pass here since for the rest of the data, the default for no
+                        # item will be to insert the id by itself, rather than including the name
+                        pass
+
+                    if self.min is not None and self.max is not None:
+                        min_name = rolesets.get(self.min, "")
+                        max_name = rolesets.get(self.max, "")
+
+                        min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
+                        max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
+                        rank_string = f"Ranks {min_str} to {max_str}:"
+
+                    elif self.min is not None:
+                        min_name = rolesets.get(self.min, "")
+                        min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
+                        rank_string = f"Rank {min_str} or above:"
+
+                    elif self.max is not None:
+                        max_name = rolesets.get(self.max, "")
+                        max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
+                        rank_string = f"Rank {max_str} or below:"
+                        pass
+
+                    elif self.roleset is not None:
+                        abs_roleset = abs(self.roleset)
+                        roleset_name = rolesets.get(abs_roleset, "")
+                        roleset_str = (
+                            f"**{roleset_name}** ({abs_roleset})" if roleset_name else f"{abs_roleset}"
+                        )
+
+                        if self.roleset <= 0:
+                            rank_string = f"Rank {roleset_str} or above:"
+                        else:
+                            rank_string = f"Rank {roleset_str}:"
+
+                    elif self.everyone:
+                        rank_string = "**All group members:**"
+
+                    elif self.guest:
+                        rank_string = "**Non-group members:**"
+
+                    # Append only accepts one value at a time, so do this.
+                    if name_id_string:
+                        output_list.append(name_id_string)
+                    output_list.append(rank_string)
+                    output_list.append(role_string)
+                    if nickname_string:
+                        output_list.append(nickname_string)
+                    if remove_role_str:
+                        output_list.append(remove_role_str)
             else:
-                # Every other group binding type (range, guest, everyone, single ID)
-                rank_string = ""
+                output_list = list(
+                    filter(None, [name_id_string, nickname_string, role_string, remove_role_str])
+                )
 
-                rolesets = group_data.rolesets
-
-                if self.min is not None and self.max is not None:
-                    min_name = rolesets.get(self.min, "")
-                    max_name = rolesets.get(self.max, "")
-
-                    min_str = f"**{min_name}** ({self.min})" if min_name else f"{self.min}"
-                    max_str = f"**{max_name}** ({self.max})" if max_name else f"{self.max}"
-                    rank_string = f"Ranks {min_str} to {max_str}:"
-
-                elif self.roleset is not None:
-                    abs_roleset = abs(self.roleset)
-                    roleset_name = rolesets.get(abs_roleset, "")
-                    roleset_str = f"**{roleset_name}** ({abs_roleset})" if roleset_name else f"{abs_roleset}"
-
-                    if self.roleset <= 0:
-                        rank_string = f"Rank {roleset_str} or above:"
-                    else:
-                        rank_string = f"Rank {roleset_str}:"
-
-                elif self.everyone:
-                    rank_string = "**All group members:**"
-
-                elif self.guest:
-                    rank_string = "**Non-group members:**"
-
-                # Append only accepts one value at a time, so do this.
-                if name_id_string:
-                    output_list.append(name_id_string)
-                output_list.append(rank_string)
-                output_list.append(role_string)
-                if nickname_string:
-                    output_list.append(nickname_string)
-                if remove_role_str:
-                    output_list.append(remove_role_str)
+            return join_bind_strings(output_list)
         else:
-            output_list = list(filter(None, [name_id_string, nickname_string, role_string, remove_role_str]))
+            roles = self.roles if self.roles else []
+            role_str = ", ".join(f"<@&{val}>" for val in roles)
+            remove_roles = self.removeRoles if self.removeRoles else []
+            remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
 
-        return join_bind_strings(output_list)
+            bind_type = self.type
+
+            prefix = ""
+            content = ""
+
+            if bind_type == "group":
+                subtype = self.determine_type()
+                if subtype == "linked_group":
+                    return f"- _All users in this group ({self.id}) receive the role matching their group rank name._"
+
+                elif subtype == "group_roles":
+                    if self.min and self.max:
+                        # TODO: Consider grabbing rank names.
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
+                        content = f"{self.min}** and **{self.max}"
+
+                    elif self.min:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                        content = self.min
+
+                    elif self.max:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
+                        content = self.max
+
+                    elif self.roleset:
+                        if self.roleset < 0:
+                            prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                            content = abs(self.roleset)
+                        else:
+                            prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
+                            content = self.roleset
+
+                    elif self.guest:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
+
+                    elif self.everyone:
+                        prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
+
+            elif bind_type == "asset":
+                prefix = "People who own the asset"
+                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
+            elif bind_type == "badge":
+                prefix = "People who own the badge"
+                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
+            elif bind_type == "gamepass":
+                prefix = "People who own the gamepass"
+                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
+
+            return (
+                f"- _{prefix} {f'**{content}**' if content else ''} receive the "
+                f"role{'s' if len(roles) > 1  else ''} {role_str}"
+                f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
+            )
 
 
 # TODO: Consider where to place the following utility funcs (since just dangling in binds.py is somewhat messy.)
-def named_string_builder(
-    bind_type: str, bind_id: int, include_id: bool, include_name: bool, group_data: groups.RobloxGroup = None
-):
+async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, include_name: bool):
     name = ""
     if include_name:
         match bind_type:
             case "group":
-                if not group_data:
-                    return f"*(Invalid Data)* ({bind_id})"
-                name = group_data.name
+                try:
+                    group = await groups.get_group(bind_id)
+                    name = group.name
+                except RobloxNotFound:
+                    return f"*(Invalid Group)* ({bind_id})"
 
             # TODO: Logic for getting each of the item names for these types.
             case "asset":
-                name = "<ASSET-NAME>"
+                try:
+                    asset = await assets.get_asset(bind_id)
+                    name = asset.name
+                except RobloxNotFound:
+                    return f"*(Invalid Asset)* ({bind_id})"
 
             case "badge":
-                name = "<BADGE-NAME>"
+                try:
+                    badge = await badges.get_badge(bind_id)
+                    name = badge.name
+                except RobloxNotFound:
+                    return f"*(Invalid Badge)* ({bind_id})"
 
             case "gamepass":
-                name = "<GAMEPASS-NAME>"
+                try:
+                    gamepass = await gamepasses.get_gamepass(bind_id)
+                    name = gamepass.name
+                except RobloxNotFound:
+                    return f"*(Invalid Gamepass)* ({bind_id})"
 
+    id_str = str(bind_id) if not include_name else f"({bind_id})"
     return " ".join(
         [
             f"**{name}**" if include_name else "",
-            f"({bind_id})" if include_id else "",
+            id_str if include_id else "",
         ]
     ).strip()
 

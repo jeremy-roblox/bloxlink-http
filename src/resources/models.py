@@ -84,8 +84,8 @@ class PremiumModel:
 @dataclass(slots=True)
 class BaseGuildBind:
     nickname: str = None
-    roles: list = None
-    removeRoles: list = None
+    roles: list = default_field(list())
+    removeRoles: list = default_field(list())
 
     id: int = None
     type: str = ""  # Expected type strings: group, asset, gamepass, badge

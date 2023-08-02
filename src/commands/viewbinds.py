@@ -4,7 +4,7 @@ from resources.groups import get_group
 from resources.models import CommandContext
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.pagination import Paginator
-from resources.component_helper import get_custom_id_data, set_components, button_author_validation
+from resources.component_helper import get_custom_id_data, set_components, component_author_validation
 from resources.exceptions import RobloxAPIError
 import hikari
 
@@ -54,7 +54,7 @@ async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction)
     return interaction.build_response(choices[:25])
 
 
-@button_author_validation()
+@component_author_validation()
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
@@ -171,25 +171,11 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
         "gamepass": [],
     }
 
-    group_data = None
     for bind in items:
         bind_type = bind.determine_type()
         include_id = True if bind_type != "group_roles" else False
 
-        if bind_type == "linked_group" or bind_type == "group_roles":
-            if not group_data or group_data.id != bind.id:
-                try:
-                    group_data = await get_group(bind.id)
-                except RobloxAPIError:
-                    embed.description = (
-                        "> There was an error with the Roblox API when getting your group's data. "
-                        "Try again later."
-                    )
-                    return embed
-
-        bind_string = await bind.get_bind_string(
-            guild_id=guild_id, include_id=include_id, include_name=include_id, group_data=group_data
-        )
+        bind_string = await bind.get_bind_string(include_id=include_id, include_name=include_id)
 
         for types in item_map:
             if types == "group_roles" and bind_type == types:
