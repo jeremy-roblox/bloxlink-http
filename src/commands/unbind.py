@@ -14,6 +14,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 from resources.models import CommandContext
+from resources.prompts import EmbedPrompt
 
 MAX_BINDS_PER_PAGE = 15
 
@@ -79,7 +80,7 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
     guild_id = interaction.guild_id
     user_id = interaction.user.id
 
-    embed, components = await paginator_formatter(
+    prompt = await paginator_formatter(
         page_number,
         guild_id=guild_id,
         author_id=author_id,
@@ -87,7 +88,7 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
         id_filter=id_filter,
     )
 
-    await interaction.edit_message(message, embed=embed, components=components)
+    await interaction.edit_message(message, embed=prompt.embed, components=prompt.components)
 
     return interaction.build_deferred_response(
         hikari.interactions.base_interactions.ResponseType.DEFERRED_MESSAGE_UPDATE
@@ -113,7 +114,7 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
         await delete_bind(interaction.guild_id, category, bind_id, **bind_data)
 
     # Reset the prompt to page 0.
-    embed, components = await paginator_formatter(
+    prompt = await paginator_formatter(
         0,
         guild_id=interaction.guild_id,
         author_id=author_id,
@@ -122,7 +123,7 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
     )
 
     await bloxlink.rest.edit_message(
-        interaction.channel_id, interaction.message.id, embed=embed, components=components
+        interaction.channel_id, interaction.message.id, embed=prompt.embed, components=prompt.components
     )
     await interaction.edit_initial_response("Your chosen bindings have been removed.")
 
@@ -188,7 +189,7 @@ class UnbindCommand:
         guild_id = ctx.guild_id
         user_id = ctx.user.id
 
-        embed, components = await paginator_formatter(
+        prompt = await paginator_formatter(
             0,
             guild_id=guild_id,
             author_id=user_id,
@@ -196,12 +197,13 @@ class UnbindCommand:
             id_filter=id_option,
         )
 
-        await ctx.response.send(embed=embed, components=components)
+        await ctx.response.send(embed=prompt.embed, components=prompt.components)
 
 
-# Not using the paginator class since we can't customize components easily there
-# without much more revamping.
-async def paginator_formatter(page_number, guild_id, author_id, category, id_filter):
+# Not using the paginator class since we can't easily include more components (select menu + cancel button)
+async def paginator_formatter(
+    page_number: int, guild_id: int | str, author_id: int | str, category, id_filter: int | str
+) -> EmbedPrompt:
     guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
     items = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_filter)
 
@@ -212,7 +214,7 @@ async def paginator_formatter(page_number, guild_id, author_id, category, id_fil
             "> You have no binds that match the options you passed. "
             "Use `/bind` to make a new binding, or try again with different options."
         )
-        return embed, []
+        return EmbedPrompt(embed)
 
     embed.description = f"**Select which bind you want to remove from the menu below!**"
 
@@ -306,19 +308,20 @@ async def paginator_formatter(page_number, guild_id, author_id, category, id_fil
         is_disabled=True if page_number == 0 else False,
     )
 
+    max_pages = math.ceil(len(items) / MAX_BINDS_PER_PAGE)
+
     # Next button
     button_row.add_interactive_button(
         hikari.ButtonStyle.SECONDARY,
         f"unbind:page:{author_id}:{page_number+1}:{category}:{id_filter}",
         label=UNICODE_RIGHT,
-        is_disabled=True if len(output_list) != MAX_BINDS_PER_PAGE else False,
+        is_disabled=True if page_number + 1 >= max_pages else False,
     )
 
     button_row.add_interactive_button(
         hikari.ButtonStyle.SECONDARY, f"unbind:cancel:{author_id}", label="Cancel"
     )
 
-    max_pages = math.ceil(len(items) / MAX_BINDS_PER_PAGE)
     embed.set_footer(f"Page {page_number + 1}/{max_pages}")
 
-    return embed, [selection_menu.parent, button_row]
+    return EmbedPrompt(embed, [selection_menu.parent, button_row])
