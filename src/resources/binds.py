@@ -1,19 +1,32 @@
 from __future__ import annotations
-from .models import BaseGuildBind, GuildData, MISSING
-import resources.users as users
-import resources.groups as groups
+
+import re
+from typing import Literal
+
+import hikari
+
 import resources.assets as assets
 import resources.badges as badges
 import resources.gamepasses as gamepasses
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxNotFound
-from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, GROUP_RANK_CRITERIA_TEXT
+import resources.groups as groups
+import resources.users as users
+from resources.constants import (
+    DEFAULTS,
+    GROUP_RANK_CRITERIA_TEXT,
+    REPLY_CONT,
+    REPLY_EMOTE,
+)
+from resources.exceptions import (
+    BloxlinkException,
+    BloxlinkForbidden,
+    Message,
+    RobloxNotFound,
+)
 from resources.secrets import BOT_API, BOT_API_AUTH
-from .bloxlink import instance as bloxlink
-from .utils import fetch
-from typing import Literal
-import hikari
-import re
 
+from .bloxlink import instance as bloxlink
+from .models import MISSING, BaseGuildBind, GuildData
+from .utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
@@ -173,12 +186,15 @@ async def apply_binds(
         nickname = member.nickname
         avatar_url = member.display_avatar_url.url
         user_tag = f"{username}#{member.discriminator}"
+
     elif isinstance(member, dict):
         role_ids = member.get("role_ids", [])
         member_id = member.get("id")
         username = member.get("username", None)
+
         if not username:
             username = member.get("name", "")
+
         nickname = member.get("nickname", "")
         avatar_url = member.get("avatar_url", "")
         user_tag = f"{username}#{member.get('discriminator')}"
@@ -283,8 +299,10 @@ async def apply_binds(
             else:
                 try:
                     await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
+
                 except hikari.errors.ForbiddenError:
                     warnings.append("I don't have permission to change the nickname of this user.")
+
                 else:
                     applied_nickname = chosen_nickname
 
@@ -548,7 +566,6 @@ async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, i
                 except RobloxNotFound:
                     return f"*(Invalid Group)* ({bind_id})"
 
-            # TODO: Logic for getting each of the item names for these types.
             case "asset":
                 try:
                     asset = await assets.get_asset(bind_id)
