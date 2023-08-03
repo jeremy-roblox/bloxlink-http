@@ -1,14 +1,21 @@
-from os import environ as env, listdir
-from resources.constants import MODULES
-from config import SERVER_HOST, SERVER_PORT
-from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
-from resources.bloxlink import Bloxlink
-from resources.webserver import instance as webserver
-from resources.commands import handle_command, sync_commands, handle_component, handle_autocomplete
 import logging
+from os import environ as env
+from os import listdir
+
 import hikari
 import uvicorn
 
+from config import SERVER_HOST, SERVER_PORT
+from resources.bloxlink import Bloxlink
+from resources.commands import (
+    handle_autocomplete,
+    handle_command,
+    handle_component,
+    sync_commands,
+)
+from resources.constants import MODULES
+from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
+from web.webserver import instance as webserver
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
