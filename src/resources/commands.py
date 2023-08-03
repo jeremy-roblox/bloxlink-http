@@ -1,13 +1,16 @@
 from __future__ import annotations
-import re
+
 import logging
-import hikari
-from .models import CommandContext
-from .response import Response
-from .exceptions import *
-from config import DISCORD_APPLICATION_ID
+import re
 from typing import Any, Callable
 
+import hikari
+
+from config import DISCORD_APPLICATION_ID
+
+from .exceptions import *
+from .models import CommandContext
+from .response import Response
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -190,6 +193,8 @@ async def try_command(fn: Callable, response: Response):
             "Roblox appears to be down, so I was unable to process your command. "
             "Please try again in a few minutes."
         )
+    except Message as ex:
+        await response.send(ex.message)
 
 
 class Command:
