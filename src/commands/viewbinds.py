@@ -13,11 +13,11 @@ from resources.pagination import Paginator
 MAX_BINDS_PER_PAGE = 5
 
 
-@component_author_validation()
+@component_author_validation(author_segment=3)
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
-    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=2)
+    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
 
     author_id = int(custom_id_data[0])
     page_number = int(custom_id_data[1])
