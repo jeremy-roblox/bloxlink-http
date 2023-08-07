@@ -71,7 +71,7 @@ class Paginator:
             hikari.ButtonStyle.SECONDARY,
             f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
             label=UNICODE_LEFT,
-            is_disabled=self.page_number == 0,
+            is_disabled=self.page_number <= 0,
         )
 
         # Next button
@@ -79,7 +79,7 @@ class Paginator:
             hikari.ButtonStyle.SECONDARY,
             f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label=UNICODE_RIGHT,
-            is_disabled=self.page_number + 1 == self.max_pages,
+            is_disabled=self.page_number + 1 >= self.max_pages,
         )
 
         if self.include_cancel_button:
