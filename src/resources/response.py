@@ -15,7 +15,7 @@ class Response:
         **kwargs,
     ):
         if self.responded:
-            if isinstance(components, list):
+            if isinstance(components, (list, tuple)):
                 await self.interaction.execute(content, embed=embed, components=components, **kwargs)
             else:
                 await self.interaction.execute(content, embed=embed, component=components, **kwargs)
@@ -23,7 +23,7 @@ class Response:
         else:
             self.responded = True
 
-            if isinstance(components, list):
+            if isinstance(components, (list, tuple)):
                 await self.interaction.create_initial_response(
                     hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
                 )
