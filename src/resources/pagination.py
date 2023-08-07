@@ -19,6 +19,7 @@ class Paginator:
         component_generation=None,
         extra_custom_ids="",
         item_filter=None,
+        include_cancel_button=False,
     ):
         self.guild_id = guild_id
         self.user_id = user_id
@@ -34,6 +35,7 @@ class Paginator:
         self.component_generation = component_generation
 
         self.extra_custom_ids = extra_custom_ids
+        self.include_cancel_button = include_cancel_button
 
     def _get_current_items(self):
         offset = self.page_number * self.max_items
@@ -67,7 +69,7 @@ class Paginator:
         # Previous button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"{self.source_cmd_name}:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
             label=UNICODE_LEFT,
             is_disabled=self.page_number == 0,
         )
@@ -75,10 +77,15 @@ class Paginator:
         # Next button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"{self.source_cmd_name}:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label=UNICODE_RIGHT,
             is_disabled=self.page_number + 1 == self.max_pages,
         )
+
+        if self.include_cancel_button:
+            button_row.add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, f"{self.source_cmd_name}:cancel:{self.user_id}", label="Cancel"
+            )
 
         component_output = []
         if self.component_generation:
