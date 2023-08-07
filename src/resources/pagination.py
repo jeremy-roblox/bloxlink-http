@@ -1,9 +1,9 @@
-from datetime import datetime
-from resources.component_helper import get_custom_id_data
+import math
+
+import hikari
+
 from resources.bloxlink import instance as bloxlink
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
-import hikari
-import math
 
 
 class Paginator:
@@ -11,31 +11,40 @@ class Paginator:
         self,
         guild_id,
         user_id,
-        items,
+        items: list,
+        source_cmd_name: str,
         page_number=0,
         max_items=10,
         custom_formatter=None,
-        base_custom_id: str = "viewbinds",
+        component_generation=None,
         extra_custom_ids="",
         item_filter=None,
     ):
         self.guild_id = guild_id
         self.user_id = user_id
+
         self.page_number = page_number
+        self.source_cmd_name = source_cmd_name
+
         self.items = items if not item_filter else item_filter(items)
         self.max_pages = math.ceil(len(self.items) / max_items)
         self.max_items = max_items
-        self.base_custom_id = base_custom_id
+
         self.custom_formatter = custom_formatter
+        self.component_generation = component_generation
+
         self.extra_custom_ids = extra_custom_ids
 
-    @property
-    async def embed(self):
+    def _get_current_items(self):
         offset = self.page_number * self.max_items
         max_items = (
             len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
         )
-        current_items = self.items[offset:max_items]
+        return self.items[offset:max_items]
+
+    @property
+    async def embed(self):
+        current_items = self._get_current_items()
 
         if self.custom_formatter:
             embed = await self.custom_formatter(
@@ -44,38 +53,49 @@ class Paginator:
         else:
             embed = hikari.Embed(title=f"Test Pagination", description=f"Page {self.page_number}")
 
-        return embed
+        self._embed = embed
+        return self._embed
 
     @embed.setter
     def embed(self, value):
         self._embed = value
 
     @property
-    def components(self):
+    async def components(self) -> tuple:
         button_row = bloxlink.rest.build_message_action_row()
-
-        offset = self.page_number * self.max_items
-        max_items = (
-            len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
-        )
 
         # Previous button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"{self.base_custom_id}:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
             label=UNICODE_LEFT,
-            is_disabled=True if self.page_number == 0 else False,
+            is_disabled=self.page_number == 0,
         )
 
         # Next button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"{self.base_custom_id}:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label=UNICODE_RIGHT,
-            is_disabled=True if max_items == len(self.items) else False,
+            is_disabled=self.page_number + 1 == self.max_pages,
         )
 
-        return button_row
+        component_output = []
+        if self.component_generation:
+            generated_components = await self.component_generation(
+                self._get_current_items(),
+                self.user_id,
+            )
+
+            if isinstance(generated_components, (list, tuple)):
+                component_output.extend(generated_components)
+            else:
+                component_output.append(generated_components)
+
+        component_output.append(button_row)
+        self._components = tuple(component_output)
+
+        return self._components
 
     @components.setter
     def components(self, value):

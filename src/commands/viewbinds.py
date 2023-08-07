@@ -33,21 +33,22 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     paginator = Paginator(
         guild_id,
         user_id,
-        guild_data.binds,
-        page_number,
+        source_cmd_name="viewbinds",
         max_items=MAX_BINDS_PER_PAGE,
+        items=guild_data.binds,
+        page_number=page_number,
         custom_formatter=viewbinds_paginator_formatter,
         extra_custom_ids=f"{category}:{id_filter}",
         item_filter=viewbinds_item_filter(id_filter, category),
     )
 
     embed = await paginator.embed
-    components = paginator.components
+    components = await paginator.components
 
     message.embeds[0] = embed
 
     # Handles emojis as expected
-    await interaction.edit_message(message, embed=embed, components=[components])
+    await interaction.edit_message(message, embed=embed, components=components)
 
     # TODO: Breaks emojis in the reply somehow?
     # await set_components(message, components=[components])
@@ -99,6 +100,7 @@ class ViewBindsCommand:
         paginator = Paginator(
             guild_id,
             user_id,
+            source_cmd_name="viewbinds",
             max_items=MAX_BINDS_PER_PAGE,
             items=guild_data.binds,
             custom_formatter=viewbinds_paginator_formatter,
@@ -107,7 +109,7 @@ class ViewBindsCommand:
         )
 
         embed = await paginator.embed
-        components = paginator.components
+        components = await paginator.components
 
         await ctx.response.send(embed=embed, components=components)
 
