@@ -1,19 +1,32 @@
 from __future__ import annotations
-from .models import BaseGuildBind, GuildData, MISSING
-import resources.users as users
-import resources.groups as groups
+
+import re
+from typing import Literal
+
+import hikari
+
 import resources.assets as assets
 import resources.badges as badges
 import resources.gamepasses as gamepasses
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxNotFound
-from resources.constants import DEFAULTS, REPLY_CONT, REPLY_EMOTE, GROUP_RANK_CRITERIA_TEXT
+import resources.groups as groups
+import resources.users as users
+from resources.constants import (
+    DEFAULTS,
+    GROUP_RANK_CRITERIA_TEXT,
+    REPLY_CONT,
+    REPLY_EMOTE,
+)
+from resources.exceptions import (
+    BloxlinkException,
+    BloxlinkForbidden,
+    Message,
+    RobloxNotFound,
+)
 from resources.secrets import BOT_API, BOT_API_AUTH
-from .bloxlink import instance as bloxlink
-from .utils import fetch
-from typing import Literal
-import hikari
-import re
 
+from .bloxlink import instance as bloxlink
+from .models import MISSING, BaseGuildBind, GuildData
+from .utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
@@ -583,15 +596,22 @@ async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, i
     ).strip()
 
 
-async def roleset_to_string(group_id: int, roleset: int, include_id: bool = True, bold_name: bool = False):
-    rolesets = dict()
-    try:
-        group = await groups.get_group(group_id)
-        rolesets = group.rolesets
-    except RobloxNotFound:
-        # We can pass here since for the rest of the data, the default for no
-        # item will be to insert the id by itself, rather than including the name
-        pass
+async def roleset_to_string(
+    group_id: int,
+    roleset: int,
+    include_id: bool = True,
+    bold_name: bool = False,
+    group: groups.RobloxGroup = None,
+):
+    if not group:
+        try:
+            group = await groups.get_group(group_id)
+        except RobloxNotFound:
+            # We can pass here since for the rest of the data, the default for no
+            # item will be to insert the id by itself, rather than including the name
+            pass
+
+    rolesets = group.rolesets if group else dict()
 
     roleset_name = rolesets.get(roleset, "")
     if not roleset_name:
