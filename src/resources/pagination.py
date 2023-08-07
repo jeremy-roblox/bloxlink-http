@@ -85,6 +85,7 @@ class Paginator:
             generated_components = await self.component_generation(
                 self._get_current_items(),
                 self.user_id,
+                self.extra_custom_ids,
             )
 
             if isinstance(generated_components, (list, tuple)):
