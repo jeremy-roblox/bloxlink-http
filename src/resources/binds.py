@@ -205,12 +205,15 @@ async def apply_binds(
         nickname = member.nickname
         avatar_url = member.display_avatar_url.url
         user_tag = f"{username}#{member.discriminator}"
+
     elif isinstance(member, dict):
         role_ids = member.get("role_ids", [])
         member_id = member.get("id")
         username = member.get("username", None)
+
         if not username:
             username = member.get("name", "")
+
         nickname = member.get("nickname", "")
         avatar_url = member.get("avatar_url", "")
         user_tag = f"{username}#{member.get('discriminator')}"
@@ -315,8 +318,10 @@ async def apply_binds(
             else:
                 try:
                     await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
+
                 except hikari.errors.ForbiddenError:
                     warnings.append("I don't have permission to change the nickname of this user.")
+
                 else:
                     applied_nickname = chosen_nickname
 
@@ -565,7 +570,6 @@ async def named_string_builder(bind_type: str, bind_id: int, include_id: bool, i
                 except RobloxNotFound:
                     return f"*(Invalid Group)* ({bind_id})"
 
-            # TODO: Logic for getting each of the item names for these types.
             case "asset":
                 try:
                     asset = await assets.get_asset(bind_id)

@@ -6,9 +6,17 @@ except ImportError:
     config = None
 
 VALID_SECRETS = (
-    "DISCORD_TOKEN", "DISCORD_PUBLIC_KEY", "MONGO_URL", "PROXY_URL",
-    "REDIS_URL", "MONGO_CA_FILE", "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD",
-    "BOT_API", "BOT_API_AUTH"
+    "DISCORD_TOKEN",
+    "DISCORD_PUBLIC_KEY",
+    "MONGO_URL",
+    "PROXY_URL",
+    "REDIS_URL",
+    "MONGO_CA_FILE",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_PASSWORD",
+    "BOT_API",
+    "BOT_API_AUTH",
 )
 
 for secret in VALID_SECRETS:

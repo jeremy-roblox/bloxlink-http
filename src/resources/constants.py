@@ -1,8 +1,8 @@
 # fmt: off
 MODULES = [
 	"commands",
-    "endpoints",
     "resources",
+    "web.endpoints",
 ]
 
 ALL_USER_API_SCOPES = ["groups", "badges"]

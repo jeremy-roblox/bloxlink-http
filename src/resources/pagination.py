@@ -3,6 +3,7 @@ import math
 import hikari
 
 from resources.bloxlink import instance as bloxlink
+from resources.component_helper import get_custom_id_data
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 
 

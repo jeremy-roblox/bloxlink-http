@@ -1,27 +1,25 @@
+import asyncio
+import functools
+import importlib
+import json
+import logging
+import uuid
 from datetime import datetime, timedelta
-from typing import Callable, Coroutine
+from inspect import iscoroutinefunction
+from typing import Callable, Coroutine, Optional
+
 import hikari
+import yuyo
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import asyncio as redis
-import asyncio
-from inspect import iscoroutinefunction, isfunction
-import logging
-import importlib
-import functools
-from time import sleep
-from queue import Queue
-from threading import Lock
-import uuid
-import json
-from typing import Optional
-import yuyo
 
 logger = logging.getLogger()
 
 from resources.redis import RedisMessageCollector
+
 from .commands import new_command
-from .secrets import MONGO_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
-from .models import UserData, GuildData
+from .models import GuildData, UserData
+from .secrets import MONGO_URL, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 
 instance: "Bloxlink" = None
 
