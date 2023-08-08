@@ -226,10 +226,20 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
         bind_type = bind.determine_type()
 
         if bind_type == "linked_group":
-            name = await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
-            name = name.replace("**", "")
+            if not group or (group and group.id != bind.id):
+                try:
+                    group = await get_group(bind.id)
+                except RobloxNotFound:
+                    pass
+
+            group_name = (
+                group.name
+                if group
+                else await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
+            ).replace("**", "")
+
             selection_menu.add_option(
-                name,
+                group_name,
                 str(bind.id),
                 description="This is a linked group binding.",
             )
@@ -293,6 +303,7 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
                 f"{str(bind.id)}:{json.dumps(bind_data, separators=(',', ':'))}",
                 description=description,
             )
+
         else:
             name = await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
             name = name.replace("**", "")
