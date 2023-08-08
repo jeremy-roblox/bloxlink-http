@@ -1,13 +1,17 @@
-from resources.binds import GuildBind, json_binds_to_guild_binds
-from resources.bloxlink import instance as bloxlink
-from resources.groups import get_group
-from resources.models import CommandContext
-from resources.constants import RED_COLOR, UNICODE_BLANK
-from resources.pagination import Paginator
-from resources.component_helper import get_custom_id_data, set_components, component_author_validation
-from resources.exceptions import RobloxAPIError
 import hikari
 
+from resources.binds import GuildBind, json_binds_to_guild_binds
+from resources.bloxlink import instance as bloxlink
+from resources.component_helper import (
+    component_author_validation,
+    get_custom_id_data,
+    set_components,
+)
+from resources.constants import RED_COLOR, UNICODE_BLANK
+from resources.exceptions import RobloxAPIError
+from resources.groups import get_group
+from resources.models import CommandContext
+from resources.pagination import Paginator
 
 MAX_BINDS_PER_PAGE = 5
 

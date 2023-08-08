@@ -1,9 +1,9 @@
+import re
 from dataclasses import dataclass
+
+from .exceptions import BadArgument, RobloxAPIError, RobloxNotFound
 from .models import PartialMixin
 from .utils import fetch
-from .exceptions import BadArgument, RobloxNotFound, RobloxAPIError
-import re
-
 
 GROUP_API = "https://groups.roblox.com/v1/groups"
 ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")

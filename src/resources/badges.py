@@ -1,8 +1,8 @@
 from dataclasses import dataclass
+
+from .exceptions import RobloxAPIError, RobloxNotFound
 from .models import PartialMixin
 from .utils import fetch
-from .exceptions import RobloxNotFound, RobloxAPIError
-
 
 BADGE_API = "https://badges.roblox.com/v1/badges"
 

@@ -1,9 +1,9 @@
-from resources.bloxlink import instance as bloxlink
-import resources.users as users
-from resources.models import CommandContext
-from resources.exceptions import UserNotVerified
 from hikari.commands import CommandOption, OptionType
 
+import resources.users as users
+from resources.bloxlink import instance as bloxlink
+from resources.exceptions import UserNotVerified
+from resources.models import CommandContext
 
 
 @bloxlink.command(
@@ -14,9 +14,9 @@ from hikari.commands import CommandOption, OptionType
             type=OptionType.USER,
             name="user",
             description="Retrieve the Roblox information of this user",
-            is_required=False
+            is_required=False,
         )
-    ]
+    ],
 )
 class WhoisCommand:
     """retrieve the Roblox information of a user"""
@@ -26,7 +26,7 @@ class WhoisCommand:
 
         try:
             roblox_account = await users.get_user_account(target_user)
-            
+
         except UserNotVerified:
             if target_user == ctx.member:
                 raise UserNotVerified("You are not verified with Bloxlink!")

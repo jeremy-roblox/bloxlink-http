@@ -1,10 +1,11 @@
+import copy
 from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
-import copy
-import hikari
-from .response import Response
 
+import hikari
+
+from .response import Response
 
 __all__ = (
     "UserData",

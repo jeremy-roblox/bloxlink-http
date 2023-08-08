@@ -1,7 +1,7 @@
-from .models import PremiumModel, GuildData
-from .constants import SKU_TIERS
 from resources.bloxlink import instance as bloxlink
 
+from .constants import SKU_TIERS
+from .models import GuildData, PremiumModel
 
 
 def get_user_facing_tier(tier_name):
@@ -31,7 +31,9 @@ def get_merged_features(premium_data, tier):
     return features
 
 
-async def get_premium_status(*, guild_id:int | str=None, user_id: int | str=None, interaction=None) -> PremiumModel:
+async def get_premium_status(
+    *, guild_id: int | str = None, user_id: int | str = None, interaction=None
+) -> PremiumModel:
     if guild_id:
         premium_data = (await bloxlink.fetch_guild_data(str(guild_id), "premium")).premium
 
@@ -49,7 +51,7 @@ async def get_premium_status(*, guild_id:int | str=None, user_id: int | str=None
                         payment_source="Discord Billing",
                         tier=tier,
                         term=term,
-                        features=features
+                        features=features,
                     )
 
         # hit database for premium
@@ -63,10 +65,9 @@ async def get_premium_status(*, guild_id:int | str=None, user_id: int | str=None
                 payment_source=f"[Bloxlink Dashboard](https://blox.link/dashboard/guilds/{guild_id})/premium",
                 tier=tier,
                 term=term,
-                features=features
+                features=features,
             )
     else:
         raise NotImplementedError()
-
 
     return PremiumModel(active=False)

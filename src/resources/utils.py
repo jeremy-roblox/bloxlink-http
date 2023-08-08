@@ -1,10 +1,12 @@
+import asyncio
 from enum import Enum
-import aiohttp, asyncio
-
-from requests.utils import requote_uri
-from .secrets import PROXY_URL
-from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from json import loads
+
+import aiohttp
+from requests.utils import requote_uri
+
+from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
+from .secrets import PROXY_URL
 
 __all__ = ("fetch", "ReturnType")
 

@@ -1,16 +1,20 @@
 from __future__ import annotations
-from .models import UserData, PartialMixin
-from .bloxlink import instance as bloxlink
-from .exceptions import UserNotVerified
+
+import math
+from dataclasses import dataclass, field
+from datetime import datetime
+
+import dateutil.parser as parser
+import hikari
+
 import resources.binds as binds
 import resources.groups as groups
+
+from .bloxlink import instance as bloxlink
 from .constants import ALL_USER_API_SCOPES
-from datetime import datetime
-import math
-from .utils import fetch, ReturnType
-import dateutil.parser as parser
-from dataclasses import dataclass, field
-import hikari
+from .exceptions import UserNotVerified
+from .models import PartialMixin, UserData
+from .utils import ReturnType, fetch
 
 
 @dataclass(slots=True)

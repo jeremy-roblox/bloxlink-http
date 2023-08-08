@@ -1,6 +1,8 @@
-from blacksheep import Application, Request, unauthorized
-from config import SERVER_AUTH
 import logging
+
+from blacksheep import Application, Request, unauthorized
+
+from config import SERVER_AUTH
 
 instance: Application = Application()
 
