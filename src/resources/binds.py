@@ -21,6 +21,7 @@ from resources.exceptions import (
     BloxlinkException,
     BloxlinkForbidden,
     Message,
+    RobloxAPIError,
     RobloxNotFound,
 )
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
@@ -444,6 +445,8 @@ class GuildBind:
                 await self.entity.sync()
             except RobloxNotFound:
                 pass
+            except RobloxAPIError:
+                pass
 
         roles = self.roles if self.roles else []
         role_str = ", ".join(f"<@&{val}>" for val in roles)
@@ -483,20 +486,17 @@ class GroupBind(GuildBind):
         else:
             return "group_roles"
 
-    async def to_string(self, viewbind: bool = False, bind: bool = False):
-        if viewbind:
-            return await self.viewbind_string()
-
-        if bind:
-            return await self.bind_string()
-
     async def viewbind_string(self) -> str:
-        try:
-            if self.entity == None or not self.entity.synced:
-                self.entity = groups.RobloxGroup(self.id)
+        if self.entity == None:
+            self.entity = create_entity("group", self.id)
+
+        if not self.entity.synced:
+            try:
                 await self.entity.sync()
-        except RobloxNotFound:
-            pass
+            except RobloxAPIError:
+                pass
+            except RobloxNotFound:
+                pass
 
         role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
 
