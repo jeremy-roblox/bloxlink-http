@@ -5,7 +5,7 @@ from resources.binds import json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
-from resources.exceptions import RobloxAPIError
+from resources.exceptions import RobloxNotFound
 from resources.models import CommandContext
 from resources.pagination import Paginator
 from resources.roblox.groups import get_group
@@ -127,6 +127,7 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
     item_map = {
         "linked_group": [],
         "group_roles": {},
+        "group_names": {},
         "asset": [],
         "badge": [],
         "gamepass": [],
@@ -144,6 +145,9 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
             select_output = item_map[subtype].get(bind.id, [])
             select_output.append(bind_string)
             item_map[subtype][bind.id] = select_output
+
+            if bind.id not in item_map["group_names"]:
+                item_map["group_names"][bind.id] = bind.entity.logical_name
         else:
             item_map[subtype].append(bind_string)
 
@@ -176,14 +180,13 @@ async def build_page_embed(page_components, page_num, page_max) -> hikari.Embed:
     if page_components["group_roles"]:
         rank_map = page_components["group_roles"]
         for group in rank_map.keys():
-            try:
-                embed.add_field(
-                    f"{(await get_group(group)).name} ({group})",
-                    "\n".join(rank_map[group]),
-                    inline=True,
-                )
-            except RobloxAPIError:
-                embed.add_field(f"*Invalid Group* ({group})", "\n".join(rank_map[group]), inline=True)
+            group_name = page_components["group_names"].get(group, f"*(Invalid Group)* ({group})")
+
+            embed.add_field(
+                group_name,
+                "\n".join(rank_map[group]),
+                inline=True,
+            )
 
     if page_components["asset"]:
         embed.add_field("Assets", "\n".join(page_components["asset"]))
