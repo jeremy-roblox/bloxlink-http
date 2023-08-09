@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from typing import Literal
 
 import hikari
@@ -389,19 +390,6 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
 
 
 class GuildBind(BaseGuildBind):
-    def determine_type(self) -> str:
-        """Returns what specific type of binds this is. In particular it distinguishes between
-        a linked group binding (linked_group return) and a bound role id (group_roles return).
-        All other types return as they are named (asset, badge, gamepass)"""
-
-        if self.type == "group":
-            if not self.roles or self.roles in ("undefined", "null"):
-                return "linked_group"
-            else:
-                return "group_roles"
-        else:
-            return self.type
-
     async def get_bind_string(
         self,
         include_id: bool = True,

@@ -1,7 +1,8 @@
 import copy
+from abc import ABC, abstractmethod
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 import hikari
 
@@ -96,7 +97,7 @@ class PremiumModel:
 
 
 @dataclass(slots=True)
-class BaseGuildBind:
+class BaseGuildBind(ABC):
     nickname: str = None
     roles: list = default_field(list())
     removeRoles: list = default_field(list())
@@ -120,6 +121,19 @@ class BaseGuildBind:
         self.roleset = self.bind.get("roleset", None)
         self.everyone = self.bind.get("everyone", None)
         self.guest = self.bind.get("guest", None)
+
+    def determine_type(self) -> str:
+        """Returns what specific type of binds this is. In particular it distinguishes between
+        a linked group binding (linked_group return) and a bound role id (group_roles return).
+        All other types return as they are named (asset, badge, gamepass)"""
+
+        if self.type == "group":
+            if not self.roles or self.roles in ("undefined", "null"):
+                return "linked_group"
+            else:
+                return "group_roles"
+        else:
+            return self.type
 
 
 class MISSING:
