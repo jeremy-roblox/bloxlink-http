@@ -133,18 +133,19 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
     }
 
     for bind in items:
-        bind_type = bind.determine_type()
-        include_id = True if bind_type != "group_roles" else False
+        if bind.type == "group":
+            subtype = bind.subtype
+        else:
+            subtype = bind.type
 
-        bind_string = await bind.get_bind_string(include_id=include_id, include_name=include_id)
+        bind_string = await bind.to_string(viewbind=True)
 
-        for types in item_map:
-            if types == "group_roles" and bind_type == types:
-                select_output = item_map[types].get(bind.id, [])
-                select_output.append(bind_string)
-                item_map[types][bind.id] = select_output
-            elif bind_type == types:
-                item_map[types].append(bind_string)
+        if subtype == "group_roles":
+            select_output = item_map[subtype].get(bind.id, [])
+            select_output.append(bind_string)
+            item_map[subtype][bind.id] = select_output
+        else:
+            item_map[subtype].append(bind_string)
 
     # TODO: Probably should either move the above logic out of here,
     # and/or bring the build_page_embed logic into here.

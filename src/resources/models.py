@@ -1,8 +1,8 @@
 import copy
-from abc import ABC, abstractmethod
+from abc import ABC
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 import hikari
 
@@ -13,7 +13,6 @@ __all__ = (
     "GuildData",
     "RobloxAccount",
     "CommandContext",
-    "BaseGuildBind",
     "PremiumModel",
     "MISSING",
 )
@@ -94,46 +93,6 @@ class PremiumModel:
                 )
 
         return "\n".join(buffer) or "Not premium"
-
-
-@dataclass(slots=True)
-class BaseGuildBind(ABC):
-    nickname: str = None
-    roles: list = default_field(list())
-    removeRoles: list = default_field(list())
-
-    id: int = None
-    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
-    bind: dict = default_field({"type": "", "id": None})
-
-    min: int = None
-    max: int = None
-    roleset: int = None
-    everyone: bool = None
-    guest: bool = None
-
-    def __post_init__(self):
-        self.id = self.bind.get("id")
-        self.type = self.bind.get("type")
-
-        self.min = self.bind.get("min", None)
-        self.max = self.bind.get("max", None)
-        self.roleset = self.bind.get("roleset", None)
-        self.everyone = self.bind.get("everyone", None)
-        self.guest = self.bind.get("guest", None)
-
-    def determine_type(self) -> str:
-        """Returns what specific type of binds this is. In particular it distinguishes between
-        a linked group binding (linked_group return) and a bound role id (group_roles return).
-        All other types return as they are named (asset, badge, gamepass)"""
-
-        if self.type == "group":
-            if not self.roles or self.roles in ("undefined", "null"):
-                return "linked_group"
-            else:
-                return "group_roles"
-        else:
-            return self.type
 
 
 class MISSING:

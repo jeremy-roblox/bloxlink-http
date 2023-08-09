@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 import hikari
@@ -23,10 +23,11 @@ from resources.exceptions import (
     Message,
     RobloxNotFound,
 )
+from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BOT_API, BOT_API_AUTH
 
 from .bloxlink import instance as bloxlink
-from .models import MISSING, BaseGuildBind, GuildData
+from .models import GuildData, default_field
 from .utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
@@ -49,20 +50,10 @@ async def get_bind_desc(
     bind_id: int | str = None,
     bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
 ):
-    bind_strings = []
-
     guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
+    guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
-    for bind in guild_binds:
-        bind_gb = GuildBind(**bind)
-
-        if bind_id and str(bind_gb.id) != str(bind_id):
-            continue
-
-        if bind_type and bind_gb.type != bind_type:
-            continue
-
-        bind_strings.append(await bind_gb.get_bind_string(viewbind_styling=False))
+    bind_strings = [await bind.to_string(bind=True) for bind in guild_binds]
 
     output = "\n".join(bind_strings[:5])
     if len(bind_strings) > 5:
@@ -373,10 +364,21 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
     binds = []
 
     if id_filter:
-        id_filter = None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else id_filter
+        id_filter = (
+            None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else str(id_filter)
+        )
 
     for bind in bind_list:
-        classed_bind = GuildBind(**bind)
+        bind_data = bind.get("bind")
+
+        bind_type = bind_data.get("type")
+
+        if bind_type == "group":
+            classed_bind = GroupBind(**bind)
+        elif bind_type:
+            classed_bind = GuildBind(**bind)
+        else:
+            raise BloxlinkException("Invalid bind structure found.")
 
         if category and classed_bind.type != category:
             continue
@@ -389,161 +391,232 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
     return list(binds)
 
 
-class GuildBind(BaseGuildBind):
-    async def get_bind_string(
-        self,
-        include_id: bool = True,
-        include_name: bool = True,
-        viewbind_styling: bool = True,
-    ) -> str:
-        """Returns a string representing the bind, formatted in the way /viewbinds expects it.
+@dataclass(slots=True)
+class GuildBind:
+    nickname: str = None
+    roles: list = default_field(list())
+    removeRoles: list = default_field(list())
 
-        Args:
-            include_id (bool): For viewbind styling, include the ID in the output.
-            include_name (bool): For viewbind styling, include the name of the entity in the output.
-            viewbind_styling (bool): Determine if the output should visually match what the viewbind prompt
-                shows, or if it should appear as the text-based output used in the bind prompt.
+    id: int = None
+    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
+    bind: dict = default_field({"type": "", "id": None})
 
-        Returns:
-            String representation of this binding.
-        """
+    entity: RobloxEntity = None
 
-        if viewbind_styling:
-            # role_string = await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.roles)
-            role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
-            remove_role_str = ""
+    def __post_init__(self):
+        self.id = self.bind.get("id")
+        self.type = self.bind.get("type")
 
-            if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
-                remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
-                # remove_role_str = (
-                #     f"Remove Roles: {await bloxlink.role_ids_to_names(guild_id=guild_id, roles=self.removeRoles)}"
-                # )
+        self.entity = create_entity(self.type, self.id)
 
-            name_id_string = await named_string_builder(self.type, self.id, include_id, include_name)
+    async def to_string(self, viewbind: bool = False, bind: bool = False):
+        if viewbind:
+            return await self.viewbind_string()
 
-            nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
-            role_string = f"Role(s): {role_string}"
+        if bind:
+            return await self.bind_string()
 
-            output_list = []
+    async def viewbind_string(self) -> str:
+        if not self.entity.synced:
+            try:
+                await self.entity.sync()
+            except RobloxNotFound:
+                pass
 
-            if self.type == "group":
-                # Entire group binding.
-                if not self.roles or self.roles == "undefined" or self.roles == "null":
-                    output_list = [name_id_string]
-                    if nickname_string:
-                        output_list.append(nickname_string)
-                    if remove_role_str:
-                        output_list.append(remove_role_str)
+        role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
 
-                else:
-                    # Every other group binding type (range, guest, everyone, single ID)
-                    rank_string = ""
+        remove_role_str = ""
+        if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
+            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
 
-                    if self.min is not None and self.max is not None:
-                        min_str = await roleset_to_string(self.id, self.min, include_id=True, bold_name=True)
-                        max_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
+        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
+        role_string = f"Role(s): {role_string}"
 
-                        rank_string = f"Ranks {min_str} to {max_str}:"
+        output_list = list(
+            filter(None, [self.entity.logical_name, nickname_string, role_string, remove_role_str])
+        )
 
-                    elif self.min is not None:
-                        min_str = await roleset_to_string(self.id, self.min, include_id=True, bold_name=True)
-                        rank_string = f"Rank {min_str} or above:"
+        return join_bind_strings(output_list)
 
-                    elif self.max is not None:
-                        max_str = await roleset_to_string(self.id, self.max, include_id=True, bold_name=True)
-                        rank_string = f"Rank {max_str} or below:"
+    async def bind_string(self) -> str:
+        if not self.entity.synced:
+            try:
+                await self.entity.sync()
+            except RobloxNotFound:
+                pass
 
-                    elif self.roleset is not None:
-                        abs_roleset = abs(self.roleset)
-                        roleset_str = await roleset_to_string(
-                            self.id, abs_roleset, include_id=True, bold_name=True
-                        )
+        roles = self.roles if self.roles else []
+        role_str = ", ".join(f"<@&{val}>" for val in roles)
+        remove_roles = self.removeRoles if self.removeRoles else []
+        remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
 
-                        if self.roleset <= 0:
-                            rank_string = f"Rank {roleset_str} or above:"
-                        else:
-                            rank_string = f"Rank {roleset_str}:"
+        prefix = f"People who own the {self.type}"
+        content = f"**{self.entity.name}**" if self.entity.synced else f"**{self.id}**"
 
-                    elif self.everyone:
-                        rank_string = "**All group members**:"
+        return (
+            f"- _{prefix} {f'**{content}**' if content else ''} receive the "
+            f"role{'s' if len(roles) > 1  else ''} {role_str}"
+            f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
+        )
 
-                    elif self.guest:
-                        rank_string = "**Non-group members**:"
 
-                    # Append only accepts one value at a time, so do this.
-                    if name_id_string:
-                        output_list.append(name_id_string)
-                    output_list.append(rank_string)
-                    output_list.append(role_string)
-                    if nickname_string:
-                        output_list.append(nickname_string)
-                    if remove_role_str:
-                        output_list.append(remove_role_str)
-            else:
-                output_list = list(
-                    filter(None, [name_id_string, nickname_string, role_string, remove_role_str])
-                )
+class GroupBind(GuildBind):
+    min: int = None
+    max: int = None
+    roleset: int = None
+    everyone: bool = None
+    guest: bool = None
 
-            return join_bind_strings(output_list)
+    def __post_init__(self):
+        self.min = self.bind.get("min", None)
+        self.max = self.bind.get("max", None)
+        self.roleset = self.bind.get("roleset", None)
+        self.everyone = self.bind.get("everyone", None)
+        self.guest = self.bind.get("guest", None)
+
+        return super().__post_init__()
+
+    @property
+    def subtype(self) -> str:
+        if not self.roles or self.roles in ("undefined", "null"):
+            return "linked_group"
         else:
-            roles = self.roles if self.roles else []
-            role_str = ", ".join(f"<@&{val}>" for val in roles)
-            remove_roles = self.removeRoles if self.removeRoles else []
-            remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
+            return "group_roles"
 
-            bind_type = self.type
+    async def to_string(self, viewbind: bool = False, bind: bool = False):
+        if viewbind:
+            return await self.viewbind_string()
 
-            prefix = ""
-            content = ""
+        if bind:
+            return await self.bind_string()
 
-            if bind_type == "group":
-                subtype = self.determine_type()
-                if subtype == "linked_group":
-                    return f"- _All users in this group ({self.id}) receive the role matching their group rank name._"
+    async def viewbind_string(self) -> str:
+        try:
+            if self.entity == None or not self.entity.synced:
+                self.entity = groups.RobloxGroup(self.id)
+                await self.entity.sync()
+        except RobloxNotFound:
+            pass
 
-                elif subtype == "group_roles":
-                    if self.min and self.max:
-                        # TODO: Consider grabbing rank names.
-                        prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
-                        content = f"{self.min}** and **{self.max}"
+        role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
 
-                    elif self.min:
-                        prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
-                        content = self.min
+        remove_role_str = ""
+        if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
+            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
 
-                    elif self.max:
-                        prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
-                        content = self.max
+        name_id_string = self.entity.logical_name if self.subtype == "linked_group" else None
 
-                    elif self.roleset:
-                        if self.roleset < 0:
-                            prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
-                            content = abs(self.roleset)
-                        else:
-                            prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
-                            content = self.roleset
+        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
+        role_string = f"Role(s): {role_string}"
 
-                    elif self.guest:
-                        prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
+        output_list = []
+        if self.subtype == "linked_group":
+            output_list = [name_id_string]
+            if nickname_string:
+                output_list.append(nickname_string)
+            if remove_role_str:
+                output_list.append(remove_role_str)
+        else:
+            rank_string = ""
+            group = self.entity
 
-                    elif self.everyone:
-                        prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
+            if self.min is not None and self.max is not None:
+                min_str = group.roleset_name_string(self.min)
+                max_str = group.roleset_name_string(self.max)
 
-            elif bind_type == "asset":
-                prefix = "People who own the asset"
-                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
-            elif bind_type == "badge":
-                prefix = "People who own the badge"
-                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
-            elif bind_type == "gamepass":
-                prefix = "People who own the gamepass"
-                content = await named_string_builder(bind_type, self.id, include_name=True, include_id=False)
+                rank_string = f"Ranks {min_str} to {max_str}:"
 
-            return (
-                f"- _{prefix} {f'**{content}**' if content else ''} receive the "
-                f"role{'s' if len(roles) > 1  else ''} {role_str}"
-                f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
-            )
+            elif self.min is not None:
+                min_str = group.roleset_name_string(self.min)
+                rank_string = f"Rank {min_str} or above:"
+
+            elif self.max is not None:
+                max_str = group.roleset_name_string(self.max)
+                rank_string = f"Rank {max_str} or below:"
+
+            elif self.roleset is not None:
+                abs_roleset = abs(self.roleset)
+                roleset_str = group.roleset_name_string(abs_roleset)
+
+                if self.roleset <= 0:
+                    rank_string = f"Rank {roleset_str} or above:"
+                else:
+                    rank_string = f"Rank {roleset_str}:"
+
+            elif self.everyone:
+                rank_string = "**All group members**:"
+
+            elif self.guest:
+                rank_string = "**Non-group members**:"
+
+            # Append only accepts one value at a time, so do this.
+            if name_id_string:
+                output_list.append(name_id_string)
+            output_list.append(rank_string)
+            output_list.append(role_string)
+            if nickname_string:
+                output_list.append(nickname_string)
+            if remove_role_str:
+                output_list.append(remove_role_str)
+
+        return join_bind_strings(output_list)
+
+    async def bind_string(self) -> str:
+        try:
+            if self.entity == None or not self.entity.synced:
+                self.entity = groups.RobloxGroup(self.id)
+                await self.entity.sync()
+        except RobloxNotFound:
+            pass
+
+        roles = self.roles if self.roles else []
+        role_str = ", ".join(f"<@&{val}>" for val in roles)
+        remove_roles = self.removeRoles if self.removeRoles else []
+        remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
+
+        prefix = ""
+        content = ""
+
+        if self.subtype == "linked_group":
+            return f"- _All users in this group ({self.id}) receive the role matching their group rank name._"
+
+        else:
+            group = self.entity
+
+            if self.min and self.max:
+                # TODO: Consider grabbing rank names.
+                prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
+                min_str = group.roleset_name_string(self.min, bold_name=False)
+                max_str = group.roleset_name_string(self.max, bold_name=False)
+                content = f"{min_str}** and **{max_str}"
+
+            elif self.min:
+                prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                content = group.roleset_name_string(self.min, bold_name=False)
+
+            elif self.max:
+                prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
+                content = group.roleset_name_string(self.max, bold_name=False)
+
+            elif self.roleset:
+                if self.roleset < 0:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+                else:
+                    prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
+
+                content = group.roleset_name_string(abs(self.roleset), bold_name=False)
+
+            elif self.guest:
+                prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
+
+            elif self.everyone:
+                prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
+
+        return (
+            f"- _{prefix} {f'**{content}**' if content else ''} receive the "
+            f"role{'s' if len(roles) > 1  else ''} {role_str}"
+            f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
+        )
 
 
 # TODO: Consider where to place the following utility funcs (since just dangling in binds.py is somewhat messy.)
