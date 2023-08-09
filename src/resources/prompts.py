@@ -5,12 +5,10 @@ import hikari
 
 from resources.binds import count_binds, get_bind_desc
 from resources.bloxlink import instance as bloxlink
-from resources.constants import GROUP_RANK_CRITERIA, SPLIT_CHAR
+from resources.constants import GROUP_RANK_CRITERIA
 from resources.exceptions import RobloxNotFound
-from resources.roblox.assets import RobloxAsset, get_asset
-from resources.roblox.badges import RobloxBadge, get_badge
-from resources.roblox.gamepasses import RobloxGamepass, get_gamepass
-from resources.roblox.groups import RobloxGroup, get_group
+from resources.roblox.groups import get_group
+from resources.roblox.roblox_entity import create_entity
 
 
 @dataclass(slots=True)
@@ -29,21 +27,14 @@ async def build_interactive_bind_base(
     capital_type = bind_type.capitalize()
     bind_id = bind_id if isinstance(bind_id, str) else str(bind_id)
 
-    entity = None
+    entity = create_entity(bind_type, bind_id)
     try:
-        if bind_type == "group":
-            entity = await get_group(bind_id)
-        elif bind_type == "asset":
-            entity = await get_asset(bind_id)
-        elif bind_type == "badge":
-            entity = await get_badge(bind_id)
-        elif bind_type == "gamepass":
-            entity = await get_gamepass(bind_id)
+        await entity.sync()
     except RobloxNotFound:
         # Handled later.
         pass
 
-    bind_info = f"{entity.name} ({entity.id})" if entity else f"*(Name not available)* {bind_id}"
+    bind_info = entity.logical_name if entity else f"Invalid Bind Type"
     embed = hikari.Embed(
         title=f"New {capital_type} Bind",
         description=f"> ### Binding {capital_type} - {bind_info}",
