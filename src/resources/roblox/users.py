@@ -8,13 +8,12 @@ import dateutil.parser as parser
 import hikari
 
 import resources.binds as binds
-import resources.groups as groups
-
-from .bloxlink import instance as bloxlink
-from .constants import ALL_USER_API_SCOPES
-from .exceptions import UserNotVerified
-from .models import PartialMixin, UserData
-from .utils import ReturnType, fetch
+import resources.roblox.groups as groups
+from resources.bloxlink import instance as bloxlink
+from resources.constants import ALL_USER_API_SCOPES
+from resources.exceptions import UserNotVerified
+from resources.models import PartialMixin, UserData
+from resources.utils import ReturnType, fetch
 
 
 @dataclass(slots=True)

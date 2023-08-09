@@ -6,7 +6,7 @@ from blacksheep import FromJSON, Request, accepted, ok
 from blacksheep.server.controllers import APIController, get, post
 
 import resources.binds as binds
-import resources.users as users
+import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message
 

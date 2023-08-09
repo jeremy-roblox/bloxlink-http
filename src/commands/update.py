@@ -1,7 +1,7 @@
 import hikari
 
 import resources.binds as binds
-import resources.users as users
+import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import Message, UserNotVerified
 from resources.models import CommandContext
