@@ -3,14 +3,14 @@ from typing import Literal
 
 import hikari
 
-from resources.assets import RobloxAsset, get_asset
-from resources.badges import RobloxBadge, get_badge
 from resources.binds import count_binds, get_bind_desc
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA, SPLIT_CHAR
 from resources.exceptions import RobloxNotFound
-from resources.gamepasses import RobloxGamepass, get_gamepass
-from resources.groups import RobloxGroup, get_group
+from resources.roblox.assets import RobloxAsset, get_asset
+from resources.roblox.badges import RobloxBadge, get_badge
+from resources.roblox.gamepasses import RobloxGamepass, get_gamepass
+from resources.roblox.groups import RobloxGroup, get_group
 
 
 @dataclass(slots=True)

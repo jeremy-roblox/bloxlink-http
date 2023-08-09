@@ -6,9 +6,9 @@ from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError
-from resources.groups import get_group
 from resources.models import CommandContext
 from resources.pagination import Paginator
+from resources.roblox.groups import get_group
 
 MAX_BINDS_PER_PAGE = 5
 

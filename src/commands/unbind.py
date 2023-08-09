@@ -12,9 +12,9 @@ from resources.binds import (
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.exceptions import RobloxNotFound
-from resources.groups import RobloxGroup, get_group
 from resources.models import CommandContext
 from resources.pagination import Paginator
+from resources.roblox.groups import RobloxGroup, get_group
 
 MAX_BINDS_PER_PAGE = 15
 

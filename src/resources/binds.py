@@ -6,10 +6,10 @@ from typing import Literal
 
 import hikari
 
-import resources.assets as assets
-import resources.badges as badges
-import resources.gamepasses as gamepasses
-import resources.groups as groups
+import resources.roblox.assets as assets
+import resources.roblox.badges as badges
+import resources.roblox.gamepasses as gamepasses
+import resources.roblox.groups as groups
 import resources.users as users
 from resources.constants import (
     DEFAULTS,

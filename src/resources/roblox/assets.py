@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .exceptions import RobloxAPIError, RobloxNotFound
-from .models import PartialMixin
-from .utils import fetch
+from resources.exceptions import RobloxAPIError, RobloxNotFound
+from resources.models import PartialMixin
+from resources.utils import fetch
 
 ASSET_API = "https://economy.roblox.com/v2/assets"
 
