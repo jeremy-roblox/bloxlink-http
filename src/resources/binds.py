@@ -377,9 +377,6 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
         else:
             raise BloxlinkException("Invalid bind structure found.")
 
-        if id_filter and str(classed_bind.id) != id_filter:
-            continue
-
         binds.append(classed_bind)
 
     return list(binds)
