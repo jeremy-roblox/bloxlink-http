@@ -15,9 +15,12 @@ ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
 class RobloxGroup(PartialMixin, RobloxEntity):
     member_count: int = None
     rolesets: dict[int, str] = None
-    my_role: dict[str, int | str] = None
 
     async def sync(self):
+        """Retrieve the roblox group information, consisting of rolesets, name, description, and member count."""
+        if self.synced:
+            return
+
         if self.rolesets is None:
             json_data, _ = await fetch("GET", f"{GROUP_API}/{self.id}/roles")
 
@@ -33,25 +36,43 @@ class RobloxGroup(PartialMixin, RobloxEntity):
             if self.rolesets is not None:
                 self.synced = True
 
-    @property
-    def logical_name(self):
-        if self.name is None:
-            return f"*(Unknown Group)* ({self.id})"
-        else:
-            return f"**{self.name}** ({self.id})"
+    def __str__(self) -> str:
+        name = f"**{self.name}**" if self.name else "*(Unknown Group)*"
+        return f"{name} ({self.id})"
 
-    def roleset_name_string(self, id: int, bold_name=True, include_id=True) -> str:
-        roleset_name = self.rolesets.get(id, "")
+    def roleset_name_string(self, roleset_id: int, bold_name=True, include_id=True) -> str:
+        """Generate a nice string for a roleset name with failsafe capabilities.
+
+        Args:
+            roleset_id (int): ID of the Roblox roleset.
+            bold_name (bool, optional): Wraps the name in ** when True. Defaults to True.
+            include_id (bool, optional): Includes the ID in parenthesis when True. Defaults to True.
+
+        Returns:
+            str: The roleset string as requested.
+        """
+        roleset_name = self.rolesets.get(roleset_id, "")
         if not roleset_name:
-            return str(id)
+            return str(roleset_id)
 
         if bold_name:
             roleset_name = f"**{roleset_name}**"
 
-        return f"{roleset_name} ({id})" if include_id else roleset_name
+        return f"{roleset_name} ({roleset_id})" if include_id else roleset_name
 
 
 async def get_group(group_id: str) -> RobloxGroup:
+    """Get and sync a RobloxGroup.
+
+    Args:
+        group_id (str): ID of the group to retrieve
+
+    Raises:
+        RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
+
+    Returns:
+        RobloxGroup: A synced roblox group.
+    """
     group: RobloxGroup = RobloxGroup(id=group_id)
 
     try:

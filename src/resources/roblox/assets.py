@@ -12,6 +12,10 @@ ASSET_API = "https://economy.roblox.com/v2/assets"
 @dataclass(slots=True)
 class RobloxAsset(PartialMixin, RobloxEntity):
     async def sync(self):
+        """Load asset data from Roblox, specifically the name and description."""
+        if self.synced:
+            return
+
         if self.name is None or self.description is None:
             json_data, _ = await fetch("GET", f"{ASSET_API}/{self.id}/details")
 
@@ -20,15 +24,23 @@ class RobloxAsset(PartialMixin, RobloxEntity):
 
             self.synced = True
 
-    @property
-    def logical_name(self):
-        if self.name is None:
-            return f"*(Unknown Asset)* ({self.id})"
-        else:
-            return f"**{self.name}** ({self.id})"
+    def __str__(self) -> str:
+        name = f"**{self.name}**" if self.name else "*(Unknown Asset)*"
+        return f"{name} ({self.id})"
 
 
 async def get_asset(asset_id: str) -> RobloxAsset:
+    """Get and sync an asset from Roblox.
+
+    Args:
+        asset_id (str): ID of the asset.
+
+    Raises:
+        RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
+
+    Returns:
+        RobloxGroup: A synced roblox asset.
+    """
     asset: RobloxAsset = RobloxAsset(id=asset_id)
 
     try:

@@ -12,6 +12,10 @@ GAMEPASS_API = "https://economy.roblox.com/v1/game-pass"
 @dataclass(slots=True)
 class RobloxGamepass(PartialMixin, RobloxEntity):
     async def sync(self):
+        """Load gamepass data from Roblox, specifically the name and description."""
+        if self.synced:
+            return
+
         if self.name is None or self.description is None:
             json_data, _ = await fetch("GET", f"{GAMEPASS_API}/{self.id}/game-pass-product-info")
 
@@ -20,15 +24,23 @@ class RobloxGamepass(PartialMixin, RobloxEntity):
 
             self.synced = True
 
-    @property
-    def logical_name(self):
-        if self.name is None:
-            return f"*(Unknown Gamepass)* ({self.id})"
-        else:
-            return f"**{self.name}** ({self.id})"
+    def __str__(self) -> str:
+        name = f"**{self.name}**" if self.name else "*(Unknown Gamepass)*"
+        return f"{name} ({self.id})"
 
 
 async def get_gamepass(gamepass_id: str) -> RobloxGamepass:
+    """Get and sync a gamepass from Roblox.
+
+    Args:
+        gamepass_id (str): ID of the gamepass.
+
+    Raises:
+        RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
+
+    Returns:
+        RobloxGroup: A synced roblox gamepass.
+    """
     gamepass: RobloxGamepass = RobloxGamepass(id=gamepass_id)
 
     try:
