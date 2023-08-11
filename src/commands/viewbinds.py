@@ -118,7 +118,18 @@ class ViewBindsCommand:
         await ctx.response.send(embed=embed, components=components)
 
 
-async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages):
+async def viewbinds_paginator_formatter(page_number: int, items: list, _guild_id: str | int, max_pages: int):
+    """Generates the components for the viewbinds page, and then calls build_page_embed.
+
+    Args:
+        page_number (int): The page number of the page to build.
+        items (list): The bindings to show in the page.
+        _guild_id (str | int): Unused, the ID of the guild that the command was run in.
+        max_pages (int): The page number of the last page that can be built.
+
+    Returns:
+        hikari.Embed: The formatted embed as built by build_page_embed.
+    """
     embed = hikari.Embed(title="Bloxlink Role Binds")
 
     if len(items) == 0:
@@ -261,14 +272,31 @@ def _groupbind_rank_generator(bind: GroupBind) -> str:
     return rank_string
 
 
-def viewbinds_item_filter(id_filter, category_filter):
+def viewbinds_item_filter(id_filter: str | int, category_filter: str):
+    """Wrap the filter function for pagination to allow for additional parameter passing.
+
+    Args:
+        id_filter (str | int): ID to filter the binds by.
+        category_filter (str): Category to filter the binds by.
+    """
+
     def wrapper(items):
         return json_binds_to_guild_binds(items, category=category_filter, id_filter=id_filter)
 
     return wrapper
 
 
-async def build_page_embed(page_components, page_num, page_max) -> hikari.Embed:
+async def build_page_embed(page_components: dict, page_num: int, page_max: int) -> hikari.Embed:
+    """Build a page for the viewbind prompt.
+
+    Args:
+        page_components (dict): Components to build the page with.
+        page_num (int): The page number to generate.
+        page_max (int): The maximum number of pages available, used for footer generation.
+
+    Returns:
+        hikari.Embed: The formatted page for page_num.
+    """
     embed = hikari.Embed()
     embed.title = "**Bloxlink Role Binds**"
 
