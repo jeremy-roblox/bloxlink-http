@@ -410,32 +410,9 @@ class GuildBind:
 
         self.entity = create_entity(self.type, self.id)
 
-    async def to_string(self, viewbind: bool = False, bind: bool = False):
-        if viewbind:
-            return await self.viewbind_string()
-
+    async def to_string(self, bind: bool = False):
         if bind:
             return await self.bind_string()
-
-    async def viewbind_string(self) -> str:
-        if not self.entity.synced:
-            try:
-                await self.entity.sync()
-            except RobloxNotFound:
-                pass
-
-        role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
-
-        remove_role_str = ""
-        if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
-            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
-
-        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
-        role_string = f"Role(s): {role_string}"
-
-        output_list = list(filter(None, [str(self.entity), nickname_string, role_string, remove_role_str]))
-
-        return join_bind_strings(output_list)
 
     async def bind_string(self) -> str:
         if not self.entity.synced:
@@ -483,81 +460,6 @@ class GroupBind(GuildBind):
             return "linked_group"
         else:
             return "group_roles"
-
-    async def viewbind_string(self) -> str:
-        if self.entity is None:
-            self.entity = create_entity("group", self.id)
-
-        if not self.entity.synced:
-            try:
-                await self.entity.sync()
-            except RobloxAPIError:
-                pass
-            except RobloxNotFound:
-                pass
-
-        role_string = ", ".join([f"<@&{role}>" for role in self.roles]) if self.roles else ""
-
-        remove_role_str = ""
-        if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
-            remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
-
-        name_id_string = str(self.entity) if self.subtype == "linked_group" else None
-
-        nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
-        role_string = f"Role(s): {role_string}"
-
-        output_list = []
-        if self.subtype == "linked_group":
-            output_list = [name_id_string]
-            if nickname_string:
-                output_list.append(nickname_string)
-            if remove_role_str:
-                output_list.append(remove_role_str)
-        else:
-            rank_string = ""
-            group = self.entity
-
-            if self.min is not None and self.max is not None:
-                min_str = group.roleset_name_string(self.min)
-                max_str = group.roleset_name_string(self.max)
-
-                rank_string = f"Ranks {min_str} to {max_str}:"
-
-            elif self.min is not None:
-                min_str = group.roleset_name_string(self.min)
-                rank_string = f"Rank {min_str} or above:"
-
-            elif self.max is not None:
-                max_str = group.roleset_name_string(self.max)
-                rank_string = f"Rank {max_str} or below:"
-
-            elif self.roleset is not None:
-                abs_roleset = abs(self.roleset)
-                roleset_str = group.roleset_name_string(abs_roleset)
-
-                if self.roleset <= 0:
-                    rank_string = f"Rank {roleset_str} or above:"
-                else:
-                    rank_string = f"Rank {roleset_str}:"
-
-            elif self.everyone:
-                rank_string = "**All group members**:"
-
-            elif self.guest:
-                rank_string = "**Non-group members**:"
-
-            # Append only accepts one value at a time, so do this.
-            if name_id_string:
-                output_list.append(name_id_string)
-            output_list.append(rank_string)
-            output_list.append(role_string)
-            if nickname_string:
-                output_list.append(nickname_string)
-            if remove_role_str:
-                output_list.append(remove_role_str)
-
-        return join_bind_strings(output_list)
 
     async def bind_string(self) -> str:
         try:
