@@ -6,17 +6,8 @@ from typing import Literal
 
 import hikari
 
-import resources.roblox.assets as assets
-import resources.roblox.badges as badges
-import resources.roblox.gamepasses as gamepasses
-import resources.roblox.groups as groups
 import resources.roblox.users as users
-from resources.constants import (
-    DEFAULTS,
-    GROUP_RANK_CRITERIA_TEXT,
-    REPLY_CONT,
-    REPLY_EMOTE,
-)
+from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import (
     BloxlinkException,
     BloxlinkForbidden,
@@ -54,7 +45,7 @@ async def get_bind_desc(
     guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
     guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
-    bind_strings = [await bind.to_string(bind=True) for bind in guild_binds]
+    bind_strings = [await bind_description_generator(bind) for bind in guild_binds]
 
     output = "\n".join(bind_strings[:5])
     if len(bind_strings) > 5:
@@ -410,33 +401,6 @@ class GuildBind:
 
         self.entity = create_entity(self.type, self.id)
 
-    async def to_string(self, bind: bool = False):
-        if bind:
-            return await self.bind_string()
-
-    async def bind_string(self) -> str:
-        if not self.entity.synced:
-            try:
-                await self.entity.sync()
-            except RobloxNotFound:
-                pass
-            except RobloxAPIError:
-                pass
-
-        roles = self.roles if self.roles else []
-        role_str = ", ".join(f"<@&{val}>" for val in roles)
-        remove_roles = self.removeRoles if self.removeRoles else []
-        remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
-
-        prefix = f"People who own the {self.type}"
-        content = f"**{self.entity.name}**" if self.entity.synced else f"**{self.id}**"
-
-        return (
-            f"- _{prefix} {f'**{content}**' if content else ''} receive the "
-            f"role{'s' if len(roles) > 1  else ''} {role_str}"
-            f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
-        )
-
 
 class GroupBind(GuildBind):
     min: int = None
@@ -456,72 +420,151 @@ class GroupBind(GuildBind):
 
     @property
     def subtype(self) -> str:
+        """Returns the type of group bind that this is.
+
+        Returns:
+            str: Either "linked_group" or "group_roles" depending on if there
+                are roles explicitly listed to be given or not.
+        """
         if not self.roles or self.roles in ("undefined", "null"):
             return "linked_group"
         else:
             return "group_roles"
 
-    async def bind_string(self) -> str:
-        try:
-            if self.entity is None or not self.entity.synced:
-                self.entity = groups.RobloxGroup(self.id)
-                await self.entity.sync()
-        except RobloxNotFound:
-            pass
 
-        roles = self.roles if self.roles else []
-        role_str = ", ".join(f"<@&{val}>" for val in roles)
-        remove_roles = self.removeRoles if self.removeRoles else []
-        remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
+def join_bind_strings(strings: list) -> str:
+    """Helper method to use when joining all the strings for the viewbind embed.
 
-        prefix = ""
-        content = ""
+    Uses emojis to display the strings in a tier-format where the top level is the "identifier" that the
+    lower bind strings display as a subset of.
 
-        if self.subtype == "linked_group":
-            return f"- _All users in this group ({self.id}) receive the role matching their group rank name._"
+    Args:
+        strings (list): List of string to join
 
-        else:
-            group = self.entity
-
-            if self.min and self.max:
-                # TODO: Consider grabbing rank names.
-                prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
-                min_str = group.roleset_name_string(self.min, bold_name=False)
-                max_str = group.roleset_name_string(self.max, bold_name=False)
-                content = f"{min_str}** and **{max_str}"
-
-            elif self.min:
-                prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
-                content = group.roleset_name_string(self.min, bold_name=False)
-
-            elif self.max:
-                prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
-                content = group.roleset_name_string(self.max, bold_name=False)
-
-            elif self.roleset:
-                if self.roleset < 0:
-                    prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
-                else:
-                    prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
-
-                content = group.roleset_name_string(abs(self.roleset), bold_name=False)
-
-            elif self.guest:
-                prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
-
-            elif self.everyone:
-                prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
-
-        return (
-            f"- _{prefix} {f'**{content}**' if content else ''} receive the "
-            f"role{'s' if len(roles) > 1  else ''} {role_str}"
-            f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
-        )
-
-
-def join_bind_strings(strings: list):
-    """Helper method to use when joining all the strings for the viewbind embed."""
+    Returns:
+        str: Tiered formatted string.
+    """
 
     # Use REPLY_CONT for all but last element
     split_strings = [f"\n{REPLY_CONT}".join(strings[:-1]), strings[-1]] if len(strings) > 2 else strings
     return f"\n{REPLY_EMOTE}".join(split_strings)
+
+
+async def bind_description_generator(bind: GroupBind | GuildBind) -> str:
+    """Builds a sentence-formatted string for a binding.
+
+    Results in the layout of: <USERS> <CONTENT ID/RANK> receive the role(s) <ROLE LIST>, and have the roles
+    removed <REMOVE ROLE LIST>
+
+    The remove role list is only appended if it there are roles to remove.
+
+    Example output:
+        All users in this group receive the role matching their group rank name.
+        People with the rank Developers (200) receive the role @a
+        People with a rank greater than or equal to Supporter (1) receive the role @b
+
+    Args:
+        bind (GroupBind | GuildBind): The binding to build the string for.
+
+    Returns:
+        str: The sentence description of this binding.
+    """
+    if isinstance(bind, GroupBind):
+        if bind.subtype == "linked_group":
+            return "- _All users in **this** group receive the role matching their group rank name._"
+
+    if not bind.entity.synced:
+        try:
+            await bind.entity.sync()
+        except RobloxNotFound:
+            pass
+        except RobloxAPIError:
+            pass
+
+    roles = bind.roles if bind.roles else []
+    role_str = ", ".join(f"<@&{val}>" for val in roles)
+    remove_roles = bind.removeRoles if bind.removeRoles else []
+    remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
+
+    prefix = _bind_desc_prefix_gen(bind)
+    content = _bind_desc_content_gen(bind)
+
+    return (
+        f"- _{prefix} {f'**{content}**' if content else ''} receive the "
+        f"role{'s' if len(roles) > 1  else ''} {role_str}"
+        f"{'' if len(remove_roles) == 0 else f', and have these roles removed: {remove_role_str}'}_"
+    )
+
+
+def _bind_desc_prefix_gen(bind: GroupBind | GuildBind) -> str | None:
+    """Generate the prefix string for a bind's description.
+
+    Args:
+        bind (GroupBind | GuildBind): Bind to generate the prefix for.
+
+    Returns:
+        str | None: The prefix if one should be set.
+    """
+    if not isinstance(bind, GroupBind):
+        return f"People who own the {bind.type}"
+
+    prefix = None
+    if bind.min and bind.max:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
+
+    elif bind.min:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+
+    elif bind.max:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
+
+    elif bind.roleset:
+        if bind.roleset < 0:
+            prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
+        else:
+            prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
+
+    elif bind.guest:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
+
+    elif bind.everyone:
+        prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
+
+    return prefix
+
+
+def _bind_desc_content_gen(bind: GroupBind | GuildData) -> str | None:
+    """Generate the content string for a bind's description.
+
+    This will be the content that describes the rolesets to be given,
+    or the name of the other entity that the bind is for.
+
+    Args:
+        bind (GroupBind | GuildBind): Bind to generate the content for.
+
+    Returns:
+        str | None: The content if it should be set.
+            Roleset bindings like guest and everyone do not have content to display,
+            as the given prefix string contains the content.
+    """
+    if not isinstance(bind, GroupBind):
+        return str(bind.entity).replace("**", "")
+
+    group = bind.entity
+    content = None
+
+    if bind.min and bind.max:
+        min_str = group.roleset_name_string(bind.min, bold_name=False)
+        max_str = group.roleset_name_string(bind.max, bold_name=False)
+        content = f"{min_str}** and **{max_str}"
+
+    elif bind.min:
+        content = group.roleset_name_string(bind.min, bold_name=False)
+
+    elif bind.max:
+        content = group.roleset_name_string(bind.max, bold_name=False)
+
+    elif bind.roleset:
+        content = group.roleset_name_string(abs(bind.roleset), bold_name=False)
+
+    return content
