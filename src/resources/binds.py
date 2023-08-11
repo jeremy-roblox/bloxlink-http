@@ -362,8 +362,13 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
 
     for bind in bind_list:
         bind_data = bind.get("bind")
-
         bind_type = bind_data.get("type")
+
+        if category and bind_type != category:
+            continue
+
+        if id_filter and str(bind_data.get("id")) != id_filter:
+            continue
 
         if bind_type == "group":
             classed_bind = GroupBind(**bind)
@@ -371,9 +376,6 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
             classed_bind = GuildBind(**bind)
         else:
             raise BloxlinkException("Invalid bind structure found.")
-
-        if category and classed_bind.type != category:
-            continue
 
         if id_filter and str(classed_bind.id) != id_filter:
             continue
