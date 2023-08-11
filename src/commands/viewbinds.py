@@ -5,10 +5,8 @@ from resources.binds import json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
-from resources.exceptions import RobloxNotFound
 from resources.models import CommandContext
 from resources.pagination import Paginator
-from resources.roblox.groups import get_group
 
 MAX_BINDS_PER_PAGE = 5
 
@@ -147,7 +145,7 @@ async def viewbinds_paginator_formatter(page_number, items, guild_id, max_pages)
             item_map[subtype][bind.id] = select_output
 
             if bind.id not in item_map["group_names"]:
-                item_map["group_names"][bind.id] = bind.entity.logical_name
+                item_map["group_names"][bind.id] = str(bind.entity)
         else:
             item_map[subtype].append(bind_string)
 

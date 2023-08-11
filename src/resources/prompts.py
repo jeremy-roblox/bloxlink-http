@@ -34,7 +34,7 @@ async def build_interactive_bind_base(
         # Handled later.
         pass
 
-    bind_info = entity.logical_name if entity else f"Invalid Bind Type"
+    bind_info = str(entity) if entity else "Invalid Bind Type"
     embed = hikari.Embed(
         title=f"New {capital_type} Bind",
         description=f"> ### Binding {capital_type} - {bind_info}",
@@ -42,7 +42,7 @@ async def build_interactive_bind_base(
 
     bind_count = await count_binds(guild_id, bind_id)
     embed.add_field(
-        f"Current Binds",
+        "Current Binds",
         value=(
             f"No binds exist for this {bind_type}. Click the button below to create your first bind!"
             if bind_count == 0
@@ -291,7 +291,7 @@ def build_numbered_item_selection(
     """
     embed = hikari.Embed() if not embed else embed
     embed.title = embed.title if embed.title else "Remove an unsaved binding!"
-    description_list = [f"Choose which binding you want removed from the list."]
+    description_list = ["Choose which binding you want removed from the list."]
 
     item_list = item_list[:25]
 

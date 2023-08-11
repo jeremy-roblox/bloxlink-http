@@ -189,7 +189,7 @@ async def _embed_formatter(page_number: int, current_items: list, guild_id: int 
         )
         return embed
 
-    embed.description = f"**Select which bind(s) you want to remove from the menu below!**"
+    embed.description = "**Select which bind(s) you want to remove from the menu below!**"
 
     if max_pages != 1:
         embed.description += (
@@ -224,7 +224,7 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
             except RobloxAPIError:
                 pass
 
-        bind_name = bind.entity.logical_name.replace("**", "")
+        bind_name = str(bind.entity).replace("**", "")
 
         if bind.type != "group":
             selection_menu.add_option(bind_name, str(bind.id))

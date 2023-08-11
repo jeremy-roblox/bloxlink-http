@@ -433,9 +433,7 @@ class GuildBind:
         nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
         role_string = f"Role(s): {role_string}"
 
-        output_list = list(
-            filter(None, [self.entity.logical_name, nickname_string, role_string, remove_role_str])
-        )
+        output_list = list(filter(None, [str(self.entity), nickname_string, role_string, remove_role_str]))
 
         return join_bind_strings(output_list)
 
@@ -487,7 +485,7 @@ class GroupBind(GuildBind):
             return "group_roles"
 
     async def viewbind_string(self) -> str:
-        if self.entity == None:
+        if self.entity is None:
             self.entity = create_entity("group", self.id)
 
         if not self.entity.synced:
@@ -504,7 +502,7 @@ class GroupBind(GuildBind):
         if self.removeRoles and (self.removeRoles != "null" or self.removeRoles != "undefined"):
             remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in self.removeRoles])
 
-        name_id_string = self.entity.logical_name if self.subtype == "linked_group" else None
+        name_id_string = str(self.entity) if self.subtype == "linked_group" else None
 
         nickname_string = f"Nickname: `{self.nickname}`" if self.nickname else ""
         role_string = f"Role(s): {role_string}"
@@ -563,7 +561,7 @@ class GroupBind(GuildBind):
 
     async def bind_string(self) -> str:
         try:
-            if self.entity == None or not self.entity.synced:
+            if self.entity is None or not self.entity.synced:
                 self.entity = groups.RobloxGroup(self.id)
                 await self.entity.sync()
         except RobloxNotFound:
