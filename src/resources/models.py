@@ -1,7 +1,8 @@
 import copy
+from abc import ABC
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 import hikari
 
@@ -12,7 +13,6 @@ __all__ = (
     "GuildData",
     "RobloxAccount",
     "CommandContext",
-    "BaseGuildBind",
     "PremiumModel",
     "MISSING",
 )
@@ -93,33 +93,6 @@ class PremiumModel:
                 )
 
         return "\n".join(buffer) or "Not premium"
-
-
-@dataclass(slots=True)
-class BaseGuildBind:
-    nickname: str = None
-    roles: list = default_field(list())
-    removeRoles: list = default_field(list())
-
-    id: int = None
-    type: Literal["group", "asset", "gamepass", "badge"] = ""
-    bind: dict = default_field({"type": "", "id": None})
-
-    min: int = None
-    max: int = None
-    roleset: int = None
-    everyone: bool = None
-    guest: bool = None
-
-    def __post_init__(self):
-        self.id = self.bind.get("id")
-        self.type = self.bind.get("type")
-
-        self.min = self.bind.get("min", None)
-        self.max = self.bind.get("max", None)
-        self.roleset = self.bind.get("roleset", None)
-        self.everyone = self.bind.get("everyone", None)
-        self.guest = self.bind.get("guest", None)
 
 
 class MISSING:

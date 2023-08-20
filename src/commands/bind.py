@@ -4,8 +4,6 @@ from typing import Literal
 import hikari
 from hikari.commands import CommandOption, OptionType
 
-from resources.assets import get_asset
-from resources.badges import get_badge
 from resources.binds import create_bind
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import (
@@ -15,8 +13,6 @@ from resources.component_helper import (
 )
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, SPLIT_CHAR
 from resources.exceptions import RobloxNotFound
-from resources.gamepasses import get_gamepass
-from resources.groups import get_group
 from resources.models import CommandContext
 from resources.prompts import (
     build_group_criteria_prompt,
@@ -25,6 +21,10 @@ from resources.prompts import (
     build_role_selection_prompt,
     build_roleset_selection_prompt,
 )
+from resources.roblox.assets import get_asset
+from resources.roblox.badges import get_badge
+from resources.roblox.gamepasses import get_gamepass
+from resources.roblox.groups import get_group
 
 DISCORD_ID_REGEX = r"(\d{17,})"
 

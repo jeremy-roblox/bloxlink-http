@@ -3,16 +3,10 @@ import json
 import hikari
 
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import (
-    delete_bind,
-    json_binds_to_guild_binds,
-    named_string_builder,
-    roleset_to_string,
-)
+from resources.binds import GroupBind, GuildBind, delete_bind, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
-from resources.exceptions import RobloxNotFound
-from resources.groups import RobloxGroup, get_group
+from resources.exceptions import RobloxAPIError
 from resources.models import CommandContext
 from resources.pagination import Paginator
 
@@ -195,7 +189,7 @@ async def _embed_formatter(page_number: int, current_items: list, guild_id: int 
         )
         return embed
 
-    embed.description = f"**Select which bind(s) you want to remove from the menu below!**"
+    embed.description = "**Select which bind(s) you want to remove from the menu below!**"
 
     if max_pages != 1:
         embed.description += (
@@ -220,48 +214,38 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
         selection_menu.set_placeholder("You have no bindings to remove. Use /bind to make some first!")
         return selection_menu.parent
 
-    group: RobloxGroup = None
-
     for bind in items:
-        bind_type = bind.determine_type()
+        bind: GuildBind
+        bind_type = bind.type
+
+        if not bind.entity.synced:
+            try:
+                await bind.entity.sync()
+            except RobloxAPIError:
+                pass
+
+        bind_name = str(bind.entity).replace("**", "")
+
+        if bind.type != "group":
+            selection_menu.add_option(bind_name, str(bind.id))
+            continue
+
+        bind: GroupBind
+        bind_type = bind.subtype
 
         if bind_type == "linked_group":
-            if not group or (group and group.id != bind.id):
-                try:
-                    group = await get_group(bind.id)
-                except RobloxNotFound:
-                    pass
-
-            group_name = (
-                group.name
-                if group
-                else await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
-            ).replace("**", "")
-
             selection_menu.add_option(
-                group_name,
+                bind_name,
                 str(bind.id),
                 description="This is a linked group binding.",
             )
 
         elif bind_type == "group_roles":
-            if not group or (group and group.id != bind.id):
-                try:
-                    group = await get_group(bind.id)
-                except RobloxNotFound:
-                    pass
-
+            group = bind.entity
+            # Map with only relevant bind data, used for bind deletion from the db.
             bind_data = {}
 
             label = ""
-
-            group_name = (
-                group.name
-                if group
-                else await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
-            ).replace("**", "")
-
-            description = f"Group: {group_name}"
 
             if bind.everyone:
                 bind_data["everyone"] = bind.everyone
@@ -275,39 +259,34 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
                 bind_data["min"] = bind.min
                 bind_data["max"] = bind.max
 
-                min_name = await roleset_to_string(bind.id, bind.min, group=group)
-                max_name = await roleset_to_string(bind.id, bind.max, group=group)
+                min_str = group.roleset_name_string(bind.min, bold_name=False)
+                max_str = group.roleset_name_string(bind.max, bold_name=False)
 
-                label = f"Ranks {min_name} to {max_name}"
+                label = f"Ranks {min_str} to {max_str}"
 
             elif bind.min:
                 bind_data["min"] = bind.min
 
-                min_name = await roleset_to_string(bind.id, bind.min, group=group)
-                label = f"Rank {min_name} or above"
+                min_str = group.roleset_name_string(bind.min, bold_name=False)
+                label = f"Rank {min_str} or above"
 
             elif bind.max:
                 bind_data["max"] = bind.max
 
-                max_name = await roleset_to_string(bind.id, bind.max, group=group)
-                label = f"Rank {max_name} or below"
+                max_str = group.roleset_name_string(bind.max, bold_name=False)
+                label = f"Rank {max_str} or below"
 
             elif bind.roleset:
                 bind_data["roleset"] = bind.roleset
 
-                name = await roleset_to_string(bind.id, abs(bind.roleset), group=group)
+                name = group.roleset_name_string(abs(bind.roleset), bold_name=False)
                 label = f"Rank {name} or above" if bind.roleset < 0 else f"Rank {name}"
 
             selection_menu.add_option(
                 label[:100],
                 f"{str(bind.id)}:{json.dumps(bind_data, separators=(',', ':'))}",
-                description=description,
+                description=f"Group: {bind_name}",
             )
-
-        else:
-            name = await named_string_builder(bind.type, bind.id, include_id=True, include_name=True)
-            name = name.replace("**", "")
-            selection_menu.add_option(name, str(bind.id))
 
     selection_menu.set_max_values(len(selection_menu.options))
 
