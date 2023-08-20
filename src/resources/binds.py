@@ -379,7 +379,10 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
 
         binds.append(classed_bind)
 
-    return list(binds)
+    bind_list = list(binds)
+    if id_filter is not None:
+        bind_list.sort(key=lambda e: e.id)
+    return bind_list
 
 
 @dataclass(slots=True)
