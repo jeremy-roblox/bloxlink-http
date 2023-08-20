@@ -1,7 +1,7 @@
 import copy
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import hikari
 
@@ -102,7 +102,7 @@ class BaseGuildBind:
     removeRoles: list = default_field(list())
 
     id: int = None
-    type: str = ""  # Expected type strings: group, asset, gamepass, badge
+    type: Literal["group", "asset", "gamepass", "badge"] = ""
     bind: dict = default_field({"type": "", "id": None})
 
     min: int = None

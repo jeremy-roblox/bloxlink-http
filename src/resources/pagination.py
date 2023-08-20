@@ -1,5 +1,4 @@
 import math
-from datetime import datetime
 
 import hikari
 
@@ -13,29 +12,42 @@ class Paginator:
         self,
         guild_id,
         user_id,
-        items,
+        items: list,
+        source_cmd_name: str,
         page_number=0,
         max_items=10,
         custom_formatter=None,
+        component_generation=None,
         extra_custom_ids="",
         item_filter=None,
+        include_cancel_button=False,
     ):
         self.guild_id = guild_id
         self.user_id = user_id
+
         self.page_number = page_number
+        self.source_cmd_name = source_cmd_name
+
         self.items = items if not item_filter else item_filter(items)
         self.max_pages = math.ceil(len(self.items) / max_items)
         self.max_items = max_items
-        self.custom_formatter = custom_formatter
-        self.extra_custom_ids = extra_custom_ids
 
-    @property
-    async def embed(self):
+        self.custom_formatter = custom_formatter
+        self.component_generation = component_generation
+
+        self.extra_custom_ids = extra_custom_ids
+        self.include_cancel_button = include_cancel_button
+
+    def _get_current_items(self):
         offset = self.page_number * self.max_items
         max_items = (
             len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
         )
-        current_items = self.items[offset:max_items]
+        return self.items[offset:max_items]
+
+    @property
+    async def embed(self):
+        current_items = self._get_current_items()
 
         if self.custom_formatter:
             embed = await self.custom_formatter(
@@ -44,38 +56,55 @@ class Paginator:
         else:
             embed = hikari.Embed(title=f"Test Pagination", description=f"Page {self.page_number}")
 
-        return embed
+        self._embed = embed
+        return self._embed
 
     @embed.setter
     def embed(self, value):
         self._embed = value
 
     @property
-    def components(self):
+    async def components(self) -> tuple:
         button_row = bloxlink.rest.build_message_action_row()
-
-        offset = self.page_number * self.max_items
-        max_items = (
-            len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
-        )
 
         # Previous button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
             label=UNICODE_LEFT,
-            is_disabled=True if self.page_number == 0 else False,
+            is_disabled=self.page_number <= 0,
         )
 
         # Next button
         button_row.add_interactive_button(
             hikari.ButtonStyle.SECONDARY,
-            f"viewbinds:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
+            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
             label=UNICODE_RIGHT,
-            is_disabled=True if max_items == len(self.items) else False,
+            is_disabled=self.page_number + 1 >= self.max_pages,
         )
 
-        return button_row
+        if self.include_cancel_button:
+            button_row.add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, f"{self.source_cmd_name}:cancel:{self.user_id}", label="Cancel"
+            )
+
+        component_output = []
+        if self.component_generation:
+            generated_components = await self.component_generation(
+                self._get_current_items(),
+                self.user_id,
+                self.extra_custom_ids,
+            )
+
+            if isinstance(generated_components, (list, tuple)):
+                component_output.extend(generated_components)
+            else:
+                component_output.append(generated_components)
+
+        component_output.append(button_row)
+        self._components = tuple(component_output)
+
+        return self._components
 
     @components.setter
     def components(self, value):

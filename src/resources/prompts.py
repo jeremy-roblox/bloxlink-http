@@ -272,6 +272,7 @@ def build_numbered_item_selection(
     custom_id: str,
     item_list: list[str],
     author_id: str | int,
+    base_custom_id="bind_menu",
     placeholder: str = "Select which item should be removed.",
     label_prefix: str = "Item",
     min_values: int = 1,
@@ -283,10 +284,11 @@ def build_numbered_item_selection(
 
     Args:
         custom_id (str): The custom_id for the selection component,
-            automatically prefixed with "bind:sel_role" or "bind:sel_rmv_role" depending on the remove_text argument.
+            automatically prefixed with the set base_custom_id and "discard_selection".
         item_list (list[str]): List of items that can be selected from.
         author_id (str | int): The original author ID, used to set the custom ID for the cancel button.
             This is not added to the custom_id parameter for the prompt that is built.
+        base_custom_id (str): Define what the prefix of the component should be. Default is "bind_menu"
         placeholder (str): Optional placeholder text for the select menu component, will be shown to the user.
         label_prefix (str): String that will be prefixed before each listed item when shown to the user.
         min_values (int): Optional minimum number of values that can be selected.
@@ -308,13 +310,13 @@ def build_numbered_item_selection(
         min_values = max_values
 
     selection_menu = bloxlink.rest.build_message_action_row().add_text_menu(
-        f"bind_menu:discard_selection:{custom_id}",
+        f"{base_custom_id}:discard_selection:{custom_id}",
         placeholder=placeholder,
         min_values=min_values,
     )
 
     button_menu = bloxlink.rest.build_message_action_row().add_interactive_button(
-        hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
+        hikari.ButtonStyle.SECONDARY, f"{base_custom_id}:cancel:{author_id}", label="Cancel"
     )
 
     counter = 1

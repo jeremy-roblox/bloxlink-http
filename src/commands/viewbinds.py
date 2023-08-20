@@ -1,12 +1,9 @@
 import hikari
 
-from resources.binds import GuildBind, json_binds_to_guild_binds
+from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.binds import json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
-from resources.component_helper import (
-    component_author_validation,
-    get_custom_id_data,
-    set_components,
-)
+from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError
 from resources.groups import get_group
@@ -16,53 +13,11 @@ from resources.pagination import Paginator
 MAX_BINDS_PER_PAGE = 5
 
 
-async def viewbinds_category_autocomplete(interaction: hikari.AutocompleteInteraction):
-    guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-    bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
-
-    return interaction.build_response(
-        [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
-    )
-
-
-async def viewbinds_id_autocomplete(interaction: hikari.AutocompleteInteraction):
-    choices = [
-        # base option
-        hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
-    ]
-
-    options = {o.name.lower(): o for o in interaction.options}
-
-    category_option = options.get("category")
-    id_option = options.get("id").value.lower() if options.get("id") else None
-
-    # Only show more options if the category option has been set by the user.
-    if category_option:
-        guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-        # Conversion to GuildBind is because it's easier to get the typing for filtering.
-        if id_option:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if str(x.id).startswith(id_option)
-            )
-        else:
-            filtered_binds = set(x.id for x in [GuildBind(**bind) for bind in guild_data.binds])
-
-        for bind in filtered_binds:
-            choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
-
-    # Due to discord limitations, only return the first 25 choices.
-    return interaction.build_response(choices[:25])
-
-
-@component_author_validation()
+@component_author_validation(author_segment=3)
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
     message = interaction.message
 
-    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=2)
+    custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
 
     author_id = int(custom_id_data[0])
     page_number = int(custom_id_data[1])
@@ -78,21 +33,22 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     paginator = Paginator(
         guild_id,
         user_id,
-        guild_data.binds,
-        page_number,
+        source_cmd_name="viewbinds",
         max_items=MAX_BINDS_PER_PAGE,
+        items=guild_data.binds,
+        page_number=page_number,
         custom_formatter=viewbinds_paginator_formatter,
         extra_custom_ids=f"{category}:{id_filter}",
         item_filter=viewbinds_item_filter(id_filter, category),
     )
 
     embed = await paginator.embed
-    components = paginator.components
+    components = await paginator.components
 
     message.embeds[0] = embed
 
     # Handles emojis as expected
-    await interaction.edit_message(message, embed=embed, components=[components])
+    await interaction.edit_message(message, embed=embed, components=components)
 
     # TODO: Breaks emojis in the reply somehow?
     # await set_components(message, components=[components])
@@ -125,8 +81,8 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
         "viewbinds": viewbinds_button,
     },
     autocomplete_handlers={
-        "category": viewbinds_category_autocomplete,
-        "id": viewbinds_id_autocomplete,
+        "category": bind_category_autocomplete,
+        "id": bind_id_autocomplete,
     },
 )
 class ViewBindsCommand:
@@ -144,6 +100,7 @@ class ViewBindsCommand:
         paginator = Paginator(
             guild_id,
             user_id,
+            source_cmd_name="viewbinds",
             max_items=MAX_BINDS_PER_PAGE,
             items=guild_data.binds,
             custom_formatter=viewbinds_paginator_formatter,
@@ -152,7 +109,7 @@ class ViewBindsCommand:
         )
 
         embed = await paginator.embed
-        components = paginator.components
+        components = await paginator.components
 
         await ctx.response.send(embed=embed, components=components)
 
