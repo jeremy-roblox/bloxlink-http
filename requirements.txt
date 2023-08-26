@@ -1,4 +1,4 @@
-hikari[speedups, server]==2.0.0.dev118
+hikari[speedups,server]==2.0.0.dev118
 hikari-yuyo[asgi]==1.14.2
 motor==2.3
 hiredis
