@@ -19,7 +19,7 @@ from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BOT_API, BOT_API_AUTH
 
 from .bloxlink import instance as bloxlink
-from .models import GuildData, default_field
+from .models import GuildData, UserData, default_field
 from .utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
@@ -163,6 +163,62 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
+class RestrictionResponse:
+    def __init__(
+        self,
+        restricted: bool,
+        action: Literal = Literal["kick", "ban", None],
+        restriction: Literal = Literal["ageLimit", "disallowAlts", "disallowBanEvaders", "groupLock", None],
+        user_message: str | None = None,
+    ) -> None:
+        self.restricted = restricted
+        self.action = action
+        self.restriction = restriction
+        self.message = user_message
+
+
+async def _validate_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict) -> RestrictionResponse:
+    guild_data = await bloxlink.fetch_guild_data(
+        guild_id,
+        "ageLimit",
+        "disallowAlts",
+        "disallowBanEvaders",
+        "groupLock",
+    )
+
+    user_id = user_info["id"]
+    user_role = user_info["roles"]
+    user_acc: users.RobloxAccount = user_info["account"]
+
+    if guild_data.ageLimit:
+        if not user_acc:
+            return RestrictionResponse(True, "kick", "ageLimit", "not verified with Bloxlink")
+
+        if user_acc.age_days < guild_data.ageLimit:
+            return RestrictionResponse(
+                True,
+                "kick",
+                "ageLimit",
+                f"Roblox account is less than {guild_data.ageLimit} days old ({user_acc.age_days})",
+            )
+
+    if guild_data.disallowAlts and user_acc:
+        bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
+
+        accounts = bloxlink_user.robloxAccounts
+        # TODO: Logic for reverse lookup in db needs to be added somewhere.
+
+        pass
+
+    if guild_data.disallowBanEvaders:
+        pass
+
+    if guild_data.groupLock:
+        pass
+
+    return RestrictionResponse(False, None, None)
+
+
 async def apply_binds(
     member: hikari.Member | dict,
     guild_id: hikari.Snowflake,
@@ -211,6 +267,16 @@ async def apply_binds(
                 "name": role.name,
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
+
+    if moderate_user:
+        temp = await _validate_guild_restrictions(
+            guild_id,
+            {
+                "id": member_id,
+                "roles": member_roles,
+                "account": roblox_account,
+            },
+        )
 
     user_binds, user_binds_response = await fetch(
         "POST",
