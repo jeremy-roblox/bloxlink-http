@@ -54,6 +54,11 @@ class GuildData:
     unverifiedRoleName: str = "Unverified"  # deprecated
     unverifiedRole: str = None
 
+    ageLimit: int = None
+    disallowAlts: bool = None
+    disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
+    groupLock: dict = None
+
     premium: dict = None
 
 
