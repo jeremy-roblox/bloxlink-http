@@ -176,6 +176,13 @@ class RestrictionResponse:
         self.restriction = restriction
         self.message = user_message
 
+    def __repr__(self) -> str:
+        return (
+            f"RestrictionResponse - restricted: {self.restricted}, "
+            f"action: {self.action}, restriction: {self.restriction}, "
+            f"user message: {self.message}"
+        )
+
 
 async def _validate_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict) -> RestrictionResponse:
     guild_data = await bloxlink.fetch_guild_data(
@@ -190,6 +197,25 @@ async def _validate_guild_restrictions(guild_id: hikari.Snowflake, user_info: di
     user_role = user_info["roles"]
     user_acc: users.RobloxAccount = user_info["account"]
 
+    # TODO: If server has premium and user_acc
+    if user_acc:
+        bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
+
+        accounts = bloxlink_user.robloxAccounts["accounts"]
+        accounts.append(bloxlink_user.robloxID)
+        accounts = list(set(accounts))
+
+        result = await _check_premium_restrictions(
+            guild_data.disallowAlts,
+            guild_data.disallowBanEvaders,
+            user_id,
+            guild_id,
+            accounts,
+        )
+
+        if result:
+            return result
+
     if guild_data.ageLimit:
         if not user_acc:
             return RestrictionResponse(True, "kick", "ageLimit", "not verified with Bloxlink")
@@ -202,21 +228,78 @@ async def _validate_guild_restrictions(guild_id: hikari.Snowflake, user_info: di
                 f"Roblox account is less than {guild_data.ageLimit} days old ({user_acc.age_days})",
             )
 
-    if guild_data.disallowAlts and user_acc:
-        bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
-
-        accounts = bloxlink_user.robloxAccounts
-        # TODO: Logic for reverse lookup in db needs to be added somewhere.
-
-        pass
-
-    if guild_data.disallowBanEvaders:
-        pass
-
     if guild_data.groupLock:
         pass
 
     return RestrictionResponse(False, None, None)
+
+
+async def _check_premium_restrictions(
+    check_alts: bool,
+    check_ban_evaders: str | None,
+    user_id: int,
+    guild_id: int,
+    user_accounts: list,
+) -> RestrictionResponse | None:
+    """Check for alts and ban evaders within a server for a user.
+
+    Args:
+        check_alts (bool): Should we check for alts
+        check_ban_evaders (str | None): Should we check for ban evaders
+        user_id (int): Discord ID of the user being updated
+        guild_id (int): Guild ID where the user is being updated
+        user_accounts (list): Roblox accounts linked to this user_id
+
+    Returns:
+        RestrictionResponse | None: Restriction info if the user is ban evading.
+            None in other cases, no restriction is raised when alts are found
+            as the alt accounts are removed in place.
+    """
+    if not check_alts and (not check_ban_evaders or check_ban_evaders is None):
+        return
+
+    matches = []
+    for account in user_accounts:
+        matches.extend(await bloxlink.reverse_lookup(account))
+
+    for user in matches:
+        # sanity check, shouldn't be included but just in case.
+        if str(user_id) == user:
+            continue
+
+        if check_alts:
+            member = await bloxlink.fetch_discord_member(guild_id, user, "id")
+
+            if member is not None:
+                # We kick the old user here because otherwise the restriction will remove the original
+                # user based on the code setup.
+
+                try:
+                    # await bloxlink.rest.kick_user(
+                    #     guild_id, user, reason=f"User is an alt of {user_id} and disallowAlts is enabled."
+                    # )
+
+                    print(f"kicking user {user}")
+                except (hikari.NotFoundError, hikari.ForbiddenError):
+                    pass
+
+                # We don't return so we can continue checking for more alts if they exist & kick them too.
+                # Plus, returning will prevent ban evader checking.
+
+        if check_ban_evaders:
+            try:
+                await bloxlink.rest.fetch_ban(guild_id, user)
+            except hikari.NotFoundError:
+                continue
+            except hikari.ForbiddenError:
+                continue
+            else:
+                return RestrictionResponse(
+                    True,
+                    "ban",
+                    "disallowBanEvaders",
+                    f"share a linked Roblox account with a banned Discord account ({user}).",
+                )
 
 
 async def apply_binds(
@@ -277,6 +360,8 @@ async def apply_binds(
                 "account": roblox_account,
             },
         )
+
+        print(temp)
 
     user_binds, user_binds_response = await fetch(
         "POST",
