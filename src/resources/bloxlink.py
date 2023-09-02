@@ -60,11 +60,23 @@ class Bloxlink(yuyo.AsgiBot):
         except asyncio.TimeoutError as ex:
             raise TimeoutError("No response was recieved.") from ex
 
-    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
-        res = await self.relay(
-            "CACHE_LOOKUP", {"query": "guild.member", "data": {"guild_id": guild_id, "user_id": user_id}}
-        )
-        return res["data"]
+    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict | hikari.Member | None:
+        try:
+            res = await self.relay(
+                "CACHE_LOOKUP",
+                {
+                    "query": "guild.member",
+                    "data": {"guild_id": guild_id, "user_id": user_id},
+                    "fields": list(*fields),
+                },
+            )
+
+            return json.loads(res.get("data").decode("utf-8"))
+        except (RuntimeError, TimeoutError):
+            try:
+                return await self.rest.fetch_member(guild_id, user_id)
+            except hikari.NotFoundError:
+                return None
 
     async def fetch_discord_guild(self, guild_id: int) -> dict:
         res = await self.relay(
