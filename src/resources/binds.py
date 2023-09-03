@@ -164,6 +164,211 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
+async def apply_binds(
+    member: hikari.Member | dict,
+    guild_id: hikari.Snowflake,
+    roblox_account: users.RobloxAccount = None,
+    *,
+    moderate_user=False,
+) -> hikari.Embed:
+    if roblox_account and roblox_account.groups is None:
+        await roblox_account.sync(["groups"])
+
+    guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+
+    role_ids = []
+    member_id = None
+    username = ""
+    nickname = ""
+    avatar_url = ""
+    user_tag = ""
+
+    if isinstance(member, hikari.Member):
+        role_ids = member.role_ids
+        member_id = member.id
+        username = member.username
+        nickname = member.nickname
+        avatar_url = member.display_avatar_url.url
+        user_tag = f"{username}#{member.discriminator}"
+
+    elif isinstance(member, dict):
+        role_ids = member.get("role_ids", [])
+        member_id = member.get("id")
+        username = member.get("username", None)
+
+        if not username:
+            username = member.get("name", "")
+
+        nickname = member.get("nickname", "")
+        avatar_url = member.get("avatar_url", "")
+        user_tag = f"{username}#{member.get('discriminator')}"
+
+    member_roles: dict = {}
+
+    for member_role_id in role_ids:
+        if role := guild.roles.get(member_role_id):
+            member_roles[role.id] = {
+                "id": role.id,
+                "name": role.name,
+                "managed": bool(role.bot_id) and role.name != "@everyone",
+            }
+
+    if moderate_user:
+        restrict_result = await _check_guild_restrictions(
+            guild_id,
+            {
+                "id": member_id,
+                "roles": member_roles,
+                "account": roblox_account,
+            },
+        )
+
+        print(restrict_result)
+        await restrict_result.handle_restriction(guild, member_id)
+
+        if restrict_result.restricted and restrict_result.restriction != "disallowAlts":
+            return hikari.Embed(description="User could not be updated because of a restriction.")
+
+    user_binds, user_binds_response = await fetch(
+        "POST",
+        f"{BOT_API}/binds/{member_id}",
+        headers={"Authorization": BOT_API_AUTH},
+        body={
+            "guild": {
+                "id": guild.id,
+                "roles": [
+                    {"id": r.id, "name": r.name, "managed": bool(r.bot_id) and r.name != "@everyone"}
+                    for r in guild.roles.values()
+                ],
+            },
+            "member": {"id": member_id, "roles": member_roles},
+            "roblox_account": roblox_account.to_dict() if roblox_account else None,
+        },
+    )
+
+    if user_binds_response.status == 200:
+        user_binds = user_binds["binds"]
+    else:
+        raise Message("Something went wrong getting this user's relevant bindings!")
+
+    # first apply the required binds, then ask the user if they want to apply the optional binds
+
+    # add_roles:    set = set() # used exclusively for display purposes
+    add_roles: list[hikari.Role] = []
+    remove_roles: list[hikari.Role] = []
+    possible_nicknames: list[list[hikari.Role | str]] = []
+    warnings: list[str] = []
+    chosen_nickname = None
+    applied_nickname = None
+
+    for required_bind in user_binds["required"]:
+        # find valid roles from the server
+
+        for bind_add_id in required_bind[1]:
+            if role := guild.roles.get(int(bind_add_id)):
+                add_roles.append(role)
+
+                if required_bind[3]:
+                    possible_nicknames.append([role, required_bind[3]])
+
+        for bind_remove_id in required_bind[2]:
+            if role := guild.roles.get(bind_remove_id):
+                remove_roles.append(role)
+
+    # real_add_roles = add_roles
+
+    # remove_roles   = remove_roles.difference(add_roles) # added roles get priority
+    # real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
+
+    # if real_add_roles or remove_roles:
+    #     await bloxlink.edit_user_roles(member, guild_id, add_roles=real_add_roles, remove_roles=remove_roles)
+
+    if possible_nicknames:
+        if len(possible_nicknames) == 1:
+            chosen_nickname = possible_nicknames[0][1]
+        else:
+            # get highest role with a nickname
+            highest_role = sorted(possible_nicknames, key=lambda e: e[0].position, reverse=True)
+
+            if highest_role:
+                chosen_nickname = highest_role[0][1]
+
+        if chosen_nickname:
+            chosen_nickname_http, nickname_response = await fetch(
+                "GET",
+                f"{BOT_API}/nickname/parse/",
+                headers={"Authorization": BOT_API_AUTH},
+                body={
+                    "user_data": {"name": username, "nick": nickname, "id": member_id},
+                    "guild_id": guild.id,
+                    "guild_name": guild.name,
+                    "roblox_account": roblox_account.to_dict() if roblox_account else None,
+                    "template": chosen_nickname,
+                },
+            )
+
+            if nickname_response.status == 200:
+                chosen_nickname = chosen_nickname_http["nickname"]
+            else:
+                raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
+
+            if str(guild.owner_id) == str(member_id):
+                warnings.append(
+                    f"Since you're the Server Owner, I cannot modify your nickname.\nNickname: {chosen_nickname}"
+                )
+            else:
+                try:
+                    await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
+
+                except hikari.errors.ForbiddenError:
+                    warnings.append("I don't have permission to change the nickname of this user.")
+
+                else:
+                    applied_nickname = chosen_nickname
+
+    try:
+        if add_roles or remove_roles:
+            # since this overwrites their roles, we need to add in their current roles
+            # then, we remove the remove_roles from the set
+            await bloxlink.rest.edit_member(
+                guild_id,
+                member_id,
+                roles=set(getattr(r, "id", r) for r in add_roles + role_ids).difference(
+                    [r.id for r in remove_roles]
+                ),
+            )
+
+    except hikari.errors.ForbiddenError:
+        raise BloxlinkForbidden("I don't have permission to add roles to this user.")
+
+    if add_roles or remove_roles or warnings:
+        embed = hikari.Embed(
+            title="Member Updated",
+        )
+        embed.set_author(
+            name=user_tag,
+            icon=avatar_url,
+            url=roblox_account.profile_link if roblox_account else None,
+        )
+
+        if add_roles:
+            embed.add_field(name="Added Roles", value=",".join([r.mention for r in add_roles]))
+
+        if remove_roles:
+            embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
+
+        if applied_nickname:
+            embed.add_field(name="Nickname Changed", value=applied_nickname)
+
+        if warnings:
+            embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
+
+    else:
+        embed = hikari.Embed(description="No binds apply to you!")
+
+    return embed
+
+
 class RestrictionResponse:
     def __init__(
         self,
@@ -426,244 +631,6 @@ async def _check_premium_restrictions(
             return RestrictionResponse(True, None, "disallowAlts")
 
 
-async def apply_binds(
-    member: hikari.Member | dict,
-    guild_id: hikari.Snowflake,
-    roblox_account: users.RobloxAccount = None,
-    *,
-    moderate_user=False,
-) -> hikari.Embed:
-    if roblox_account and roblox_account.groups is None:
-        await roblox_account.sync(["groups"])
-
-    guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
-
-    role_ids = []
-    member_id = None
-    username = ""
-    nickname = ""
-    avatar_url = ""
-    user_tag = ""
-
-    if isinstance(member, hikari.Member):
-        role_ids = member.role_ids
-        member_id = member.id
-        username = member.username
-        nickname = member.nickname
-        avatar_url = member.display_avatar_url.url
-        user_tag = f"{username}#{member.discriminator}"
-
-    elif isinstance(member, dict):
-        role_ids = member.get("role_ids", [])
-        member_id = member.get("id")
-        username = member.get("username", None)
-
-        if not username:
-            username = member.get("name", "")
-
-        nickname = member.get("nickname", "")
-        avatar_url = member.get("avatar_url", "")
-        user_tag = f"{username}#{member.get('discriminator')}"
-
-    member_roles: dict = {}
-
-    for member_role_id in role_ids:
-        if role := guild.roles.get(member_role_id):
-            member_roles[role.id] = {
-                "id": role.id,
-                "name": role.name,
-                "managed": bool(role.bot_id) and role.name != "@everyone",
-            }
-
-    if moderate_user:
-        restrict_result = await _check_guild_restrictions(
-            guild_id,
-            {
-                "id": member_id,
-                "roles": member_roles,
-                "account": roblox_account,
-            },
-        )
-
-        print(restrict_result)
-        await restrict_result.handle_restriction(guild, member_id)
-
-        if restrict_result.restricted and restrict_result.restriction != "disallowAlts":
-            return hikari.Embed(description="User could not be updated because of a restriction.")
-
-    user_binds, user_binds_response = await fetch(
-        "POST",
-        f"{BOT_API}/binds/{member_id}",
-        headers={"Authorization": BOT_API_AUTH},
-        body={
-            "guild": {
-                "id": guild.id,
-                "roles": [
-                    {"id": r.id, "name": r.name, "managed": bool(r.bot_id) and r.name != "@everyone"}
-                    for r in guild.roles.values()
-                ],
-            },
-            "member": {"id": member_id, "roles": member_roles},
-            "roblox_account": roblox_account.to_dict() if roblox_account else None,
-        },
-    )
-
-    if user_binds_response.status == 200:
-        user_binds = user_binds["binds"]
-    else:
-        raise Message("Something went wrong getting this user's relevant bindings!")
-
-    # first apply the required binds, then ask the user if they want to apply the optional binds
-
-    # add_roles:    set = set() # used exclusively for display purposes
-    add_roles: list[hikari.Role] = []
-    remove_roles: list[hikari.Role] = []
-    possible_nicknames: list[list[hikari.Role | str]] = []
-    warnings: list[str] = []
-    chosen_nickname = None
-    applied_nickname = None
-
-    for required_bind in user_binds["required"]:
-        # find valid roles from the server
-
-        for bind_add_id in required_bind[1]:
-            if role := guild.roles.get(int(bind_add_id)):
-                add_roles.append(role)
-
-                if required_bind[3]:
-                    possible_nicknames.append([role, required_bind[3]])
-
-        for bind_remove_id in required_bind[2]:
-            if role := guild.roles.get(bind_remove_id):
-                remove_roles.append(role)
-
-    # real_add_roles = add_roles
-
-    # remove_roles   = remove_roles.difference(add_roles) # added roles get priority
-    # real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
-
-    # if real_add_roles or remove_roles:
-    #     await bloxlink.edit_user_roles(member, guild_id, add_roles=real_add_roles, remove_roles=remove_roles)
-
-    if possible_nicknames:
-        if len(possible_nicknames) == 1:
-            chosen_nickname = possible_nicknames[0][1]
-        else:
-            # get highest role with a nickname
-            highest_role = sorted(possible_nicknames, key=lambda e: e[0].position, reverse=True)
-
-            if highest_role:
-                chosen_nickname = highest_role[0][1]
-
-        if chosen_nickname:
-            chosen_nickname_http, nickname_response = await fetch(
-                "GET",
-                f"{BOT_API}/nickname/parse/",
-                headers={"Authorization": BOT_API_AUTH},
-                body={
-                    "user_data": {"name": username, "nick": nickname, "id": member_id},
-                    "guild_id": guild.id,
-                    "guild_name": guild.name,
-                    "roblox_account": roblox_account.to_dict() if roblox_account else None,
-                    "template": chosen_nickname,
-                },
-            )
-
-            if nickname_response.status == 200:
-                chosen_nickname = chosen_nickname_http["nickname"]
-            else:
-                raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
-
-            if str(guild.owner_id) == str(member_id):
-                warnings.append(
-                    f"Since you're the Server Owner, I cannot modify your nickname.\nNickname: {chosen_nickname}"
-                )
-            else:
-                try:
-                    await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
-
-                except hikari.errors.ForbiddenError:
-                    warnings.append("I don't have permission to change the nickname of this user.")
-
-                else:
-                    applied_nickname = chosen_nickname
-
-    try:
-        if add_roles or remove_roles:
-            # since this overwrites their roles, we need to add in their current roles
-            # then, we remove the remove_roles from the set
-            await bloxlink.rest.edit_member(
-                guild_id,
-                member_id,
-                roles=set(getattr(r, "id", r) for r in add_roles + role_ids).difference(
-                    [r.id for r in remove_roles]
-                ),
-            )
-
-    except hikari.errors.ForbiddenError:
-        raise BloxlinkForbidden("I don't have permission to add roles to this user.")
-
-    if add_roles or remove_roles or warnings:
-        embed = hikari.Embed(
-            title="Member Updated",
-        )
-        embed.set_author(
-            name=user_tag,
-            icon=avatar_url,
-            url=roblox_account.profile_link if roblox_account else None,
-        )
-
-        if add_roles:
-            embed.add_field(name="Added Roles", value=",".join([r.mention for r in add_roles]))
-
-        if remove_roles:
-            embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
-
-        if applied_nickname:
-            embed.add_field(name="Nickname Changed", value=applied_nickname)
-
-        if warnings:
-            embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
-
-    else:
-        embed = hikari.Embed(description="No binds apply to you!")
-
-    return embed
-
-
-def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
-    binds = []
-
-    if id_filter:
-        id_filter = (
-            None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else str(id_filter)
-        )
-
-    for bind in bind_list:
-        bind_data = bind.get("bind")
-        bind_type = bind_data.get("type")
-
-        if category and bind_type != category:
-            continue
-
-        if id_filter and str(bind_data.get("id")) != id_filter:
-            continue
-
-        if bind_type == "group":
-            classed_bind = GroupBind(**bind)
-        elif bind_type:
-            classed_bind = GuildBind(**bind)
-        else:
-            raise BloxlinkException("Invalid bind structure found.")
-
-        binds.append(classed_bind)
-
-    bind_list = list(binds)
-    if id_filter is not None:
-        bind_list.sort(key=lambda e: e.id)
-    return bind_list
-
-
 @dataclass(slots=True)
 class GuildBind:
     nickname: str = None
@@ -711,6 +678,39 @@ class GroupBind(GuildBind):
             return "linked_group"
         else:
             return "group_roles"
+
+
+def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
+    binds = []
+
+    if id_filter:
+        id_filter = (
+            None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else str(id_filter)
+        )
+
+    for bind in bind_list:
+        bind_data = bind.get("bind")
+        bind_type = bind_data.get("type")
+
+        if category and bind_type != category:
+            continue
+
+        if id_filter and str(bind_data.get("id")) != id_filter:
+            continue
+
+        if bind_type == "group":
+            classed_bind = GroupBind(**bind)
+        elif bind_type:
+            classed_bind = GuildBind(**bind)
+        else:
+            raise BloxlinkException("Invalid bind structure found.")
+
+        binds.append(classed_bind)
+
+    bind_list = list(binds)
+    if id_filter is not None:
+        bind_list.sort(key=lambda e: e.id)
+    return bind_list
 
 
 def join_bind_strings(strings: list) -> str:
