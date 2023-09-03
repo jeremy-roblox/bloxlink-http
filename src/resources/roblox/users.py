@@ -162,6 +162,7 @@ class RobloxAccount(PartialMixin):
             group: groups.RobloxGroup = groups.RobloxGroup(
                 id=str(group_meta["id"]),
                 name=group_meta["name"],
+                user_roleset=group_role,
             )  # seems redundant, but this is so we can switch the endpoint and retain consistency
             await group.sync()
             self.groups[group.id] = group

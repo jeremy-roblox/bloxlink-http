@@ -15,6 +15,7 @@ ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
 class RobloxGroup(PartialMixin, RobloxEntity):
     member_count: int = None
     rolesets: dict[int, str] = None
+    user_roleset: dict = None
 
     async def sync(self):
         """Retrieve the roblox group information, consisting of rolesets, name, description, and member count."""
