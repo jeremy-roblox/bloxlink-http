@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -7,13 +8,19 @@ from typing import Literal
 import hikari
 
 import resources.roblox.users as users
-from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
+from resources.constants import (
+    GROUP_RANK_CRITERIA_TEXT,
+    RED_COLOR,
+    REPLY_CONT,
+    REPLY_EMOTE,
+)
 from resources.exceptions import (
     BloxlinkException,
     BloxlinkForbidden,
     Message,
     RobloxAPIError,
     RobloxNotFound,
+    UserNotVerified,
 )
 from resources.roblox.groups import RobloxGroup
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
@@ -183,6 +190,7 @@ async def apply_binds(
     avatar_url = ""
     user_tag = ""
 
+    # Get necessary use information.
     if isinstance(member, hikari.Member):
         role_ids = member.role_ids
         member_id = member.id
@@ -204,7 +212,6 @@ async def apply_binds(
         user_tag = f"{username}#{member.get('discriminator')}"
 
     member_roles: dict = {}
-
     for member_role_id in role_ids:
         if role := guild.roles.get(member_role_id):
             member_roles[role.id] = {
@@ -213,6 +220,16 @@ async def apply_binds(
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
 
+    # add_roles:    set = set() # used exclusively for display purposes
+    add_roles: list[hikari.Role] = []
+    remove_roles: list[hikari.Role] = []
+    possible_nicknames: list[list[hikari.Role | str]] = []
+    warnings: list[str] = []
+    chosen_nickname = None
+    applied_nickname = None
+
+    # Handle restrictions.
+    restrict_result = None
     if moderate_user:
         restrict_result = await _check_guild_restrictions(
             guild_id,
@@ -223,12 +240,20 @@ async def apply_binds(
             },
         )
 
-        print(restrict_result)
-        await restrict_result.handle_restriction(guild, member_id)
+    if restrict_result is not None:
+        await restrict_result.moderate(member_id, guild)
 
-        if restrict_result.restricted and restrict_result.restriction != "disallowAlts":
-            return hikari.Embed(description="User could not be updated because of a restriction.")
+        if restrict_result.removed:
+            return restrict_result.prompt(guild.name)
 
+        if restrict_result.restriction == "disallowAlts":
+            warnings.append(
+                "This server does not allow alt accounts, because of this your other accounts have "
+                "been kicked from this server."
+            )
+
+    # TODO: Add restricted flag so that way only the unverified role is given if a user is restricted.
+    # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
     user_binds, user_binds_response = await fetch(
         "POST",
         f"{BOT_API}/binds/{member_id}",
@@ -252,14 +277,6 @@ async def apply_binds(
         raise Message("Something went wrong getting this user's relevant bindings!")
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
-
-    # add_roles:    set = set() # used exclusively for display purposes
-    add_roles: list[hikari.Role] = []
-    remove_roles: list[hikari.Role] = []
-    possible_nicknames: list[list[hikari.Role | str]] = []
-    warnings: list[str] = []
-    chosen_nickname = None
-    applied_nickname = None
 
     for required_bind in user_binds["required"]:
         # find valid roles from the server
@@ -337,9 +354,11 @@ async def apply_binds(
                     [r.id for r in remove_roles]
                 ),
             )
-
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.")
+
+    if restrict_result is not None and not restrict_result.removed:
+        return restrict_result.prompt(guild.name)
 
     if add_roles or remove_roles or warnings:
         embed = hikari.Embed(
@@ -369,90 +388,174 @@ async def apply_binds(
     return embed
 
 
-class RestrictionResponse:
-    def __init__(
-        self,
-        restricted: bool,
-        action: Literal = Literal["kick", "ban", None],
-        restriction: Literal = Literal["ageLimit", "disallowAlts", "disallowBanEvaders", "groupLock", None],
-        user_message: str | None = None,
-    ) -> None:
-        self.restricted = restricted
-        self.action = action
-        self.restriction = restriction
-        self.message = user_message
+@dataclass
+class Restriction:
+    removed: bool = False
+    action: str | None = Literal["kick", "ban", "dm", None]
+    restriction: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
+    metadata: dict = default_field({"unverified": True})
 
-    def __repr__(self) -> str:
-        return (
-            f"RestrictionResponse - restricted: {self.restricted}, "
-            f"action: {self.action}, restriction: {self.restriction}, "
-            f"user message: {self.message}"
-        )
+    def prompt(self, guild_name: str) -> hikari.Embed:
+        """Return an Embed describing why the user was restricted.
 
-    def _build_message(self, guild: hikari.RESTGuild):
-        title = None
-        if self.action is not None:
-            participle = "kicked" if self.action == "kick" else "banned"
-            title = f"You have been {participle} from **{guild.name}**"
+        This prompt will be either DM'd to users or sent in replacement of the typical
+        verification success message.
+        The only time it is not sent for a restriction is for the disallowAlts restriction, where instead
+        a reason will be appended to the success embed as a warning.
 
-        description = ""
-        match self.restriction:
-            case "ageLimit":
-                predicate = "your" if self.message.startswith("Roblox") else "you're"
-                description = f"{predicate} {self.message}."
+        Args:
+            guild_name (str): Name of the guild that the user was trying to verify in.
 
-            case "disallowAlts":
-                description = (
-                    "this server does not allow multiple Discord accounts to be linked "
-                    "to a single Roblox account, because of this your "
-                    "other accounts in this server have been kicked."
-                )
+        Returns:
+            hikari.Embed: User-facing embed.
+        """
+        embed = hikari.Embed()
 
-            case "disallowBanEvaders":
-                description = f"you {self.message}."
+        embed.set_author(name=f"You could not be verified in {guild_name.capitalize()}!")
 
-            case "groupLock":
-                description = f"you are {self.message}."
+        unverified: bool = self.metadata["unverified"]
+        description = "You are not verified with Bloxlink!"
 
-            case _:
-                description = "No matching restriction found.   "
+        try:
+            if unverified:
+                raise UserNotVerified()
 
-        if self.action is None and title is not None:
-            return (
-                f"You could not be verified in **{guild.name}** because {description}."
-                "To fix this head to [the Bloxlink website](https://www.blox.link/dashboard/user/verifications/verify) "
-                "and verify your account!"
-            )
-        elif title is None:
-            return description.capitalize()
-        else:
-            return f"{title} because {description}"
+            match self.restriction:
+                case "ageLimit":
+                    age_limit_data = self.metadata["ageLimit"]
+                    description = (
+                        "Your linked Roblox account is not old enough to verify in this server!\n"
+                        f"Your account needs to be {age_limit_data[0]} days old, "
+                        f"and is only {age_limit_data[1]} days old."
+                    )
 
-    async def handle_restriction(self, guild: hikari.RESTGuild, user_id: int):
-        if not self.restricted:
+                case "groupLock":
+                    group: RobloxGroup = self.metadata["group"]
+                    roleset_restriction = self.metadata["roleset"]
+                    dm_message = self.metadata["dmMessage"]
+
+                    if roleset_restriction:
+                        description = (
+                            "You are not the required rank in "
+                            f"[{group.name}](https://www.roblox.com/groups/{group.id})!"
+                        )
+                    else:
+                        description = (
+                            "This server requires that you join "
+                            f"[{group.name}](https://www.roblox.com/groups/{group.id}) "
+                            "before you can verify!"
+                        )
+
+                    if dm_message:
+                        description += f"\nMessage from the server admins:\n>>> *{dm_message}*"
+
+                case "disallowAlts":
+                    # unused?
+                    description = (
+                        "This server allows you be verified to one Discord account at a time."
+                        "Because of this your other accounts linked to your Roblox account have been kicked"
+                        "from this server."
+                    )
+
+                case "banEvader":
+                    description = "You have been removed because you are evading a ban in this server."
+
+        except UserNotVerified:
+            pass
+
+        embed.color = RED_COLOR
+        embed.description = description
+
+        return embed
+
+    async def moderate(self, user_id: int, guild: hikari.Guild):
+        """DM, Kick, or Ban a user based on the determined restriction.
+
+        Args:
+            user_id (int): ID of the user to moderate.
+            guild (hikari.Guild): The guild that the user is verifying in.
+        """
+        if self.removed or self.action is None or self.restriction is None:
             return
 
-        message = self._build_message(guild)
+        prompt = self.prompt(guild.name)
         try:
-            print(self.restriction)
-            if self.restriction is not None:
+            # Only DM if the user is being kicked or banned.
+            if self.action != "dm":
                 channel = await bloxlink.rest.create_dm_channel(user_id)
-                await channel.send(message)
+                await channel.send(embed=prompt)
 
         except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
-            print(e)
-            pass
+            logging.warning(e)
 
         try:
+            log_reason = self._log_reason()
             if self.action == "kick":
-                await bloxlink.rest.kick_user(guild.id, user_id, reason="hur dur")
+                await bloxlink.rest.kick_user(guild.id, user_id, reason=log_reason)
             elif self.action == "ban":
-                await bloxlink.rest.ban_user(guild.id, user_id, reason="hurt durr part 2")
+                await bloxlink.rest.ban_user(guild.id, user_id, reason=log_reason)
+
         except (hikari.ForbiddenError, hikari.NotFoundError):
             pass
+        else:
+            if self.action != "dm":
+                self.removed = True
+
+    def _log_reason(self) -> str:
+        """Generate a string for the audit log entry when a user is kicked or banned.
+
+        Returns:
+            str: The resulting audit log string.
+        """
+        response: str = f"RESTRICTED: {self.restriction}, "
+
+        unverified: bool = self.metadata["unverified"]
+        description = "Not verified with Bloxlink."
+
+        try:
+            if unverified:
+                raise UserNotVerified()
+
+            match self.restriction:
+                case "ageLimit":
+                    age_limit_data = self.metadata["ageLimit"]
+                    description = (
+                        "User's Roblox account does not meet the agelimit. "
+                        f"{age_limit_data[1]} < {age_limit_data[0]} days."
+                    )
+
+                case "groupLock":
+                    group: RobloxGroup = self.metadata["group"]
+                    roleset_restriction = self.metadata["roleset"]
+
+                    if roleset_restriction:
+                        description = f"User is not the required rank in the group {str(group)}"
+                    else:
+                        description = f"User is not in the group {str(group)}"
+
+                case "banEvader":
+                    banned_id = self.metadata["banned_user"]
+                    description = f"User is an alt of the banned account {banned_id}"
+
+                case _:
+                    description = "User matched a restriction."
+        except UserNotVerified:
+            pass
+
+        return response + description
 
 
-async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict) -> RestrictionResponse:
+async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict) -> Restriction | None:
+    """Check if a user should be kept from verifying in this guild_id.
+
+    Args:
+        guild_id (hikari.Snowflake): ID of the guild that the user is verifying in.
+        user_info (dict): Information of the user
+            Expected to have "id": the user id, and "account" which is a RobloxAccount.
+
+    Returns:
+        Restriction | None: Restriction info if the user should be restricted.
+    """
     guild_data = await bloxlink.fetch_guild_data(
         guild_id,
         "ageLimit",
@@ -485,14 +588,13 @@ async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict)
 
     if guild_data.ageLimit:
         if not user_acc:
-            return RestrictionResponse(True, "kick", "ageLimit", "not verified with Bloxlink")
+            return Restriction(action="kick", restriction="ageLimit", metadata={"unverified": True})
 
         if user_acc.age_days < guild_data.ageLimit:
-            return RestrictionResponse(
-                True,
-                "kick",
-                "ageLimit",
-                f"Roblox account is less than {guild_data.ageLimit} days old ({user_acc.age_days})",
+            return Restriction(
+                action="kick",
+                restriction="ageLimit",
+                metadata={"unverified": False, "ageLimit": (guild_data.ageLimit, user_acc.age_days)},
             )
 
     if guild_data.groupLock:
@@ -501,11 +603,10 @@ async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict)
                 g.get("unverifiedAction", "kick") == "kick" for g in guild_data.groupLock.values()
             )
 
-            return RestrictionResponse(
-                True,
-                "kick" if kick_unverified else None,
-                "groupLock",
-                f"not verified with Bloxlink",
+            return Restriction(
+                action="kick" if kick_unverified else "dm",
+                restriction="groupLock",
+                metadata={"unverified": True},
             )
 
         if user_acc.groups is None:
@@ -516,19 +617,16 @@ async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict)
             required_rolesets = group_data.get("roleSets")
 
             dm_message = group_data.get("dmMessage")
-            if dm_message:
-                dm_message = f"\n\nThis is a message from the server:\n>>> {dm_message}"
 
             group_match: RobloxGroup = user_acc.groups.get(group_id)
             group = group_match if group_match is not None else RobloxGroup(group_id)
             await group.sync()
 
             if group_match is None:
-                return RestrictionResponse(
-                    True,
-                    "kick" if action != "dm" else None,
-                    "groupLock",
-                    f"not in the group {str(group)}{f'. {dm_message}' if dm_message else ''}",
+                return Restriction(
+                    action=action,
+                    restriction="groupLock",
+                    metadata={"unverified": False, "group": group, "dmMessage": dm_message, "roleset": False},
                 )
 
             user_roleset = group_match.user_roleset["rank"]
@@ -543,17 +641,11 @@ async def _check_guild_restrictions(guild_id: hikari.Snowflake, user_info: dict)
                         break
             else:
                 # no match was found - restrict the user.
-                return RestrictionResponse(
-                    True,
-                    "kick" if action != "dm" else None,
-                    "groupLock",
-                    (
-                        f"not the required rank in the group {str(group)}"
-                        f"{f'. {dm_message}' if dm_message else ''}"
-                    ),
+                return Restriction(
+                    action=action,
+                    restriction="groupLock",
+                    metadata={"unverified": False, "group": group, "dmMessage": dm_message, "roleset": True},
                 )
-
-    return RestrictionResponse(False, None, None)
 
 
 async def _check_premium_restrictions(
@@ -562,7 +654,7 @@ async def _check_premium_restrictions(
     user_id: int,
     guild_id: int,
     user_accounts: list,
-) -> RestrictionResponse | None:
+) -> Restriction | None:
     """Check for alts and ban evaders within a server for a user.
 
     Args:
@@ -573,7 +665,7 @@ async def _check_premium_restrictions(
         user_accounts (list): Roblox accounts linked to this user_id
 
     Returns:
-        RestrictionResponse | None: Restriction info if the user is ban evading or an alt account
+        Restriction | None: Restriction info if the user is ban evading or an alt account
             was found.
     """
     if not check_alts and (not check_ban_evaders or check_ban_evaders is None):
@@ -617,18 +709,18 @@ async def _check_premium_restrictions(
             except hikari.ForbiddenError:
                 continue
             else:
-                return RestrictionResponse(
-                    True,
-                    "ban",
-                    "disallowBanEvaders",
-                    (
-                        f"share a linked Roblox account with a Discord account ({user}) "
-                        "that is banned in this server."
-                    ),
+                return Restriction(
+                    action="ban",
+                    restriction="banEvader",
+                    metadata={"unverified": False, "banned_user": user},
                 )
 
         if alts_found:
-            return RestrictionResponse(True, None, "disallowAlts")
+            return Restriction(
+                action="dm",
+                restriction="disallowAlts",
+                metadata={"unverified": False},
+            )
 
 
 @dataclass(slots=True)
