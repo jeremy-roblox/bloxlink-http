@@ -178,6 +178,26 @@ async def apply_binds(
     *,
     moderate_user=False,
 ) -> hikari.Embed:
+    """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
+
+    Args:
+        member (hikari.Member | dict): Information of the member being updated.
+            For dicts, the valid keys are as follows:
+            "role_ids", "id", "username" (or "name"), "nickname", "avatar_url"
+        guild_id (hikari.Snowflake): The ID of the guild where the user is being updated.
+        roblox_account (users.RobloxAccount, optional): The linked account of the user if one exists. May
+            or may not be their primary account, could be a guild-specific link. Defaults to None.
+        moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
+            ban evasion, alt detection) apply to this user. Defaults to False.
+
+    Raises:
+        Message: Raised if there was an issue getting a server's bindings.
+        RuntimeError: Raised if the nickname endpoint on the bot API encountered an issue.
+        BloxlinkForbidden: Raised when Bloxlink does not have permissions to give roles to a user.
+
+    Returns:
+        hikari.Embed: The embed that will be shown to the user.
+    """
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
@@ -190,7 +210,7 @@ async def apply_binds(
     avatar_url = ""
     user_tag = ""
 
-    # Get necessary use information.
+    # Get necessary user information.
     if isinstance(member, hikari.Member):
         role_ids = member.role_ids
         member_id = member.id
