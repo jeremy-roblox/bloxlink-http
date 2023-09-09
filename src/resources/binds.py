@@ -272,7 +272,9 @@ async def apply_binds(
                 "been kicked from this server."
             )
 
-    restricted_flag = False if (restrict_result is None or restrict_result.restriction == "disallowAlts") else True
+    restricted_flag = (
+        False if (restrict_result is None or restrict_result.restriction == "disallowAlts") else True
+    )
 
     # TODO: Add restricted flag so that way only the unverified role is given if a user is restricted.
     # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
@@ -290,7 +292,7 @@ async def apply_binds(
             },
             "member": {"id": member_id, "roles": member_roles},
             "roblox_account": roblox_account.to_dict() if roblox_account else None,
-            "restricted": restricted_flag
+            "restricted": restricted_flag,
         },
     )
 
