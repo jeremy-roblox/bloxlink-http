@@ -1,7 +1,7 @@
 import hikari
 
-from resources.binds import GuildBind
 from resources.bloxlink import instance as bloxlink
+from resources.models import GuildBind
 
 
 async def bind_category_autocomplete(interaction: hikari.AutocompleteInteraction):
