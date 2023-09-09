@@ -14,6 +14,8 @@ from resources.roblox.groups import RobloxGroup
 
 @dataclass
 class Restriction:
+    """Representation of how a restriction applies to a user, if at all."""
+
     removed: bool = False
     action: str | None = Literal["kick", "ban", "dm", None]
     restriction: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
