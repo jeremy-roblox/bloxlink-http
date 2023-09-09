@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Literal
 
 import hikari
 
+import resources.restriction as restriction
 import resources.roblox.users as users
+from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import (
     BloxlinkException,
@@ -15,12 +16,9 @@ from resources.exceptions import (
     RobloxAPIError,
     RobloxNotFound,
 )
-from resources.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.secrets import BOT_API, BOT_API_AUTH
-
-from .bloxlink import instance as bloxlink
-from .models import GuildData, default_field
-from .utils import fetch
+from resources.models import EmbedPrompt, GroupBind, GuildBind, GuildData
+from resources.secrets import BOT_API, BOT_API_AUTH  # pylint: disable=E0611
+from resources.utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
@@ -169,7 +167,28 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
-) -> hikari.Embed:
+) -> EmbedPrompt:
+    """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
+
+    Args:
+        member (hikari.Member | dict): Information of the member being updated.
+            For dicts, the valid keys are as follows:
+            "role_ids", "id", "username" (or "name"), "nickname", "avatar_url"
+        guild_id (hikari.Snowflake): The ID of the guild where the user is being updated.
+        roblox_account (users.RobloxAccount, optional): The linked account of the user if one exists. May
+            or may not be their primary account, could be a guild-specific link. Defaults to None.
+        moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
+            ban evasion, alt detection) apply to this user. Defaults to False.
+
+    Raises:
+        Message: Raised if there was an issue getting a server's bindings.
+        RuntimeError: Raised if the nickname endpoint on the bot API encountered an issue.
+        BloxlinkForbidden: Raised when Bloxlink does not have permissions to give roles to a user.
+
+    Returns:
+        EmbedPrompt: The embed that will be shown to the user, may or may not include the components that
+            will be shown, depending on if the user is restricted or not.
+    """
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
@@ -182,6 +201,7 @@ async def apply_binds(
     avatar_url = ""
     user_tag = ""
 
+    # Get necessary user information.
     if isinstance(member, hikari.Member):
         role_ids = member.role_ids
         member_id = member.id
@@ -203,7 +223,6 @@ async def apply_binds(
         user_tag = f"{username}#{member.get('discriminator')}"
 
     member_roles: dict = {}
-
     for member_role_id in role_ids:
         if role := guild.roles.get(member_role_id):
             member_roles[role.id] = {
@@ -212,6 +231,43 @@ async def apply_binds(
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
 
+    # add_roles:    set = set() # used exclusively for display purposes
+    add_roles: list[hikari.Role] = []
+    remove_roles: list[hikari.Role] = []
+    possible_nicknames: list[list[hikari.Role | str]] = []
+    warnings: list[str] = []
+    chosen_nickname = None
+    applied_nickname = None
+
+    # Handle restrictions.
+    restrict_result = None
+    if moderate_user:
+        restrict_result = await restriction.check_guild_restrictions(
+            guild_id,
+            {
+                "id": member_id,
+                "roles": member_roles,
+                "account": roblox_account,
+            },
+        )
+
+    if restrict_result is not None:
+        await restrict_result.moderate(member_id, guild)
+
+        if restrict_result.removed:
+            return restrict_result.prompt(guild.name)
+
+        if restrict_result.restriction == "disallowAlts":
+            warnings.append(
+                "This server does not allow alt accounts, because of this your other accounts have "
+                "been kicked from this server."
+            )
+
+    restricted_flag = (
+        False if (restrict_result is None or restrict_result.restriction == "disallowAlts") else True
+    )
+
+    # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
     user_binds, user_binds_response = await fetch(
         "POST",
         f"{BOT_API}/binds/{member_id}",
@@ -226,6 +282,7 @@ async def apply_binds(
             },
             "member": {"id": member_id, "roles": member_roles},
             "roblox_account": roblox_account.to_dict() if roblox_account else None,
+            "restricted": restricted_flag,
         },
     )
 
@@ -235,14 +292,6 @@ async def apply_binds(
         raise Message("Something went wrong getting this user's relevant bindings!")
 
     # first apply the required binds, then ask the user if they want to apply the optional binds
-
-    # add_roles:    set = set() # used exclusively for display purposes
-    add_roles: list[hikari.Role] = []
-    remove_roles: list[hikari.Role] = []
-    possible_nicknames: list[list[hikari.Role | str]] = []
-    warnings: list[str] = []
-    chosen_nickname = None
-    applied_nickname = None
 
     for required_bind in user_binds["required"]:
         # find valid roles from the server
@@ -287,6 +336,7 @@ async def apply_binds(
                     "guild_name": guild.name,
                     "roblox_account": roblox_account.to_dict() if roblox_account else None,
                     "template": chosen_nickname,
+                    "restricted": restricted_flag,
                 },
             )
 
@@ -320,9 +370,11 @@ async def apply_binds(
                     [r.id for r in remove_roles]
                 ),
             )
-
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.")
+
+    if restrict_result is not None and not restrict_result.removed:
+        return restrict_result.prompt(guild.name)
 
     if add_roles or remove_roles or warnings:
         embed = hikari.Embed(
@@ -349,7 +401,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return embed
+    return EmbedPrompt(embed, components=[])
 
 
 def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
@@ -383,55 +435,6 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
     if id_filter is not None:
         bind_list.sort(key=lambda e: e.id)
     return bind_list
-
-
-@dataclass(slots=True)
-class GuildBind:
-    nickname: str = None
-    roles: list = default_field(list())
-    removeRoles: list = default_field(list())
-
-    id: int = None
-    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
-    bind: dict = default_field({"type": "", "id": None})
-
-    entity: RobloxEntity = None
-
-    def __post_init__(self):
-        self.id = self.bind.get("id")
-        self.type = self.bind.get("type")
-
-        self.entity = create_entity(self.type, self.id)
-
-
-class GroupBind(GuildBind):
-    min: int = None
-    max: int = None
-    roleset: int = None
-    everyone: bool = None
-    guest: bool = None
-
-    def __post_init__(self):
-        self.min = self.bind.get("min", None)
-        self.max = self.bind.get("max", None)
-        self.roleset = self.bind.get("roleset", None)
-        self.everyone = self.bind.get("everyone", None)
-        self.guest = self.bind.get("guest", None)
-
-        return super().__post_init__()
-
-    @property
-    def subtype(self) -> str:
-        """Returns the type of group bind that this is.
-
-        Returns:
-            str: Either "linked_group" or "group_roles" depending on if there
-                are roles explicitly listed to be given or not.
-        """
-        if not self.roles or self.roles in ("undefined", "null"):
-            return "linked_group"
-        else:
-            return "group_roles"
 
 
 def join_bind_strings(strings: list) -> str:

@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 from typing import Literal
 
 import hikari
@@ -7,14 +6,9 @@ from resources.binds import count_binds, get_bind_desc
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA
 from resources.exceptions import RobloxNotFound
+from resources.models import EmbedPrompt
 from resources.roblox.groups import get_group
 from resources.roblox.roblox_entity import create_entity
-
-
-@dataclass(slots=True)
-class EmbedPrompt:
-    embed: hikari.Embed = hikari.Embed()
-    components: list = field(default_factory=list)
 
 
 async def build_interactive_bind_base(

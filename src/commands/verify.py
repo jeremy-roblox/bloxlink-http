@@ -6,7 +6,7 @@ from resources.models import CommandContext
 
 @bloxlink.command(category="Account", defer=True)
 class VerifyCommand:
-    """link your Roblox account to your Discord account and get your server roles"""
+    """Link your Roblox account to your Discord account and get your server roles."""
 
     async def __main__(self, ctx: CommandContext):
         roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
@@ -14,8 +14,8 @@ class VerifyCommand:
             ctx.member, ctx.guild_id, roblox_account, moderate_user=True
         )
 
-        if not roblox_account:
-            await ctx.response.send("not verified")
-            return
+        # if not roblox_account:
+        #     await ctx.response.send("not verified")
+        #     return
 
-        await ctx.response.send(embed=message_response)
+        await ctx.response.send(embed=message_response.embed, components=message_response.components)

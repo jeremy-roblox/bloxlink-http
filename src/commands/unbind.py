@@ -3,11 +3,11 @@ import json
 import hikari
 
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import GroupBind, GuildBind, delete_bind, json_binds_to_guild_binds
+from resources.binds import delete_bind, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.exceptions import RobloxAPIError
-from resources.models import CommandContext
+from resources.models import CommandContext, GroupBind, GuildBind
 from resources.pagination import Paginator
 
 MAX_BINDS_PER_PAGE = 15

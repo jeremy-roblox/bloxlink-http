@@ -1,20 +1,23 @@
 import copy
-from abc import ABC
 from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import hikari
+
+from resources.roblox.roblox_entity import RobloxEntity, create_entity
 
 from .response import Response
 
 __all__ = (
-    "UserData",
-    "GuildData",
-    "RobloxAccount",
     "CommandContext",
-    "PremiumModel",
+    "EmbedPrompt",
+    "GroupBind",
+    "GuildBind",
+    "GuildData",
     "MISSING",
+    "PremiumModel",
+    "UserData",
 )
 
 
@@ -53,6 +56,11 @@ class GuildData:
     unverifiedRoleEnabled: bool = True
     unverifiedRoleName: str = "Unverified"  # deprecated
     unverifiedRole: str = None
+
+    ageLimit: int = None
+    disallowAlts: bool = None
+    disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
+    groupLock: dict = None
 
     premium: dict = None
 
@@ -97,3 +105,58 @@ class PremiumModel:
 
 class MISSING:
     pass
+
+
+@dataclass(slots=True)
+class EmbedPrompt:
+    embed: hikari.Embed = hikari.Embed()
+    components: list = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class GuildBind:
+    nickname: str = None
+    roles: list = default_field(list())
+    removeRoles: list = default_field(list())
+
+    id: int = None
+    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
+    bind: dict = default_field({"type": "", "id": None})
+
+    entity: RobloxEntity = None
+
+    def __post_init__(self):
+        self.id = self.bind.get("id")
+        self.type = self.bind.get("type")
+
+        self.entity = create_entity(self.type, self.id)
+
+
+class GroupBind(GuildBind):
+    min: int = None
+    max: int = None
+    roleset: int = None
+    everyone: bool = None
+    guest: bool = None
+
+    def __post_init__(self):
+        self.min = self.bind.get("min", None)
+        self.max = self.bind.get("max", None)
+        self.roleset = self.bind.get("roleset", None)
+        self.everyone = self.bind.get("everyone", None)
+        self.guest = self.bind.get("guest", None)
+
+        return super().__post_init__()
+
+    @property
+    def subtype(self) -> str:
+        """Returns the type of group bind that this is.
+
+        Returns:
+            str: Either "linked_group" or "group_roles" depending on if there
+                are roles explicitly listed to be given or not.
+        """
+        if not self.roles or self.roles in ("undefined", "null"):
+            return "linked_group"
+        else:
+            return "group_roles"

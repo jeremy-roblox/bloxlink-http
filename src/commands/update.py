@@ -31,4 +31,4 @@ class UpdateCommand:
             ctx.member, ctx.guild_id, roblox_account, moderate_user=True
         )
 
-        await ctx.response.send(embed=message_response)
+        await ctx.response.send(embed=message_response.embed, components=message_response.components)

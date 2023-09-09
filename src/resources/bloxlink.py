@@ -60,11 +60,23 @@ class Bloxlink(yuyo.AsgiBot):
         except asyncio.TimeoutError as ex:
             raise TimeoutError("No response was recieved.") from ex
 
-    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict:
-        res = await self.relay(
-            "CACHE_LOOKUP", {"query": "guild.member", "data": {"guild_id": guild_id, "user_id": user_id}}
-        )
-        return res["data"]
+    async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict | hikari.Member | None:
+        try:
+            res = await self.relay(
+                "CACHE_LOOKUP",
+                {
+                    "query": "guild.member",
+                    "data": {"guild_id": guild_id, "user_id": user_id},
+                    "fields": list(*fields),
+                },
+            )
+
+            return json.loads(res.get("data").decode("utf-8"))
+        except (RuntimeError, TimeoutError):
+            try:
+                return await self.rest.fetch_member(guild_id, user_id)
+            except hikari.NotFoundError:
+                return None
 
     async def fetch_discord_guild(self, guild_id: int) -> dict:
         res = await self.relay(
@@ -203,6 +215,24 @@ class Bloxlink(yuyo.AsgiBot):
                 for role_id in roles
             ]
         )
+
+    async def reverse_lookup(self, roblox_id: int, origin_id: int | None = None) -> list[str]:
+        """Find Discord IDs linked to a roblox id.
+
+        Args:
+            roblox_id (int): The roblox user ID that will be matched against.
+            origin_id (int | None, optional): Discord user ID that will not be included in the output.
+                Defaults to None.
+
+        Returns:
+            list[str]: All the discord IDs linked to this roblox_id.
+        """
+        cursor = self.mongo.bloxlink["users"].find(
+            {"$or": [{"robloxID": roblox_id}, {"robloxAccounts.accounts": roblox_id}]},
+            {"_id": 1},
+        )
+
+        return [x["_id"] async for x in cursor if str(origin_id) != str(x["_id"])]
 
     @staticmethod
     def load_module(import_name: str) -> None:
