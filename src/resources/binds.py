@@ -16,7 +16,7 @@ from resources.exceptions import (
     RobloxAPIError,
     RobloxNotFound,
 )
-from resources.models import GroupBind, GuildBind, GuildData
+from resources.models import EmbedPrompt, GroupBind, GuildBind, GuildData
 from resources.secrets import BOT_API, BOT_API_AUTH  # pylint: disable=E0611
 from resources.utils import fetch
 
@@ -167,7 +167,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
-) -> hikari.Embed:
+) -> EmbedPrompt:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
     Args:
@@ -186,7 +186,8 @@ async def apply_binds(
         BloxlinkForbidden: Raised when Bloxlink does not have permissions to give roles to a user.
 
     Returns:
-        hikari.Embed: The embed that will be shown to the user.
+        EmbedPrompt: The embed that will be shown to the user, may or may not include the components that
+            will be shown, depending on if the user is restricted or not.
     """
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
@@ -400,7 +401,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return embed
+    return EmbedPrompt(embed, components=[])
 
 
 def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
