@@ -1,6 +1,8 @@
 import hikari
 
+import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
+from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import GuildBind
 
 
@@ -53,3 +55,37 @@ async def bind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
 
     # Due to discord limitations, only return the first 25 choices.
     return interaction.build_response(choices[:25])
+
+
+async def roblox_lookup_autocomplete(interaction: hikari.AutocompleteInteraction):
+    """Return a matching roblox user from a user's input."""
+
+    # Makes sure that we get the correct command input in a generic way
+    option = next(x for x in interaction.options if x.is_focused)
+
+    user_input = str(option.value)
+    if not user_input:
+        return interaction.build_response([])
+
+    user = None
+
+    if user_input.isdigit():
+        try:
+            user = await users.get_user(roblox_id=user_input)
+        except (RobloxNotFound, RobloxAPIError):
+            pass
+
+    # Fallback to parse input as a username if the input was not a valid id.
+    if user is None:
+        try:
+            user = await users.get_user(roblox_username=user_input)
+        except (RobloxNotFound, RobloxAPIError):
+            pass
+
+    result_list = []
+    if user is not None:
+        result_list.append(
+            hikari.impl.AutocompleteChoiceBuilder(f"{user.username} ({user.id})", str(user.id))
+        )
+
+    return interaction.build_response(result_list)
