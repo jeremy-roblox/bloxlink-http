@@ -3,8 +3,9 @@ from hikari import Embed
 from hikari.commands import CommandOption, OptionType
 
 import resources.roblox.users as users
+from resources.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxNotFound
+from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import CommandContext
 
 
@@ -17,18 +18,12 @@ from resources.models import CommandContext
             name="user",
             description="Please specify either a Roblox username or ID to search for.",
             is_required=True,
-        ),
-        CommandOption(
-            type=OptionType.STRING,
-            name="type",
-            description="Are you searching for a username or a roblox ID?",
-            choices=[
-                hikari.CommandChoice(name="Username", value="username"),
-                hikari.CommandChoice(name="ID", value="ID"),
-            ],
-            is_required=True,
+            autocomplete=True,
         ),
     ],
+    autocomplete_handlers={
+        "user": roblox_lookup_autocomplete,
+    },
 )
 class ReverseSearchCommand:
     """Find Discord users in your server that are linked to a certain Roblox account."""
@@ -36,24 +31,24 @@ class ReverseSearchCommand:
     async def __main__(self, ctx: CommandContext):
         guild = ctx.guild_id
         target = ctx.options["user"]
-        search_type = ctx.options["type"]
 
-        username = None if search_type != "username" else target
-        roblox_id = None if search_type != "ID" else target
+        account = None
 
-        if not target.isdigit() and search_type == "ID":
-            await ctx.response.send(
-                "The input you gave is not an ID! Try again with the username option chosen instead."
-            )
-            return
+        if target.isdigit():
+            try:
+                account = await users.get_user(roblox_id=target)
+            except (RobloxNotFound, RobloxAPIError):
+                pass
 
-        try:
-            account = await users.get_user(roblox_username=username, roblox_id=roblox_id)
-        except RobloxNotFound as exc:
-            raise RobloxNotFound(
-                "The Roblox user you were searching for does not exist! "
-                f"Please check the {search_type} and try again!"
-            ) from exc
+        # Fallback to parse input as a username if the input was not a valid id.
+        if account is None:
+            try:
+                account = await users.get_user(roblox_username=target)
+            except (RobloxNotFound, RobloxAPIError) as exc:
+                raise RobloxNotFound(
+                    "The Roblox user you were searching for does not exist! "
+                    f"Please check the input you gave and try again!"
+                ) from exc
 
         if account.id is None or account.username is None:
             raise RobloxNotFound("The Roblox user you were searching for does not exist.")
