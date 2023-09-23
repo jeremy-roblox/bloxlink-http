@@ -1,5 +1,4 @@
 import hikari
-from hikari import Embed
 from hikari.commands import CommandOption, OptionType
 
 import resources.roblox.users as users
@@ -12,6 +11,7 @@ from resources.models import CommandContext
 @bloxlink.command(
     category="Administration",
     defer=True,
+    permissions=hikari.Permissions.MANAGE_GUILD,
     options=[
         CommandOption(
             type=OptionType.STRING,
@@ -69,7 +69,7 @@ class ReverseSearchCommand:
                 user_id = user["data"]["id"]
                 results.append(f"<@{user_id}> ({user_id})")
 
-        embed = Embed(
+        embed = hikari.Embed(
             title=f"Reverse Search for {account.username}",
             description="\n".join(results) if results else "No results found.",
         )
