@@ -57,9 +57,12 @@ class RobloxAccount(PartialMixin):
 
         includes = ",".join(includes)
 
+        id_string = "id" if not self.id else f"id={self.id}"
+        username_string = "username" if not self.username else f"username={self.username}"
+
         user_json_data, user_data_response = await fetch(
             "GET",
-            f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?id={self.id}&include={includes}",
+            f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?{id_string}&{username_string}&include={includes}",
             return_data=ReturnType.JSON,
         )
 
