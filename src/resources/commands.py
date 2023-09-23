@@ -77,6 +77,9 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
         if not command.autocomplete_handlers:
             continue
 
+        if not command.name == interaction.command_name:
+            continue
+
         for command_option in interaction.options:
             if not command_option.is_focused:
                 continue
@@ -84,7 +87,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
             autocomplete_fn = command.autocomplete_handlers.get(command_option.name)
 
             if not autocomplete_fn:
-                logging.error(f"Command {command} has no auto-complete handler {command_option.name}!")
+                logging.error(f'Command {command.name} has no auto-complete handler "{command_option.name}"!')
                 return
 
             return await autocomplete_fn(interaction)
