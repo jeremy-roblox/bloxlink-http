@@ -68,19 +68,10 @@ async def roblox_lookup_autocomplete(interaction: hikari.AutocompleteInteraction
         return interaction.build_response([])
 
     user = None
-
-    if user_input.isdigit():
-        try:
-            user = await users.get_user(roblox_id=user_input)
-        except (RobloxNotFound, RobloxAPIError):
-            pass
-
-    # Fallback to parse input as a username if the input was not a valid id.
-    if user is None:
-        try:
-            user = await users.get_user(roblox_username=user_input)
-        except (RobloxNotFound, RobloxAPIError):
-            pass
+    try:
+        user = await users.get_user_from_string(user_input)
+    except (RobloxNotFound, RobloxAPIError):
+        pass
 
     result_list = []
     if user is not None:

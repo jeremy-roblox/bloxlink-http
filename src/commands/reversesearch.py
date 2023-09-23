@@ -32,23 +32,7 @@ class ReverseSearchCommand:
         guild = ctx.guild_id
         target = ctx.options["user"]
 
-        account = None
-
-        if target.isdigit():
-            try:
-                account = await users.get_user(roblox_id=target)
-            except (RobloxNotFound, RobloxAPIError):
-                pass
-
-        # Fallback to parse input as a username if the input was not a valid id.
-        if account is None:
-            try:
-                account = await users.get_user(roblox_username=target)
-            except (RobloxNotFound, RobloxAPIError) as exc:
-                raise RobloxNotFound(
-                    "The Roblox user you were searching for does not exist! "
-                    f"Please check the input you gave and try again!"
-                ) from exc
+        account = await users.get_user_from_string(target)
 
         if account.id is None or account.username is None:
             raise RobloxNotFound("The Roblox user you were searching for does not exist.")

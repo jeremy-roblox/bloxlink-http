@@ -11,7 +11,7 @@ import resources.binds as binds
 import resources.roblox.groups as groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES
-from resources.exceptions import UserNotVerified
+from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
 from resources.models import PartialMixin, UserData
 from resources.utils import ReturnType, fetch
 
@@ -219,6 +219,43 @@ async def get_user(
         await roblox_account.sync(includes)
 
     return roblox_account
+
+
+async def get_user_from_string(target: str) -> RobloxAccount:
+    """Get a RobloxAccount from a given target string (either an ID or username)
+
+    Args:
+        target (str): Roblox ID or username of the account to sync.
+
+    Raises:
+        RobloxNotFound: When no user is found.
+        *Other exceptions may be raised such as RobloxAPIError from get_user*
+
+    Returns:
+        RobloxAccount: The synced RobloxAccount of the user requested.
+    """
+    account = None
+
+    if target.isdigit():
+        try:
+            account = await get_user(roblox_id=target)
+        except (RobloxNotFound, RobloxAPIError):
+            pass
+
+    # Fallback to parse input as a username if the input was not a valid id.
+    if account is None:
+        try:
+            account = await get_user(roblox_username=target)
+        except RobloxNotFound as exc:
+            raise RobloxNotFound(
+                "The Roblox user you were searching for does not exist! "
+                f"Please check the input you gave and try again!"
+            ) from exc
+
+    if account.id is None or account.username is None:
+        raise RobloxNotFound("The Roblox user you were searching for does not exist.")
+
+    return account
 
 
 async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) -> hikari.Embed:
