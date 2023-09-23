@@ -67,6 +67,7 @@ class RobloxAccount(PartialMixin):
         )
 
         if user_data_response.status == 200:
+            self.id = user_json_data.get("id", self.id)
             self.description = user_json_data.get("description", self.description)
             self.username = user_json_data.get("name", self.name)
             self.banned = user_json_data.get("isBanned", self.banned)
