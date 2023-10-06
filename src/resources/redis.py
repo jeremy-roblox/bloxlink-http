@@ -1,18 +1,21 @@
 import asyncio
 import logging
-import threading
 import time
 
-from redis.asyncio import Redis
+from redis.asyncio import Redis  # pylint: disable=import-error
 
 
 class FutureMessage(asyncio.Future[dict]):
+    """Represents a message from Redis in the future."""
+
     def __init__(self, created_at: int = time.time_ns()) -> None:
         super().__init__()
         self.created_at = created_at
 
 
 class RedisMessageCollector:
+    """Responsible for handling the bot's connection to Redis."""
+
     logger = logging.getLogger("redis.collector")
 
     def __init__(self, redis: Redis):
@@ -22,6 +25,7 @@ class RedisMessageCollector:
         self._listener_task = asyncio.get_event_loop().create_task(self._listen_for_message())
 
     async def _listen_for_message(self):
+        """Listen to messages over pubsub asynchronously"""
         self.logger.debug("Listening for messages.")
         while True:
             if not self.pubsub.subscribed:
@@ -48,6 +52,16 @@ class RedisMessageCollector:
             self._futures.pop(channel)
 
     async def get_message(self, channel: str, timeout: int = 2):
+        """Get a message from the given pubsub channel.
+
+        Args:
+            channel (str): Channel to listen to.
+            timeout (int, optional): Time to wait for a response before the request fails in seconds.
+                Defaults to 2 seconds.
+
+        Raises:
+            TimeoutError: When the channel cannot be subscribed to, or the timeout for a reply is reached.
+        """
         future = self._futures.get(channel, None)
         if future:
             return await future
@@ -58,13 +72,13 @@ class RedisMessageCollector:
         try:
             await asyncio.wait_for(self.pubsub.subscribe(channel), timeout=2)
         except asyncio.TimeoutError:
-            raise TimeoutError(f"Subscription of channel: {channel} took too long!")
+            raise TimeoutError(f"Subscription of channel: {channel} took too long!") from None
 
         self.logger.debug(f"Waiting for {channel}")
         try:
             result = await asyncio.wait_for(future, timeout=timeout)
             return result
-        except asyncio.TimeoutError as ex:
+        except asyncio.TimeoutError:
             # If the future is given a result, the channel is unsubscribed - but here, it is not.
             await self.pubsub.unsubscribe(channel)
-            raise ex
+            raise TimeoutError(f"No response was received on {channel}.") from None
