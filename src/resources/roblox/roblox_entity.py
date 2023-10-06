@@ -5,7 +5,14 @@ from typing import Literal
 
 @dataclass(slots=True)
 class RobloxEntity(ABC):
-    """Representation of an entity on Roblox."""
+    """Representation of an entity on Roblox.
+
+    Attributes:
+        id (str, optional): Roblox given ID of the entity.
+        name (str, optional): Name of the entity.
+        description (str, optional): The description of the entity (if any).
+        synced (bool): If this entity has been synced with Roblox or not. False by default.
+    """
 
     id: str
     name: str = None
@@ -36,21 +43,21 @@ def create_entity(
     """
     match category:
         case "asset":
-            from resources.roblox.assets import RobloxAsset
+            from resources.roblox.assets import RobloxAsset  # pylint: disable=import-outside-toplevel
 
             return RobloxAsset(entity_id)
 
         case "badge":
-            from resources.roblox.badges import RobloxBadge
+            from resources.roblox.badges import RobloxBadge  # pylint: disable=import-outside-toplevel
 
             return RobloxBadge(entity_id)
 
         case "gamepass":
-            from resources.roblox.gamepasses import RobloxGamepass
+            from resources.roblox.gamepasses import RobloxGamepass  # pylint: disable=import-outside-toplevel
 
             return RobloxGamepass(entity_id)
 
         case "group":
-            from resources.roblox.groups import RobloxGroup
+            from resources.roblox.groups import RobloxGroup  # pylint: disable=import-outside-toplevel
 
             return RobloxGroup(entity_id)

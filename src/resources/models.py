@@ -5,9 +5,8 @@ from typing import Any, Literal
 
 import hikari
 
+from resources.response import Response
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
-
-from .response import Response
 
 __all__ = (
     "CommandContext",
@@ -39,6 +38,14 @@ class PartialMixin:
 
 @dataclass(slots=True)
 class UserData(PartialMixin):
+    """Representation of a User's data in Bloxlink
+
+    Attributes:
+        id (int): The Discord ID of the user.
+        robloxID (str): The roblox ID of the user's primary account.
+        robloxAccounts (dict): All of the user's linked accounts, and any guild specific verifications.
+    """
+
     id: int
     robloxID: str = None
     robloxAccounts: dict = default_field({"accounts": [], "guilds": {}})
@@ -46,6 +53,8 @@ class UserData(PartialMixin):
 
 @dataclass(slots=True)
 class GuildData:
+    """Representation of the stored settings for a guild"""
+
     id: int
     binds: list = default_field([])  # FIXME
 
@@ -67,6 +76,21 @@ class GuildData:
 
 @dataclass(slots=True)
 class CommandContext:
+    """Data related to a command that has been run.
+
+    Attributes:
+        command_name (str): The name of the command triggered.
+        command_id (int): The ID of the command triggered.
+        guild_id (int): The name of the command triggered.
+        member (hikari.InteractionMember): The member that triggered this command.
+        user (hikari.User): The user that triggered this command.
+        resolved (hikari.ResolvedOptionData): Data of entities mentioned in command arguments that are
+            resolved by Discord.
+        options (dict): The options/arguments passed by the user to this command.
+        interaction (hikari.CommandInteraction): The interaction object from Discord.
+        response (Response): Bloxlink's wrapper for handling initial response sending.
+    """
+
     command_name: str
     command_id: int
     guild_id: int
@@ -104,17 +128,35 @@ class PremiumModel:
 
 
 class MISSING:
-    pass
+    """UNUSED: Used to represent some missing datatype."""
 
 
 @dataclass(slots=True)
 class EmbedPrompt:
+    """Represents a prompt consisting of an embed & components for the message."""
+
     embed: hikari.Embed = hikari.Embed()
     components: list = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class GuildBind:
+    """Represents a binding from the database.
+
+    Post init it should be expected that the id, type, and entity types are not None.
+
+    Attributes:
+        nickname (str, optional): The nickname template to be applied to users. Defaults to None.
+        roles (list): The IDs of roles that should be given by this bind.
+        removeRole (list): The IDs of roles that should be removed when this bind is given.
+
+        id (int, optional): The ID of the entity for this binding. Defaults to None.
+        type (Literal[group, asset, gamepass, badge]): The type of binding this is representing.
+        bind (dict): The raw data that the database stores for this binding.
+
+        entity (RobloxEntity, optional): The entity that this binding represents. Defaults to None.
+    """
+
     nickname: str = None
     roles: list = default_field(list())
     removeRoles: list = default_field(list())
@@ -133,6 +175,20 @@ class GuildBind:
 
 
 class GroupBind(GuildBind):
+    """Represents additional attributes that only apply to group binds.
+
+    Except for min and max (which are used for ranges), only one attribute should be considered to be
+    not None at a time.
+
+    Attributes:
+        min (int, optional): The minimum rank that this bind applies to. Defaults to None.
+        max (int, optional): The maximum rank that this bind applies to. Defaults to None.
+        roleset (int, optional): The specific rank that this bind applies to. Defaults to None.
+            Can be negative (in legacy format) to signify that specific rank and higher.
+        everyone (bool, optional): Does this bind apply to everyone. Defaults to None.
+        guest (bool, optional): Does this bind apply to guests. Defaults to None.
+    """
+
     min: int = None
     max: int = None
     roleset: int = None
@@ -150,10 +206,10 @@ class GroupBind(GuildBind):
 
     @property
     def subtype(self) -> str:
-        """Returns the type of group bind that this is.
+        """The specific type of this group bind.
 
         Returns:
-            str: Either "linked_group" or "group_roles" depending on if there
+            str: "linked_group" or "group_roles" depending on if there
                 are roles explicitly listed to be given or not.
         """
         if not self.roles or self.roles in ("undefined", "null"):

@@ -2,15 +2,16 @@ from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import PartialMixin
+from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
-
-from .roblox_entity import RobloxEntity
 
 BADGE_API = "https://badges.roblox.com/v1/badges"
 
 
 @dataclass(slots=True)
 class RobloxBadge(PartialMixin, RobloxEntity):
+    """Representation of a Badge on Roblox."""
+
     async def sync(self):
         """Load badge data from Roblox, specifically the name and description."""
         if self.synced:
@@ -45,7 +46,7 @@ async def get_badge(badge_id: str) -> RobloxBadge:
 
     try:
         await badge.sync()  # this will raise if the badge doesn't exist
-    except RobloxAPIError:
-        raise RobloxNotFound("This badge does not exist.")
+    except RobloxAPIError as exc:
+        raise RobloxNotFound("This badge does not exist.") from exc
 
     return badge

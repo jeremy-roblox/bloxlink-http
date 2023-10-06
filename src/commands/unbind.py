@@ -15,6 +15,7 @@ MAX_BINDS_PER_PAGE = 15
 
 @component_author_validation(author_segment=3)
 async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
+    """Handle the left and right buttons for pagination."""
     message = interaction.message
 
     custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
@@ -101,6 +102,7 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
 
 @component_author_validation(author_segment=3, defer=False)
 async def unbind_cancel_button(interaction: hikari.ComponentInteraction):
+    """Handle the cancel button press."""
     if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
         await interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]
@@ -179,7 +181,8 @@ class UnbindCommand:
         await ctx.response.send(embed=embed, components=components)
 
 
-async def _embed_formatter(page_number: int, current_items: list, guild_id: int | str, max_pages: int):
+async def _embed_formatter(page_number: int, current_items: list, _guild_id: int | str, max_pages: int):
+    """Embed formatter for the paginator"""
     embed = hikari.Embed(title="Remove a Binding")
 
     if len(current_items) == 0:

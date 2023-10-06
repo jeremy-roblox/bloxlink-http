@@ -1,3 +1,67 @@
+"""All logic related to the bind command.
+
+The current flow is effectively like this:
+
+- User runs /bind <subcommand> command with arguments
+    Example: /bind group (select specific ranks, group 13)
+- Bot validates that the requested entity exists
+- For all bindings except entire-group binds, a prompt to create binds is shown.
+    Three buttons exist on this prompt by default:
+        - Discard (disabled)
+        - Create
+        - Save (disabled)
+
+- The user will then click Create
+    Triggers bind_menu_add_role_button
+        (this should be renamed to add_bind_button honestly... maybe later.)
+
+- bind_menu_add_role_button
+    Sets up the next prompt that will be shown to the user.
+    For asset, badge, and gamepass types we direct them to the roles to give selection.
+        bind_menu_select_role
+    For group bind types we direct them to select what type of group bind is being made.
+        bind_menu_select_criteria
+
+- bind_menu_select_criteria
+    Lets the user choose what type of group binding they are making.
+    If the type is a guest binding or everyone binding:
+        Direct to bind_menu_select_role
+    Otherwise
+        Direct to bind_menu_select_roleset
+
+- bind_menu_select_roleset
+    Lets the user select rolesets that this bind applies to.
+    Directs user to bind_menu_select_role
+
+- bind_menu_select_role
+    User selects some role(s) from their server roles.
+    Enable save & discard buttons
+    Direct user to bind_menu_select_remove_roles
+
+- bind_menu_select_remove_roles
+    User can optionally choose to select roles to remove, or skip instead.
+    User is directed back to the main prompt.
+
+
+vv--- Buttons/Components not mentioned above ---vv
+
+- bind_menu_cancel_button
+    Handles skip state & cancel state. In either case, simply redirects user back to the main 
+    prompt since we have no special logic to skip specific steps.
+
+- bind_menu_save_button
+    Reads embed content and saves the bindings to the database. 
+    Disables the save & discard buttons again.
+
+- bind_menu_discard_button
+    Opens a selection list that lets a user choose what unsaved bindings to remove.
+    Triggers bind_menu_discard_binding
+
+- bind_menu_discard_binding
+    Removes the matching item(s) and updates the embed.
+
+"""
+
 import re
 from typing import Literal
 
@@ -156,7 +220,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
     if is_group_bind:
         prefix = GROUP_RANK_CRITERIA_TEXT.get(bind_choice, "[ERROR] No matching criteria.")
-        # "gst" & "all" choices are not handled becuse they have the content included in
+        # "gst" & "all" choices are not handled because they have the content included in
         # the prefix string already.
         if bind_choice in ("equ", "gte", "lte"):
             content = roleset_data
@@ -224,7 +288,7 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     # Setup remove role prompt
     prompt = await build_role_selection_prompt(
         custom_id=f"{original_message_id}:{author_id}",
-        guild_id=interaction.guild_id,
+        _guild_id=interaction.guild_id,
         author_id=author_id,
         original_message_id=original_message_id,
         placeholder="Choose which role(s) will be removed from people who apply to this bind.",
@@ -557,6 +621,7 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
 
 @component_author_validation(author_segment=3, defer=False)
 async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
+    """Handle "cancel" button presses for the bind prompt."""
     # Inferring that the only place we're allowed to skip is the role removal prompt.
     # Can't link to the original message unless we start passing along the original message id
     # to the cancel button custom_id
@@ -613,7 +678,7 @@ async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
     dm_enabled=False,
 )
 class BindCommand:
-    """bind Discord role(s) to Roblox entities"""
+    """Bind Discord role(s) to Roblox entities"""
 
     @bloxlink.subcommand(
         options=[

@@ -44,7 +44,7 @@ class VerifyallCommand:
 
             match cooldown_status:
                 case "1":
-                    raise Message(f"This server is still queued.")
+                    raise Message("This server is still queued.")
                 case "2":
                     raise Message("This server's scan is currently running.")
                 case "3":
@@ -86,4 +86,4 @@ class VerifyallCommand:
             logger.error(f"An issue was encountered contacting the gateway - {ex};{ex.__cause__}")
             raise Message(
                 "There was an issue when trying to update all your server members. Try again later."
-            )
+            ) from None

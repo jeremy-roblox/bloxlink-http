@@ -3,9 +3,8 @@ from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import PartialMixin
+from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
-
-from .roblox_entity import RobloxEntity
 
 GROUP_API = "https://groups.roblox.com/v1/groups"
 ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
@@ -13,6 +12,17 @@ ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
 
 @dataclass(slots=True)
 class RobloxGroup(PartialMixin, RobloxEntity):
+    """Representation of a Group on Roblox.
+
+
+    Attributes:
+        member_count (int): Number of members in this group. None by default.
+        rolesets (dict[int, str], optional): Rolesets of this group, by {roleset_id: roleset_name}. None by default.
+        user_roleset (dict): The roleset of a specific user in this group. Used for applying binds.
+
+    This is in addition to attributes provided by RobloxEntity.
+    """
+
     member_count: int = None
     rolesets: dict[int, str] = None
     user_roleset: dict = None
@@ -78,7 +88,7 @@ async def get_group(group_id: str) -> RobloxGroup:
 
     try:
         await group.sync()  # this will raise if the group doesn't exist
-    except RobloxAPIError:
-        raise RobloxNotFound("This group does not exist.")
+    except RobloxAPIError as exc:
+        raise RobloxNotFound("This group does not exist.") from exc
 
     return group

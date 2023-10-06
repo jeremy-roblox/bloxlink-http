@@ -18,6 +18,19 @@ async def build_interactive_bind_base(
     author_id: int,
     disable_save: bool = False,
 ) -> EmbedPrompt:
+    """Build the initial prompt for the bind command that users see.
+
+    Args:
+        bind_type (Literal[group, asset, gamepass, badge]): The type of binding that is being made.
+        bind_id (int | str): The ID of the entity that the bind is being made for.
+        guild_id (int): The ID of the guild where the bind is being made. Used to retrieve current binds.
+        author_id (int): The ID of the person who ran the bind command.
+        disable_save (bool, optional): Enable (True) or disable (False) the buttons to save and delete
+            (unsaved) bindings on this prompt. Defaults to False.
+
+    Returns:
+        EmbedPrompt: The resulting embed and the buttons for it.
+    """
     capital_type = bind_type.capitalize()
     bind_id = bind_id if isinstance(bind_id, str) else str(bind_id)
 
@@ -156,7 +169,7 @@ async def build_roleset_selection_prompt(
         hikari.ButtonStyle.SECONDARY, f"bind_menu:cancel:{author_id}", label="Cancel"
     )
 
-    for roleset_id, roleset_name in group.rolesets.items():
+    for _roleset_id, roleset_name in group.rolesets.items():
         if roleset_name != "Guest" and len(roleset_menu.options) < 25:
             roleset_menu.add_option(roleset_name, roleset_name)
 
@@ -168,7 +181,7 @@ async def build_roleset_selection_prompt(
 
 async def build_role_selection_prompt(
     custom_id: str,
-    guild_id: int,
+    _guild_id: int,
     author_id: str | int,
     original_message_id: str | int,
     placeholder: str = "Search and choose from your Discord roles!",

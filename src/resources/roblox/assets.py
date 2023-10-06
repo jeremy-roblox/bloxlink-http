@@ -2,15 +2,16 @@ from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import PartialMixin
+from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
-
-from .roblox_entity import RobloxEntity
 
 ASSET_API = "https://economy.roblox.com/v2/assets"
 
 
 @dataclass(slots=True)
 class RobloxAsset(PartialMixin, RobloxEntity):
+    """Representation of an Asset on Roblox."""
+
     async def sync(self):
         """Load asset data from Roblox, specifically the name and description."""
         if self.synced:
@@ -45,7 +46,7 @@ async def get_asset(asset_id: str) -> RobloxAsset:
 
     try:
         await asset.sync()  # this will raise if the asset doesn't exist
-    except RobloxAPIError:
-        raise RobloxNotFound("This asset does not exist.")
+    except RobloxAPIError as exc:
+        raise RobloxNotFound("This asset does not exist.") from exc
 
     return asset

@@ -6,11 +6,10 @@ from typing import Any, Callable
 
 import hikari
 
-from config import DISCORD_APPLICATION_ID
-
-from .exceptions import *
-from .models import CommandContext
-from .response import Response
+from resources.exceptions import *
+from resources.models import CommandContext
+from resources.response import Response
+from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -18,6 +17,7 @@ slash_commands = {}
 
 
 async def handle_command(interaction: hikari.CommandInteraction):
+    """Handle a command interaction."""
     command_name = interaction.command_name
     command_type = interaction.command_type
 
@@ -72,6 +72,7 @@ async def handle_command(interaction: hikari.CommandInteraction):
 
 
 async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
+    """Handle an autocomplete interaction."""
     # Iterate through commands and find the autocomplete function that corresponds to the slash cmd option name.
     for command in slash_commands.values():
         if not command.autocomplete_handlers:
@@ -94,6 +95,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 
 
 async def handle_component(interaction: hikari.ComponentInteraction):
+    """Handle a component interaction."""
     custom_id = interaction.custom_id
 
     # iterate through commands and find the custom_id mapped function
@@ -104,6 +106,14 @@ async def handle_component(interaction: hikari.ComponentInteraction):
 
 
 def new_command(command: Any, **kwargs):
+    """Registers a command with Bloxlink.
+
+    This is only used for the wrapper function in resources.bloxlink on the bot object. Commands should not
+    be added using this method directly.
+
+    Args:
+        command (Any): The command to register locally. (Presumably callable)
+    """
     new_command_class = command()
 
     command_name = command_name_pattern.search(command.__name__).group(1).lower()
@@ -146,6 +156,11 @@ def new_command(command: Any, **kwargs):
 
 
 async def sync_commands(bot: hikari.RESTBot):
+    """Publish our slash commands to Discord.
+
+    Args:
+        bot (hikari.RESTBot): The bot object to publish slash commands for.
+    """
     commands = []
 
     for new_command_data in slash_commands.values():
@@ -178,6 +193,23 @@ async def sync_commands(bot: hikari.RESTBot):
 
 
 async def try_command(fn: Callable, response: Response):
+    """Run a command with top-level exception handling.
+
+    Top level exceptions include default messages for custom exceptions that are defined in
+    resources.exceptions.
+
+    Caught exceptions currently consist of:
+        - UserNotVerified
+        - BloxlinkForbidden
+        - hikari.errors.ForbiddenError
+        - RobloxNotFound
+        - RobloxDown
+        - Message
+
+    Args:
+        fn (Callable): Command function that is being triggered,
+        response (Response): Response object for the interaction that triggered the command.
+    """
     try:
         await fn
     except UserNotVerified as message:
@@ -201,6 +233,8 @@ async def try_command(fn: Callable, response: Response):
 
 
 class Command:
+    """Base representation of a slash command on Discord"""
+
     def __init__(
         self,
         command_name: str,
@@ -230,6 +264,12 @@ class Command:
         self.dm_enabled = dm_enabled
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
+        """Execute a command (or its subcommand)
+
+        Args:
+            ctx (CommandContext): Context for this command.
+            subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
+        """
         # TODO: check for permissions
 
         if subcommand_name:

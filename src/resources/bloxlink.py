@@ -9,24 +9,31 @@ from inspect import iscoroutinefunction
 from typing import Callable, Coroutine, Optional
 
 import hikari
+import redis.asyncio as redis  # pylint: disable=import-error
 import yuyo
 from motor.motor_asyncio import AsyncIOMotorClient
-from redis import asyncio as redis
 
 logger = logging.getLogger()
 
+from resources.commands import new_command
+from resources.models import GuildData, UserData
 from resources.redis import RedisMessageCollector
-
-from .commands import new_command
-from .models import GuildData, UserData
-from .secrets import MONGO_URL, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
+from resources.secrets import (  # pylint: disable=no-name-in-module
+    MONGO_URL,
+    REDIS_HOST,
+    REDIS_PASSWORD,
+    REDIS_PORT,
+)
 
 instance: "Bloxlink" = None
 
 
 class Bloxlink(yuyo.AsgiBot):
+    """The Bloxlink bot."""
+
     def __init__(self, *args, **kwargs):
-        global instance
+        """Initialize the bot & the MongoDB connection."""
+        global instance  # pylint: disable=global-statement
 
         super().__init__(*args, **kwargs)
         self.started_at = datetime.utcnow()
@@ -36,16 +43,36 @@ class Bloxlink(yuyo.AsgiBot):
         instance = self
 
     async def start(self) -> Coroutine[any, any, None]:
-        self.redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
-        self.redis_messages = RedisMessageCollector(self.redis)
+        """Start the bot + connect to Redis."""
+        self.redis = redis.Redis(  # pylint: disable=attribute-defined-outside-init
+            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD
+        )
+        self.redis_messages = RedisMessageCollector(  # pylint: disable=attribute-defined-outside-init
+            self.redis
+        )
 
         return await super().start()
 
     @property
     def uptime(self) -> timedelta:
+        """Current bot uptime."""
         return datetime.utcnow() - self.started_at
 
     async def relay(self, channel: str, payload: Optional[dict] = None, timeout: int = 2) -> dict:
+        """Relay a message over Redis to the gateway.
+
+        Args:
+            channel (str): The pubsub channel to publish the message over.
+            payload (Optional[dict]): The data to include in the message being sent. Defaults to None.
+            timeout (int, optional): Timeout time for a reply in seconds. Defaults to 2 seconds.
+
+        Raises:
+            RuntimeError: When Redis was unable to publish or get a response.
+            TimeoutError: When the request has reached its timeout.
+
+        Returns:
+            dict: Response from the pubsub channel.
+        """
         nonce = uuid.uuid4()
         reply_channel = f"REPLY:{nonce}"
 
@@ -58,9 +85,19 @@ class Bloxlink(yuyo.AsgiBot):
         except redis.RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
         except asyncio.TimeoutError as ex:
-            raise TimeoutError("No response was recieved.") from ex
+            raise TimeoutError("No response was received.") from ex
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict | hikari.Member | None:
+        """Get a discord member of a guild, first from the gateway, then from a HTTP request.
+
+        Args:
+            guild_id (int): The guild ID to find the user in.
+            user_id (int): The user ID to find.
+
+        Returns:
+            dict | hikari.Member | None: User data as determined by the method of retrieval.
+                Dict from the relay. hikari.Member from a HTTP request. None if the user was not found.
+        """
         try:
             res = await self.relay(
                 "CACHE_LOOKUP",
@@ -79,6 +116,16 @@ class Bloxlink(yuyo.AsgiBot):
                 return None
 
     async def fetch_discord_guild(self, guild_id: int) -> dict:
+        """Fetches a discord guild from the gateway.
+
+        Args:
+            guild_id (int): The guild to find.
+
+        Returns:
+            dict: The found guild if it exists.
+        """
+        # TODO: Implement fallback to fetch from HTTP methods.
+
         res = await self.relay(
             "CACHE_LOOKUP",
             {
@@ -95,6 +142,7 @@ class Bloxlink(yuyo.AsgiBot):
         Fetch an item from local cache, then redis, then database.
         Will populate caches for later access
         """
+        # TODO: Actually check redis and not just query mongodb.
         # should check local cache but for now just fetch from redis
         item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x: True for x in aspects}) or {
             "_id": item_id
@@ -130,7 +178,6 @@ class Bloxlink(yuyo.AsgiBot):
         Fetch a full user from local cache, then redis, then database.
         Will populate caches for later access
         """
-
         if isinstance(user, (hikari.User, hikari.Member)):
             user_id = str(user.id)
         else:
@@ -152,9 +199,7 @@ class Bloxlink(yuyo.AsgiBot):
         return await self.fetch_item("guilds", GuildData, guild_id, *aspects)
 
     async def update_user_data(self, user: hikari.User | hikari.Member, **aspects) -> None:
-        """
-        Update a user's aspects in local cache, redis, and database.
-        """
+        """Update a user's aspects in local cache, redis, and database."""
 
         if isinstance(user, (hikari.User, hikari.Member)):
             user_id = str(user.id)
@@ -164,9 +209,7 @@ class Bloxlink(yuyo.AsgiBot):
         return await self.update_item("users", user_id, **aspects)
 
     async def update_guild_data(self, guild: hikari.Guild | str, **aspects) -> None:
-        """
-        Update a guild's aspects in local cache, redis, and database.
-        """
+        """Update a guild's aspects in local cache, redis, and database."""
 
         if isinstance(guild, hikari.Guild):
             guild_id = str(guild.id)
@@ -188,22 +231,26 @@ class Bloxlink(yuyo.AsgiBot):
         remove_roles: list = None,
         reason: str = "",
     ) -> hikari.Member:
-        """
-        Adds or remove roles from a member.
-        """
+        """Adds or remove roles from a member."""
 
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 
         return await self.rest.edit_member(user=member, guild=guild_id, roles=new_roles, reason=reason or "")
 
     async def fetch_roles(self, guild_id: str | int):
-        """
-        guild.fetch_roles() but returns a nice dictionary instead
-
-        """
+        """guild.fetch_roles() but returns a nice dictionary instead"""
         return {str(role.id): role for role in await self.rest.fetch_roles(guild_id)}
 
     async def role_ids_to_names(self, guild_id: int, roles: list) -> str:
+        """Get the names of roles based on the role ID.
+
+        Args:
+            guild_id (int): The guild to get the roles from.
+            roles (list): The IDs of the roles to find the names for.
+
+        Returns:
+            str: Comma separated string of the names for all the role IDs given.
+        """
         # TODO: Use redis -> gateway comms to get role data/role names.
         # For now this just makes a http request every time it needs it.
 
@@ -236,6 +283,11 @@ class Bloxlink(yuyo.AsgiBot):
 
     @staticmethod
     def load_module(import_name: str) -> None:
+        """Utility function to import python modules.
+
+        Args:
+            import_name (str): Name of the module to import
+        """
         try:
             module = importlib.import_module(import_name)
 
@@ -262,6 +314,8 @@ class Bloxlink(yuyo.AsgiBot):
 
     @staticmethod
     def command(**command_attrs):
+        """Decorator to register a command."""
+
         def wrapper(*args, **kwargs):
             return new_command(*args, **kwargs, **command_attrs)
 
@@ -269,6 +323,8 @@ class Bloxlink(yuyo.AsgiBot):
 
     @staticmethod
     def subcommand(**kwargs):
+        """Decorator to register a subcommand."""
+
         def decorator(f):
             f.__issubcommand__ = True
             f.__subcommandattrs__ = kwargs

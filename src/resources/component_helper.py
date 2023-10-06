@@ -4,6 +4,7 @@ from resources.bloxlink import instance as bloxlink
 
 
 async def get_component(message: hikari.Message, custom_id: str):
+    """Get a component in a message based on the custom_id"""
     for action_row in message.components:
         for component in action_row.components:
             if component.custom_id.startswith(custom_id):
@@ -11,7 +12,13 @@ async def get_component(message: hikari.Message, custom_id: str):
 
 
 async def set_components(message: hikari.Message, *, values: list = None, components: list = None):
-    """Hikari requires a new builder for component edits"""
+    """Update the components on a message
+
+    Args:
+        message (hikari.Message): The message to set the components for.
+        values (list, optional): Unused + unsure what this is for. Defaults to None.
+        components (list, optional): The components to set on this message. Defaults to None.
+    """
 
     new_components = []
     components = components or []
@@ -30,13 +37,13 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
             iterate_components.append(temp)
 
     for component in iterate_components:
-        # print("component=", component)
         if hasattr(component, "build"):
             new_components.append(component)
 
         elif isinstance(component, list):
-            """Components in a list = in an action row."""
+            # Components in a list = in an action row.
             row = bloxlink.rest.build_message_action_row()
+
             for subcomponent in component:
                 if isinstance(subcomponent, hikari.SelectMenuComponent):
                     new_select_menu = row.add_select_menu(
@@ -59,34 +66,27 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
                             )
 
                 elif isinstance(subcomponent, hikari.ButtonComponent):
+                    # add_x_button seems to only accept labels OR emojis, which isn't valid anymore to my knowledge
+                    # might be worth mentioning to hikari devs to look into/investigate more.
                     if subcomponent.style == hikari.ButtonStyle.LINK:
-                        if not subcomponent.emoji:
-                            row.add_link_button(
-                                subcomponent.url,
-                                label=subcomponent.label,
-                                is_disabled=subcomponent.is_disabled,
-                            )
-                        else:
-                            row.add_link_button(
-                                subcomponent.url,
-                                emoji=subcomponent.emoji,
-                                is_disabled=subcomponent.is_disabled,
-                            )
+                        row.add_link_button(
+                            subcomponent.url,
+                            label=subcomponent.label
+                            if not subcomponent.emoji
+                            else hikari.undefined.UNDEFINED,
+                            emoji=subcomponent.emoji if subcomponent.emoji else hikari.undefined.UNDEFINED,
+                            is_disabled=subcomponent.is_disabled,
+                        )
                     else:
-                        if not subcomponent.emoji:
-                            row.add_interactive_button(
-                                subcomponent.style,
-                                subcomponent.custom_id,
-                                label=subcomponent.label,
-                                is_disabled=subcomponent.is_disabled,
-                            )
-                        else:
-                            row.add_interactive_button(
-                                subcomponent.style,
-                                subcomponent.custom_id,
-                                emoji=subcomponent.emoji,
-                                is_disabled=subcomponent.is_disabled,
-                            )
+                        row.add_interactive_button(
+                            subcomponent.style,
+                            subcomponent.custom_id,
+                            label=subcomponent.label
+                            if not subcomponent.emoji
+                            else hikari.undefined.UNDEFINED,
+                            emoji=subcomponent.emoji if subcomponent.emoji else hikari.undefined.UNDEFINED,
+                            is_disabled=subcomponent.is_disabled,
+                        )
 
             new_components.append(row)
 
@@ -114,34 +114,24 @@ async def set_components(message: hikari.Message, *, values: list = None, compon
 
         elif isinstance(component, hikari.ButtonComponent):
             row = bloxlink.rest.build_message_action_row()
+
+            # add_x_button seems to only accept labels OR emojis, which isn't valid anymore to my knowledge
+            # might be worth mentioning to hikari devs to look into/investigate more.
             if component.style == hikari.ButtonStyle.LINK:
-                if not component.emoji:
-                    row.add_link_button(
-                        component.url,
-                        label=component.label,
-                        is_disabled=component.is_disabled,
-                    )
-                else:
-                    row.add_link_button(
-                        component.url,
-                        emoji=component.emoji,
-                        is_disabled=component.is_disabled,
-                    )
+                row.add_link_button(
+                    component.url,
+                    label=component.label if not component.emoji else hikari.undefined.UNDEFINED,
+                    emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
+                    is_disabled=component.is_disabled,
+                )
             else:
-                if not component.emoji:
-                    row.add_interactive_button(
-                        component.style,
-                        component.custom_id,
-                        label=component.label,
-                        is_disabled=component.is_disabled,
-                    )
-                else:
-                    row.add_interactive_button(
-                        component.style,
-                        component.custom_id,
-                        emoji=component.emoji,
-                        is_disabled=component.is_disabled,
-                    )
+                row.add_interactive_button(
+                    component.style,
+                    component.custom_id,
+                    label=component.label if not component.emoji else hikari.undefined.UNDEFINED,
+                    emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
+                    is_disabled=component.is_disabled,
+                )
 
             new_components.append(row)
 
@@ -155,6 +145,21 @@ def get_custom_id_data(
     segment_max: int = None,
     message: hikari.Message = None,
 ) -> str | tuple | None:
+    """Extrapolate data from a given custom_id. Splits around the ":" character.
+
+    Args:
+        custom_id (str): The custom id to get data from.
+        segment (int, optional): Gets a specific part of the ID. Must be >= 1. Defaults to None.
+        segment_min (int, optional): For a range, starts at the minimum here and goes until segment_max or
+            the end of the segments. Must be >= 1. Defaults to None.
+        segment_max (int, optional): For a range, the maximum boundary of segments to retrieve. Defaults to None.
+        message (hikari.Message, optional): Message to get the custom_id from. Defaults to None.
+            Expects custom_id to be a prefix, will search for the custom_id to use based on components
+            on this message.
+
+    Returns:
+        str | tuple | None: The matching segment(s). str for a single segment, tuple for ranges, None for no match.
+    """
     if message:
         for action_row in message.components:
             for component in action_row.components:
@@ -179,6 +184,14 @@ def get_custom_id_data(
 
 
 async def set_custom_id_data(message: hikari.Message, custom_id: str, segment: int, values: list | str):
+    """Sets additional data in a custom_id at, or after, a specific index.
+
+    Args:
+        message (hikari.Message): The message to get the component to update.
+        custom_id (str): The custom_id string that is currently set.
+        segment (int): The index to start setting the data at (starts at 1).
+        values (list | str): The data to add to the custom_id string.
+    """
     component = await get_component(message, custom_id=custom_id)
 
     if isinstance(values, str):
@@ -211,6 +224,15 @@ async def set_custom_id_data(message: hikari.Message, custom_id: str, segment: i
 
 
 async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -> bool:
+    """Check if a custom_id(s) exists in a message.
+
+    Args:
+        message (hikari.Message): The message to search for custom IDs on.
+        *custom_ids (tuple[str]): The IDs to search for.
+
+    Returns:
+        bool: If all of the given custom_id(s) were set on one of the components for this message.
+    """
     for action_row in message.components:
         for component in action_row.components:
             if component.custom_id in custom_ids:

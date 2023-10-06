@@ -2,15 +2,16 @@ from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.models import PartialMixin
+from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
-
-from .roblox_entity import RobloxEntity
 
 GAMEPASS_API = "https://economy.roblox.com/v1/game-pass"
 
 
 @dataclass(slots=True)
 class RobloxGamepass(PartialMixin, RobloxEntity):
+    """Representation of a Gamepass on Roblox"""
+
     async def sync(self):
         """Load gamepass data from Roblox, specifically the name and description."""
         if self.synced:
@@ -45,7 +46,7 @@ async def get_gamepass(gamepass_id: str) -> RobloxGamepass:
 
     try:
         await gamepass.sync()  # this will raise if the gamepass doesn't exist
-    except RobloxAPIError:
-        raise RobloxNotFound("This gamepass does not exist.")
+    except RobloxAPIError as exc:
+        raise RobloxNotFound("This gamepass does not exist.") from exc
 
     return gamepass

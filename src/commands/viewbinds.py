@@ -14,6 +14,7 @@ MAX_BINDS_PER_PAGE = 5
 
 @component_author_validation(author_segment=3)
 async def viewbinds_button(interaction: hikari.ComponentInteraction):
+    """Handle pagination left and right button presses."""
     message = interaction.message
 
     custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
@@ -25,13 +26,12 @@ async def viewbinds_button(interaction: hikari.ComponentInteraction):
     id_filter = custom_id_data[3]
 
     guild_id = interaction.guild_id
-    user_id = interaction.user.id
 
     guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
 
     paginator = Paginator(
         guild_id,
-        user_id,
+        author_id,
         source_cmd_name="viewbinds",
         max_items=MAX_BINDS_PER_PAGE,
         items=guild_data.binds,
@@ -161,8 +161,6 @@ async def viewbinds_paginator_formatter(page_number: int, items: list, _guild_id
         else:
             item_map[subtype].append(bind_string)
 
-    # TODO: Probably should either move the above logic out of here,
-    # and/or bring the build_page_embed logic into here.
     return await build_page_embed(item_map, page_number, max_pages)
 
 

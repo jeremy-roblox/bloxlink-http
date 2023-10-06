@@ -2,7 +2,7 @@ import logging
 
 from blacksheep import Application, Request, unauthorized
 
-from config import SERVER_AUTH
+from resources.secrets import SERVER_AUTH  # pylint: disable=no-name-in-module
 
 instance: Application = Application()
 

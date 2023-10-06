@@ -5,16 +5,15 @@ from os import listdir
 import hikari
 import uvicorn
 
-from config import SERVER_HOST, SERVER_PORT
 from resources.bloxlink import Bloxlink
-from resources.commands import (
-    handle_autocomplete,
-    handle_command,
-    handle_component,
-    sync_commands,
-)
+from resources.commands import handle_autocomplete, handle_command, handle_component, sync_commands
 from resources.constants import MODULES
-from resources.secrets import DISCORD_PUBLIC_KEY, DISCORD_TOKEN
+from resources.secrets import (  # pylint: disable=no-name-in-module
+    DISCORD_PUBLIC_KEY,
+    DISCORD_TOKEN,
+    SERVER_HOST,
+    SERVER_PORT,
+)
 from web.webserver import instance as webserver
 
 logger = logging.getLogger()

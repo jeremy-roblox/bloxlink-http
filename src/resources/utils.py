@@ -1,12 +1,12 @@
 import asyncio
 from enum import Enum
-from json import loads
+from json import JSONDecodeError, loads
 
 import aiohttp
 from requests.utils import requote_uri
 
-from .exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
-from .secrets import PROXY_URL
+from resources.exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
+from resources.secrets import PROXY_URL  # pylint: disable=no-name-in-module
 
 __all__ = ("fetch", "ReturnType")
 
@@ -30,12 +30,40 @@ async def fetch(
     timeout: float = 20,
     proxy: bool = True,
 ):
+    """Utility function to make a REST request (with the ability to proxy)
+
+    Only Roblox URLs are proxied, all other requests to other domains are sent as is.
+
+    Args:
+        method (str): The HTTP request method to use for this query.
+        url (str): The URL to send the request to.
+        params (dict, optional): Query parameters to append to the URL. Defaults to None.
+        headers (dict, optional): Headers to use when sending the request. Defaults to None.
+        body (dict, optional): Data to pass in the body of the request. Defaults to None.
+        return_data (ReturnType, optional): Set what the expected type to return should be.
+            Defaults to ReturnType.JSON.
+        raise_on_failure (bool, optional): Should an exception be raised if the request fails. Defaults to True.
+        timeout (float, optional): How long should we wait for a request to succeed. Defaults to 20.
+        proxy (bool, optional): Should we try proxying this request. Defaults to True.
+            The proxy only applies to Roblox URLs.
+
+    Raises:
+        RobloxAPIError:
+            For proxied requests, raised when the proxy server returns a data format that is not JSON.
+            When a request returns a status code that is NOT 503 or 404, but is over 400 (if raise_on_failure).
+            When a non-proxied request does not match the expected data type (typically JSON).
+        RobloxDown: Raised if raise_on_failure, and the status code is 503. Also raised on request timeout.
+        RobloxNotFound: Raised if raise_on_failure, and the status code is 404.
+
+    Returns:
+        (dict, str, bytes): The requested data from the request, if any.
+    """
     params = params or {}
     headers = headers or {}
     new_json = {}
     proxied = False
 
-    global session
+    global session  # pylint: disable=global-statement
 
     if not session:
         session = aiohttp.ClientSession()
@@ -70,8 +98,8 @@ async def fetch(
             if proxied:
                 try:
                     response_json = await response.json()
-                except aiohttp.client_exceptions.ContentTypeError:
-                    raise RobloxAPIError("Proxy server returned invalid JSON.")
+                except aiohttp.client_exceptions.ContentTypeError as exc:
+                    raise RobloxAPIError("Proxy server returned invalid JSON.") from exc
 
                 response_body = response_json["req"]["body"]
                 response_status = response_json["req"]["status"]
@@ -80,7 +108,7 @@ async def fetch(
                 if not isinstance(response_body, dict):
                     try:
                         response_body_json = loads(response_body)
-                    except:
+                    except JSONDecodeError:
                         pass
                     else:
                         response_body = response_body_json
@@ -104,8 +132,8 @@ async def fetch(
                     if not proxied:
                         try:
                             response_body = await response.json()
-                        except aiohttp.client_exceptions.ContentTypeError:
-                            raise RobloxAPIError()
+                        except aiohttp.client_exceptions.ContentTypeError as exc:
+                            raise RobloxAPIError() from exc
 
                     if isinstance(response_body, dict):
                         return response_body, response
@@ -132,10 +160,10 @@ async def fetch(
 
                 try:
                     json = await response.json()
-                except aiohttp.client_exceptions.ContentTypeError:
+                except aiohttp.client_exceptions.ContentTypeError as exc:
                     print(old_url, await response.text(), flush=True)
 
-                    raise RobloxAPIError
+                    raise RobloxAPIError() from exc
 
                 return json, response
 
@@ -146,4 +174,4 @@ async def fetch(
 
     except asyncio.TimeoutError:
         print(f"URL {old_url} timed out", flush=True)
-        raise RobloxDown()
+        raise RobloxDown() from None

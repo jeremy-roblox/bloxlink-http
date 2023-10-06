@@ -9,13 +9,7 @@ import resources.restriction as restriction
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
-from resources.exceptions import (
-    BloxlinkException,
-    BloxlinkForbidden,
-    Message,
-    RobloxAPIError,
-    RobloxNotFound,
-)
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
 from resources.models import EmbedPrompt, GroupBind, GuildBind, GuildData
 from resources.secrets import BOT_API, BOT_API_AUTH  # pylint: disable=E0611
 from resources.utils import fetch
@@ -25,13 +19,22 @@ any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
 
 
-async def count_binds(guild_id: int | str, group_id: int | str = None) -> int:
+async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
+    """Count the number of binds that this guild_id has created.
+
+    Args:
+        guild_id (int | str): ID of the guild.
+        bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
+
+    Returns:
+        int: The number of bindings this guild has created.
+    """
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
 
     return (
         len(guild_data.binds)
-        if not group_id
-        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(group_id)) or 0
+        if not bind_id
+        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(bind_id)) or 0
     )
 
 
@@ -39,7 +42,20 @@ async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
     bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
-):
+) -> str:
+    """Get a string-based representation of all bindings (matching the bind_id and bind_type).
+
+    Output is limited to 5 bindings, after that the user is told to visit the website to see the rest.
+
+    Args:
+        guild_id (int | str): ID of the guild.
+        bind_id (int | str, optional): The entity ID to filter binds from. Defaults to None.
+        bind_type (Literal[group, asset, badge, gamepass], optional): The type of bind to filter the response by.
+            Defaults to None.
+
+    Returns:
+        str: Sentence representation of the first five binds matching the filters.
+    """
     guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
     guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
@@ -63,10 +79,28 @@ async def create_bind(
     nickname: str = None,
     **bind_data,
 ):
-    """creates a new guild bind. if it already exists, the roles will be appended"""
+    """Creates a new guild bind. If it already exists, the roles will be appended to the existing entry.
+
+    Upon bind creation role IDs are checked to ensure that the roles being given by the binding are valid
+    IDs.
+
+    Args:
+        guild_id (int | str): The ID of the guild.
+        bind_type (Literal[group, asset, badge, gamepass]): The type of bind being created.
+        bind_id (int): The ID of the entity this bind is for.
+        roles (list[str], optional): Role IDs to be given to users for this bind. Defaults to None.
+        remove_roles (list[str], optional): Role IDs to be removed from users for this bind. Defaults to None.
+        nickname (str, optional): The nickname template for this bind. Defaults to None.
+
+    Raises:
+        NotImplementedError: When a duplicate binding is found in the database,
+        NotImplementedError: _description_
+        NotImplementedError: _description_
+    """
 
     guild_binds: list = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
 
+    # Check to see if there is a binding in place matching the given input
     existing_binds = []
     for bind in guild_binds:
         b = bind["bind"]
@@ -92,6 +126,7 @@ async def create_bind(
         existing_binds.append(bind)
 
     if not existing_binds:
+        # Create the binding
         new_bind = {
             "roles": roles,
             "removeRoles": remove_roles,
@@ -108,34 +143,34 @@ async def create_bind(
     if bind_id:
         # group, badge, gamepass, and asset binds
         if len(existing_binds) > 1:
-            # invalid bind. binds with IDs should only have one entry.
+            # invalid bind. binds with IDs should only have one entry in the db.
             raise NotImplementedError(
                 "Binds with IDs should only have one entry. More than one duplicate was found."
             )
+
+        if roles:
+            # Remove invalid guild roles
+            guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
+            existing_roles = set(existing_binds[0].get("roles", []) + roles)
+
+            # Moves binding to the end of the array, if we wanted order to stay could get the
+            # index, then remove, then insert again at that index.
+            guild_binds.remove(existing_binds[0])
+
+            existing_binds[0]["roles"] = list(guild_roles & existing_roles)
+            guild_binds.append(existing_binds[0])
         else:
-            if roles:
-                # Remove invalid guild roles
-                guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
-                existing_roles = set(existing_binds[0].get("roles", []) + roles)
+            # In ideal circumstances, this case should be for entire group bindings only
+            raise NotImplementedError("No roles to be assigned were passed.")
 
-                # Moves binding to the end of the array, if we wanted order to stay could get the
-                # index, then remove, then insert again at that index.
-                guild_binds.remove(existing_binds[0])
+        if remove_roles:
+            # Override roles to remove rather than append.
+            guild_binds.remove(existing_binds[0])
 
-                existing_binds[0]["roles"] = list(guild_roles & existing_roles)
-                guild_binds.append(existing_binds[0])
-            else:
-                # In ideal circumstances, this case should be for entire group bindings only
-                raise NotImplementedError("No roles to be assigned were passed.")
+            existing_binds[0]["removeRoles"] = remove_roles
+            guild_binds.append(existing_binds[0])
 
-            if remove_roles:
-                # Override roles to remove rather than append.
-                guild_binds.remove(existing_binds[0])
-
-                existing_binds[0]["removeRoles"] = remove_roles
-                guild_binds.append(existing_binds[0])
-
-            await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+        await bloxlink.update_guild_data(guild_id, binds=guild_binds)
 
     else:
         # everything else
@@ -148,6 +183,17 @@ async def delete_bind(
     bind_id: int,
     **bind_data,
 ):
+    """Remove a bind from the database.
+
+    This works through performing a $pull from the binds array in the database.
+    Alternatively you could update the entire binds array to have everything except the binding(s) being
+    removed.
+
+    Args:
+        guild_id (int | str): The ID of the guild.
+        bind_type (Literal[group, asset, badge, gamepass]): The type of binding that is being removed.
+        bind_id (int): The ID of the entity that this bind is for.
+    """
     subquery = {
         "binds": {
             "bind": {
@@ -371,7 +417,7 @@ async def apply_binds(
                 ),
             )
     except hikari.errors.ForbiddenError:
-        raise BloxlinkForbidden("I don't have permission to add roles to this user.")
+        raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     if restrict_result is not None and not restrict_result.removed:
         return restrict_result.prompt(guild.name)
@@ -404,7 +450,21 @@ async def apply_binds(
     return EmbedPrompt(embed, components=[])
 
 
-def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None):
+def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None) -> list:
+    """Convert a bind from a dict/json representation to a GuildBind or GroupBind object.
+
+    Args:
+        bind_list (list): List of bindings to convert
+        category (str, optional): Category to filter the binds by. Defaults to None.
+        id_filter (str, optional): ID to filter the binds by. Defaults to None.
+            Applied after the category if both are given.
+
+    Raises:
+        BloxlinkException: When no matching bind type is found from the json input.
+
+    Returns:
+        list: The list of bindings as GroupBinds or GuildBinds, filtered by the category & id.
+    """
     binds = []
 
     if id_filter:

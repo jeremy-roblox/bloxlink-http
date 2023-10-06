@@ -4,7 +4,7 @@ from hikari.commands import CommandOption, OptionType
 import resources.roblox.users as users
 from resources.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxAPIError, RobloxNotFound
+from resources.exceptions import RobloxNotFound
 from resources.models import CommandContext
 
 

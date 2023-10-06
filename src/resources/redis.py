@@ -57,7 +57,7 @@ class RedisMessageCollector:
 
         try:
             await asyncio.wait_for(self.pubsub.subscribe(channel), timeout=2)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             raise TimeoutError(f"Subscription of channel: {channel} took too long!")
 
         self.logger.debug(f"Waiting for {channel}")

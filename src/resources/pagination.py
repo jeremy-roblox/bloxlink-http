@@ -3,11 +3,12 @@ import math
 import hikari
 
 from resources.bloxlink import instance as bloxlink
-from resources.component_helper import get_custom_id_data
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
 
 
 class Paginator:
+    """Dynamically create prompts that may require more than one embed to cleanly show data."""
+
     def __init__(
         self,
         guild_id,
@@ -22,6 +23,26 @@ class Paginator:
         item_filter=None,
         include_cancel_button=False,
     ):
+        """Create a paginator handler.
+
+        Args:
+            guild_id: The ID of the guild where the command that required pagination was ran.
+            user_id: The ID of the user who ran the command.
+            items (list): The list of items that need to be paginated.
+            source_cmd_name (str): The name of the command. Used for component custom IDs.
+            page_number (int, optional): The current page number. Defaults to 0.
+            max_items (int, optional): The maximum number of items per page. Defaults to 10.
+            custom_formatter (Callable, optional): The formatter to use to style the embed. Defaults to None.
+                Expects the arguments: (page_number: int, items: list, guild_id: int | str, max_pages: int)
+                Where the items are only the items for this page.
+            component_generation (Callable, optional): A function to generate the components that will be added
+                to this prompt in addition to the page flip buttons. Defaults to None.
+                Expects the arguments: (items: list, user_id: str | int, extra_custom_ids: str)
+            extra_custom_ids (str, optional): This will be passed to the component_generation callable. Defaults to "".
+                Used to provide additional information to the additional components dynamically.
+            item_filter (Callable, optional): Callable used to filter the entire item list. Defaults to None.
+            include_cancel_button (bool, optional): Optionally include a button to cancel this prompt. Defaults to False.
+        """
         self.guild_id = guild_id
         self.user_id = user_id
 
@@ -38,7 +59,8 @@ class Paginator:
         self.extra_custom_ids = extra_custom_ids
         self.include_cancel_button = include_cancel_button
 
-    def _get_current_items(self):
+    def _get_current_items(self) -> list:
+        """Get the items that apply to this page number."""
         offset = self.page_number * self.max_items
         max_items = (
             len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
@@ -46,7 +68,8 @@ class Paginator:
         return self.items[offset:max_items]
 
     @property
-    async def embed(self):
+    async def embed(self) -> hikari.Embed:
+        """The embed that will be displayed to the user."""
         current_items = self._get_current_items()
 
         if self.custom_formatter:
@@ -54,7 +77,7 @@ class Paginator:
                 self.page_number, current_items, self.guild_id, self.max_pages
             )
         else:
-            embed = hikari.Embed(title=f"Test Pagination", description=f"Page {self.page_number}")
+            embed = hikari.Embed(title="Test Pagination", description=f"Page {self.page_number}")
 
         self._embed = embed
         return self._embed
@@ -65,6 +88,7 @@ class Paginator:
 
     @property
     async def components(self) -> tuple:
+        """The components for this prompt as a tuple."""
         button_row = bloxlink.rest.build_message_action_row()
 
         # Previous button

@@ -18,6 +18,8 @@ from resources.utils import ReturnType, fetch
 
 @dataclass(slots=True)
 class RobloxAccount(PartialMixin):
+    """Representation of a user on Roblox."""
+
     id: str
     username: str = None
     banned: bool = None
@@ -37,7 +39,22 @@ class RobloxAccount(PartialMixin):
 
     _data: dict = field(default_factory=lambda: {})
 
-    async def sync(self, includes=None, *, cache=True, no_flag_check=False):
+    async def sync(
+        self,
+        includes: list | bool | None = None,
+        *,
+        cache: bool = True,
+        flag_check: bool = True,
+    ):
+        """Retrieve information about this user from Roblox. Requires a username or id to be set.
+
+        Args:
+            includes (list | bool | None, optional): Data that should be included. Defaults to None.
+                True retrieves all available data. Otherwise a list can be passed with either
+                "groups", "presences", and/or "badges" in it.
+            cache (bool, optional): Should we check the object for values before retrieving. Defaults to True.
+            flag_check (bool, optional): . Defaults to False.
+        """
         if includes is None:
             includes = []
         elif includes is True:
@@ -80,7 +97,7 @@ class RobloxAccount(PartialMixin):
 
             await self.parse_groups(user_json_data.get("groups"))
 
-            if self.badges and self.groups and not no_flag_check:
+            if self.badges and self.groups and flag_check:
                 await self.parse_flags()
 
             self.parse_age()
@@ -93,13 +110,20 @@ class RobloxAccount(PartialMixin):
                 if avatar_response.status == 200:
                     self.avatar = avatar_url.get("data", [{}])[0].get("imageUrl")
 
-    async def get_group_ranks(self, guild) -> dict:
+    async def get_group_ranks(self, guild_id: str | int) -> dict:
+        """
+        NOTE: This method is currently unused and non-functional in its current state. The following doc
+        is assuming what it was for if it was functional (cuz tbh idk if it really does this...)
+
+        Determine the ranks that this Roblox user has in the groups that are bound to this server.
+        """
         group_ranks = {}
 
         if self.groups is None:
             await self.sync(includes=["groups"])
 
-        linked_groups = await binds.get_linked_group_ids(guild)
+        # TODO: Update this code since binds.get_linked_group_ids is not a thing.
+        linked_groups = await binds.get_linked_group_ids(guild_id)
 
         for group_id in linked_groups:
             group = self.groups.get(group_id)
@@ -110,6 +134,7 @@ class RobloxAccount(PartialMixin):
         return group_ranks
 
     def parse_age(self):
+        """Set a human-readable string representing how old this account is."""
         if (self.age_days is not None) or not self.created:
             return
 
@@ -129,17 +154,18 @@ class RobloxAccount(PartialMixin):
                 self.short_age_string = f"{self.age_days} {ending} ago"
 
     async def parse_flags(self):
+        """Determine what flags apply to this user. (Bloxlink staff, roblox stars, and roblox staff)"""
         if self.flags is not None:
             return
 
         if self.badges is None or self.groups is None:
-            await self.sync(includes=["badges", "groups"], cache=True, no_flag_check=True)
+            await self.sync(includes=["badges", "groups"], cache=True, flag_check=False)
 
         if self.groups is None:
             print("error for flags", self.name, self.id)
             return
 
-        flags = 0
+        # flags = 0
 
         # if "3587262" in self.groups and self.groups["3587262"].rank_value >= 50:
         #     flags = flags | BLOXLINK_STAFF
@@ -154,6 +180,11 @@ class RobloxAccount(PartialMixin):
         # self.overlay = self.flags & RBX_STAFF or self.flags & RBX_STAFF or self.flags & RBX_STAR
 
     async def parse_groups(self, group_json: dict | None):
+        """Determine what groups this user is in from a json response.
+
+        Args:
+            group_json (dict | None): JSON input from Roblox representing a user's groups.
+        """
         if group_json is None:
             return
 
@@ -172,13 +203,27 @@ class RobloxAccount(PartialMixin):
             self.groups[group.id] = group
 
     def to_dict(self):
+        """Return a dictionary representing this roblox account"""
         return self._data
 
 
 async def get_user_account(
     user: hikari.User | str, guild_id: int = None, raise_errors=True
 ) -> RobloxAccount | None:
-    """get a user's linked Roblox account"""
+    """Get a user's linked Roblox account.
+
+    Args:
+        user (hikari.User | str): The User or user ID to find the linked Roblox account for.
+        guild_id (int, optional): Used to determine what account is linked in the given guild id.
+            Defaults to None.
+        raise_errors (bool, optional): Should errors be raised or not. Defaults to True.
+
+    Raises:
+        UserNotVerified: If raise_errors and user is not linked with Bloxlink.
+
+    Returns:
+        RobloxAccount | None: The linked Roblox account either globally or for this guild, if any.
+    """
 
     user_id = str(user.id) if isinstance(user, hikari.User) else str(user)
     bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
@@ -206,7 +251,27 @@ async def get_user(
     roblox_id: int = None,
     guild_id: int = None,
 ) -> RobloxAccount:
-    """get a Roblox account"""
+    """Get a Roblox account.
+
+    If a user is not passed, it is required that either roblox_username OR roblox_id is given.
+
+    roblox_id takes priority over roblox_username when searching for users.
+
+    guild_id only applies when a user is given.
+
+    Args:
+        user (hikari.User, optional): Get the account linked to this user. Defaults to None.
+        includes (list | bool | None, optional): Data that should be included. Defaults to None.
+            True retrieves all available data. Otherwise a list can be passed with either
+            "groups", "presences", and/or "badges" in it.
+        roblox_username (str, optional): Username of the account to get. Defaults to None.
+        roblox_id (int, optional): ID of the account to get. Defaults to None.
+        guild_id (int, optional): Guild ID if looking up a user to determine the linked account in that guild.
+            Defaults to None.
+
+    Returns:
+        RobloxAccount | None: The found Roblox account, if any.
+    """
 
     roblox_account: RobloxAccount = None
 
@@ -249,7 +314,7 @@ async def get_user_from_string(target: str) -> RobloxAccount:
         except RobloxNotFound as exc:
             raise RobloxNotFound(
                 "The Roblox user you were searching for does not exist! "
-                f"Please check the input you gave and try again!"
+                "Please check the input you gave and try again!"
             ) from exc
 
     if account.id is None or account.username is None:
@@ -259,6 +324,15 @@ async def get_user_from_string(target: str) -> RobloxAccount:
 
 
 async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) -> hikari.Embed:
+    """Create an embed displaying information about a user.
+
+    Args:
+        roblox_account (RobloxAccount): The user to display information for. Should be synced.
+        user (hikari.User, optional): Discord user for this roblox account. Defaults to None.
+
+    Returns:
+        hikari.Embed: Embed with information about a roblox account.
+    """
     await roblox_account.sync()
 
     embed = hikari.Embed(

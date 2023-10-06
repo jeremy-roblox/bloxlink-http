@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -36,16 +35,27 @@ class Update(APIController):
 
     @get("/users")
     async def get_user(self, request: Request):
+        """Endpoint to get a user, just for testing availability currently."""
         return ok("GET request to this route was valid.")
 
     @post("/users")
-    async def post_user(content: FromJSON[UpdateBody]):
+    async def post_user(self, content: FromJSON[UpdateBody]):
+        """Endpoint to receive /verifyall user chunks from the gateway.
+
+        Args:
+            content (FromJSON[UpdateBody]): Request data from the gateway.
+                See UpdateBody for expected JSON variables.
+        """
         content: UpdateBody = content.value
 
         # Update users, send response only when this is done (or there is an issue?)
         await _update_users(content)
 
-        return accepted(f"OK. Received {content}")
+        # NOTE: We're currently waiting until this chunk is done before replying. This is likely not reliable
+        # for the gateway to wait upon in the event of HTTP server reboots.
+        # Either the gateway should TTL after some time frame, or we should reply with a 202 (accepted) as soon
+        # as the request is received, with a way to check the status (like nonces?)
+        return ok(f"OK. Received {content}")
 
 
 async def _update_users(content: UpdateBody):
