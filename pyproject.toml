@@ -2,7 +2,7 @@
 name = "bloxlink-http"
 version = "0.1.0"
 description = "An http interactions worker for bloxlink"
-authors = ["Bloxlink <admin@blox.link>"]
+authors = ["Bloxlink <oss@blox.link>"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
