@@ -337,21 +337,49 @@ async def apply_binds(
     else:
         raise Message("Something went wrong getting this user's relevant bindings!")
 
-    # first apply the required binds, then ask the user if they want to apply the optional binds
-
+    role_ids_to_give = []
+    role_ids_to_remove = []
     for required_bind in user_binds["required"]:
-        # find valid roles from the server
+        role_ids_to_give.extend(required_bind[1])
+        role_ids_to_remove.extend(required_bind[2])
 
-        for bind_add_id in required_bind[1]:
-            if role := guild.roles.get(int(bind_add_id)):
-                add_roles.append(role)
-
-                if required_bind[3]:
+        if required_bind[3]:
+            for bind_role_id in required_bind[1]:
+                if role := guild.roles.get(int(bind_role_id)):
                     possible_nicknames.append([role, required_bind[3]])
 
-        for bind_remove_id in required_bind[2]:
-            if role := guild.roles.get(bind_remove_id):
-                remove_roles.append(role)
+    # Get the list of roles that the required bindings will give to the user.
+    user_roles, user_roles_response = await fetch(
+        "POST",
+        f"{BOT_API}/binds/roles",
+        headers={"Authorization": BOT_API_AUTH},
+        body={
+            "guild_id": guild.id,
+            "user_roles": list(member_roles.keys()),
+            "successful_binds": {
+                "give": role_ids_to_give,
+                "remove": role_ids_to_remove,
+            },
+        },
+    )
+
+    if user_roles_response.status != 200 or not user_roles["success"]:
+        raise Message("Something went wrong when deciding which roles this user will get!")
+
+    added_roles = user_roles["added_roles"]
+    removed_roles = user_roles["removed_roles"]
+    user_roles = user_roles["final_roles"]
+
+    # Convert to IDs discord roles.
+    for role_id in added_roles:
+        if role := guild.roles.get(int(role_id)):
+            add_roles.append(role)
+
+    for role_id in removed_roles:
+        if role := guild.roles.get(int(role_id)):
+            remove_roles.append(role)
+
+    # first apply the required binds, then ask the user if they want to apply the optional binds
 
     # real_add_roles = add_roles
 
@@ -407,14 +435,10 @@ async def apply_binds(
 
     try:
         if add_roles or remove_roles:
-            # since this overwrites their roles, we need to add in their current roles
-            # then, we remove the remove_roles from the set
             await bloxlink.rest.edit_member(
                 guild_id,
                 member_id,
-                roles=set(getattr(r, "id", r) for r in add_roles + role_ids).difference(
-                    [r.id for r in remove_roles]
-                ),
+                roles=user_roles,
             )
     except hikari.errors.ForbiddenError:
         raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
@@ -437,6 +461,9 @@ async def apply_binds(
 
         if remove_roles:
             embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
+
+        if not (add_roles and remove_roles):
+            embed.add_field(name="Roles", value="Your roles are already up to date!")
 
         if applied_nickname:
             embed.add_field(name="Nickname Changed", value=applied_nickname)
