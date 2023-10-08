@@ -109,7 +109,7 @@ class Restriction:
             # Only DM if the user is being kicked or banned.
             if self.action != "dm":
                 channel = await bloxlink.rest.create_dm_channel(user_id)
-                await channel.send(embed=prompt)
+                await channel.send(embed=prompt.embed)
 
         except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
             logging.warning(e)
