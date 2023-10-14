@@ -1,13 +1,14 @@
 import logging
 from dataclasses import dataclass
 
-from blacksheep import FromJSON, Request, accepted, ok
+from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 
 import resources.binds as binds
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message
+from ..decorators import authenticate
 
 
 @dataclass
@@ -34,11 +35,13 @@ class Update(APIController):
     """Results in a path of <URL>/api/update/..."""
 
     @get("/users")
+    @authenticate()
     async def get_user(self, request: Request):
         """Endpoint to get a user, just for testing availability currently."""
         return ok("GET request to this route was valid.")
 
     @post("/users")
+    @authenticate()
     async def post_user(self, content: FromJSON[UpdateBody]):
         """Endpoint to receive /verifyall user chunks from the gateway.
 
