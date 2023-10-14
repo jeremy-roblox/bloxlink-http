@@ -1,4 +1,5 @@
 from resources.bloxlink import instance as bloxlink
+import hikari
 
 from .constants import SKU_TIERS
 from .models import GuildData, PremiumModel
@@ -32,13 +33,13 @@ def get_merged_features(premium_data, tier):
 
 
 async def get_premium_status(
-    *, guild_id: int | str = None, user_id: int | str = None, interaction=None
+    *, guild_id: int | str = None, user_id: int | str = None, interaction: hikari.CommandInteraction=None
 ) -> PremiumModel:
     if guild_id:
         premium_data = (await bloxlink.fetch_guild_data(str(guild_id), "premium")).premium
 
         if interaction:
-            guild_skus = getattr(interaction, "entitlement_sku_ids", [])
+            guild_skus = getattr(interaction, "entitlement_sku_ids", []) # FIXME
 
             for sku_id, sku_tier in SKU_TIERS.items():
                 if sku_id in guild_skus:
@@ -62,12 +63,13 @@ async def get_premium_status(
             return PremiumModel(
                 active=True,
                 type="guild",
-                payment_source=f"[Bloxlink Dashboard](https://blox.link/dashboard/guilds/{guild_id})/premium",
+                payment_source=f"[Bloxlink Dashboard](https://blox.link/dashboard/guilds/{guild_id}/premium)",
                 tier=tier,
                 term=term,
                 features=features,
             )
     else:
+        # user premium
         raise NotImplementedError()
 
     return PremiumModel(active=False)

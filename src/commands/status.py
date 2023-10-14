@@ -10,7 +10,7 @@ class StatusCommand:
     """view your premium status"""
 
     async def __main__(self, ctx: CommandContext):
-        premium_status: PremiumModel = await get_premium_status(guild_id=ctx.guild_id)
+        premium_status: PremiumModel = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
         embed = Embed()
 
         if premium_status.active:
@@ -18,7 +18,7 @@ class StatusCommand:
             embed.color = 0xFDC333
             embed.add_field(name="Premium Status", value="Active", inline=True)
             embed.add_field(name="Tier", value=premium_status.tier, inline=True)
-            embed.add_field(name="Payment Source", value=premium_status.charge_source, inline=True)
+            embed.add_field(name="Payment Source", value=premium_status.payment_source, inline=True)
             embed.add_field(name="Unlocked Features", value=str(premium_status), inline=True)
         else:
             embed.description = (
