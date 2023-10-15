@@ -14,7 +14,7 @@ from resources.secrets import (  # pylint: disable=no-name-in-module
     SERVER_HOST,
     SERVER_PORT,
 )
-from web.webserver import instance as webserver
+from web.webserver import webserver
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
