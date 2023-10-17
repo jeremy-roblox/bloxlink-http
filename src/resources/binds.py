@@ -11,7 +11,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
 from resources.models import EmbedPrompt, GroupBind, GuildBind, GuildData
-from resources.secrets import BOT_API, BOT_API_AUTH  # pylint: disable=E0611
+from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
@@ -316,8 +316,8 @@ async def apply_binds(
     # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
     user_binds, user_binds_response = await fetch(
         "POST",
-        f"{BOT_API}/binds/{member_id}",
-        headers={"Authorization": BOT_API_AUTH},
+        f"{BIND_API}/binds/{member_id}",
+        headers={"Authorization": BIND_API_AUTH},
         body={
             "guild": {
                 "id": guild.id,
@@ -351,8 +351,8 @@ async def apply_binds(
     # Get the list of roles that the required bindings will give to the user.
     user_roles, user_roles_response = await fetch(
         "POST",
-        f"{BOT_API}/binds/roles",
-        headers={"Authorization": BOT_API_AUTH},
+        f"{BIND_API}/binds/roles",
+        headers={"Authorization": BIND_API_AUTH},
         body={
             "guild_id": guild.id,
             "user_roles": list(member_roles.keys()),
@@ -402,8 +402,8 @@ async def apply_binds(
         if chosen_nickname:
             chosen_nickname_http, nickname_response = await fetch(
                 "GET",
-                f"{BOT_API}/nickname/parse/",
-                headers={"Authorization": BOT_API_AUTH},
+                f"{BIND_API}/nickname/parse/",
+                headers={"Authorization": BIND_API_AUTH},
                 body={
                     "user_data": {"name": username, "nick": nickname, "id": member_id},
                     "guild_id": guild.id,
