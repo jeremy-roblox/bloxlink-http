@@ -245,7 +245,6 @@ async def apply_binds(
     username = ""
     nickname = ""
     avatar_url = ""
-    user_tag = ""
 
     # Get necessary user information.
     if isinstance(member, hikari.Member):
@@ -254,7 +253,6 @@ async def apply_binds(
         username = member.username
         nickname = member.nickname
         avatar_url = member.display_avatar_url.url
-        user_tag = f"{username}#{member.discriminator}"
 
     elif isinstance(member, dict):
         role_ids = member.get("role_ids", [])
@@ -266,7 +264,6 @@ async def apply_binds(
 
         nickname = member.get("nickname", "")
         avatar_url = member.get("avatar_url", "")
-        user_tag = f"{username}#{member.get('discriminator')}"
 
     member_roles: dict = {}
     for member_role_id in role_ids:
@@ -451,7 +448,7 @@ async def apply_binds(
             title="Member Updated",
         )
         embed.set_author(
-            name=user_tag,
+            name=username,
             icon=avatar_url,
             url=roblox_account.profile_link if roblox_account else None,
         )
@@ -463,7 +460,7 @@ async def apply_binds(
             embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
 
         if not (add_roles and remove_roles):
-            embed.add_field(name="Roles", value="Your roles are already up to date!")
+            embed.add_field(name="Roles", value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.")
 
         if applied_nickname:
             embed.add_field(name="Nickname Changed", value=applied_nickname)
