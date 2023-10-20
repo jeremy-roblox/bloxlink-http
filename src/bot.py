@@ -29,7 +29,7 @@ bot.interaction_server.set_listener(hikari.CommandInteraction, handle_command)
 bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_component)
 bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
 
-# IMPORTANT NOTE, blacksheep expects a trailing /
+# IMPORTANT NOTE: blacksheep expects a trailing /
 # in the URL that is given to discord because this is a mount.
 # Example: "example.org/bot/" works, but "example.org/bot" does not (this results in a 307 reply, which discord doesn't honor).
 webserver.mount("/bot", bot)

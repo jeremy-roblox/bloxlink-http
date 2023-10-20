@@ -157,6 +157,7 @@ def new_command(command: Any, **kwargs):
         command_attrs["name"] = alias
         new_alias_command = Command(**command_attrs)
         slash_commands[alias] = new_alias_command
+
         logging.info(f"Registered command alias {alias} of {command_name}")
 
     logging.info(f"Registered command {command_name}")
