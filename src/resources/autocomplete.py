@@ -3,7 +3,7 @@ import hikari
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.models import GuildBind
+from resources.binds import GuildBind
 
 
 async def bind_category_autocomplete(interaction: hikari.AutocompleteInteraction):

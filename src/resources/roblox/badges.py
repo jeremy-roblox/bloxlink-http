@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.models import PartialMixin
 from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
 
@@ -9,7 +8,7 @@ BADGE_API = "https://badges.roblox.com/v1/badges"
 
 
 @dataclass(slots=True)
-class RobloxBadge(PartialMixin, RobloxEntity):
+class RobloxBadge(RobloxEntity):
     """Representation of a Badge on Roblox."""
 
     async def sync(self):

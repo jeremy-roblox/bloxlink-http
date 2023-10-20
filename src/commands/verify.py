@@ -1,7 +1,7 @@
 import resources.binds as binds
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
-from resources.models import CommandContext
+from resources.commands import CommandContext
 
 
 @bloxlink.command(

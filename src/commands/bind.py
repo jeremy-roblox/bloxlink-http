@@ -46,11 +46,11 @@ The current flow is effectively like this:
 vv--- Buttons/Components not mentioned above ---vv
 
 - bind_menu_cancel_button
-    Handles skip state & cancel state. In either case, simply redirects user back to the main 
+    Handles skip state & cancel state. In either case, simply redirects user back to the main
     prompt since we have no special logic to skip specific steps.
 
 - bind_menu_save_button
-    Reads embed content and saves the bindings to the database. 
+    Reads embed content and saves the bindings to the database.
     Disables the save & discard buttons again.
 
 - bind_menu_discard_button
@@ -77,7 +77,7 @@ from resources.component_helper import (
 )
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, SPLIT_CHAR
 from resources.exceptions import RobloxNotFound
-from resources.models import CommandContext
+from resources.commands import CommandContext
 from resources.prompts import (
     build_group_criteria_prompt,
     build_interactive_bind_base,

@@ -1,12 +1,12 @@
 import hikari
 
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import join_bind_strings, json_binds_to_guild_binds
+from resources.binds import join_bind_strings, json_binds_to_guild_binds, GroupBind, GuildBind
 from resources.bloxlink import instance as bloxlink
 from resources.component_helper import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.models import CommandContext, GroupBind, GuildBind
+from resources.commands import CommandContext
 from resources.pagination import Paginator
 
 MAX_BINDS_PER_PAGE = 5

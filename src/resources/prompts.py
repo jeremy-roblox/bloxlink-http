@@ -1,14 +1,23 @@
 from typing import Literal
+from dataclasses import dataclass, field
 
 import hikari
 
-from resources.binds import count_binds, get_bind_desc
+
+import resources.binds as binds
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA
 from resources.exceptions import RobloxNotFound
-from resources.models import EmbedPrompt
 from resources.roblox.groups import get_group
 from resources.roblox.roblox_entity import create_entity
+
+
+@dataclass(slots=True)
+class EmbedPrompt:
+    """Represents a prompt consisting of an embed & components for the message."""
+
+    embed: hikari.Embed = hikari.Embed()
+    components: list = field(default_factory=list)
 
 
 async def build_interactive_bind_base(
@@ -47,13 +56,13 @@ async def build_interactive_bind_base(
         description=f"> ### Binding {capital_type} - {bind_info}",
     )
 
-    bind_count = await count_binds(guild_id, bind_id)
+    bind_count = await binds.count_binds(guild_id, bind_id)
     embed.add_field(
         "Current Binds",
         value=(
             f"No binds exist for this {bind_type}. Click the button below to create your first bind!"
             if bind_count == 0
-            else await get_bind_desc(guild_id, bind_id, bind_type)
+            else await binds.get_bind_desc(guild_id, bind_id, bind_type)
         ),
         inline=True,
     )

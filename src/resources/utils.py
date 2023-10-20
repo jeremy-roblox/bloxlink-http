@@ -1,6 +1,8 @@
 import asyncio
 from enum import Enum
 from json import JSONDecodeError, loads
+from dataclasses import field
+import copy
 
 import aiohttp
 from requests.utils import requote_uri
@@ -8,7 +10,7 @@ from requests.utils import requote_uri
 from resources.exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from resources.secrets import PROXY_URL  # pylint: disable=no-name-in-module
 
-__all__ = ("fetch", "ReturnType")
+__all__ = ("fetch", "ReturnType", "default_field")
 
 session = None
 
@@ -175,3 +177,6 @@ async def fetch(
     except asyncio.TimeoutError:
         print(f"URL {old_url} timed out", flush=True)
         raise RobloxDown() from None
+
+def default_field(obj: list | dict):
+    return field(default_factory=lambda: copy.copy(obj))

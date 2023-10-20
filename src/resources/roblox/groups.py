@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.models import PartialMixin
 from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
 
@@ -11,7 +10,7 @@ ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
 
 
 @dataclass(slots=True)
-class RobloxGroup(PartialMixin, RobloxEntity):
+class RobloxGroup(RobloxEntity):
     """Representation of a Group on Roblox.
 
 

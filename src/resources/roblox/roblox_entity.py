@@ -22,7 +22,7 @@ class RobloxEntity(ABC):
     @abstractmethod
     async def sync(self):
         """Sync a Roblox entity with the data from Roblox."""
-        return
+        raise NotImplementedError()
 
     def __str__(self) -> str:
         name = f"**{self.name}**" if self.name else "*(Unknown Roblox Entity)*"

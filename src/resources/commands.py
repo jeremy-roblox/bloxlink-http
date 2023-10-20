@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 import re
 from typing import Any, Callable
+from dataclasses import dataclass
 
 import hikari
 
 from resources.exceptions import *
-from resources.models import CommandContext
 from resources.response import Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 
@@ -284,3 +284,32 @@ class Command:
             await self.subcommands[subcommand_name](ctx)
         else:
             await self.fn(ctx)
+
+@dataclass(slots=True)
+class CommandContext:
+    """Data related to a command that has been run.
+
+    Attributes:
+        command_name (str): The name of the command triggered.
+        command_id (int): The ID of the command triggered.
+        guild_id (int): The name of the command triggered.
+        member (hikari.InteractionMember): The member that triggered this command.
+        user (hikari.User): The user that triggered this command.
+        resolved (hikari.ResolvedOptionData): Data of entities mentioned in command arguments that are
+            resolved by Discord.
+        options (dict): The options/arguments passed by the user to this command.
+        interaction (hikari.CommandInteraction): The interaction object from Discord.
+        response (Response): Bloxlink's wrapper for handling initial response sending.
+    """
+
+    command_name: str
+    command_id: int
+    guild_id: int
+    member: hikari.InteractionMember
+    user: hikari.User
+    resolved: hikari.ResolvedOptionData
+    options: dict[str, str | int]
+
+    interaction: hikari.CommandInteraction
+
+    response: Response

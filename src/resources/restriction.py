@@ -5,10 +5,11 @@ from typing import Literal
 import hikari
 
 import resources.roblox.users as users
-from resources.bloxlink import instance as bloxlink
+from resources.bloxlink import instance as bloxlink, UserData
 from resources.constants import RED_COLOR
 from resources.exceptions import UserNotVerified
-from resources.models import EmbedPrompt, UserData, default_field
+from resources.utils import default_field
+import resources.prompts as prompts
 from resources.roblox.groups import RobloxGroup
 
 
@@ -21,7 +22,7 @@ class Restriction:
     restriction: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
     metadata: dict = default_field({"unverified": True})
 
-    def prompt(self, guild_name: str) -> EmbedPrompt:
+    def prompt(self, guild_name: str) -> prompts.EmbedPrompt:
         """Return an Embed describing why the user was restricted.
 
         This prompt will be either DM'd to users or sent in replacement of the typical
@@ -92,7 +93,7 @@ class Restriction:
         embed.color = RED_COLOR
         embed.description = description
 
-        return EmbedPrompt(embed=embed, components=[])
+        return prompts.EmbedPrompt(embed=embed, components=[])
 
     async def moderate(self, user_id: int, guild: hikari.Guild):
         """DM, Kick, or Ban a user based on the determined restriction.

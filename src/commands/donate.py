@@ -2,7 +2,7 @@ import hikari
 from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
-from resources.models import CommandContext
+from resources.commands import CommandContext
 
 
 @bloxlink.command()

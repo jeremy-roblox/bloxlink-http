@@ -12,13 +12,12 @@ import resources.roblox.groups as groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
-from resources.models import PartialMixin, UserData
 from resources.utils import ReturnType, fetch
 from resources.secrets import ROBLOX_INFO_SERVER
 
 
 @dataclass(slots=True)
-class RobloxAccount(PartialMixin):
+class RobloxAccount:
     """Representation of a user on Roblox."""
 
     id: str

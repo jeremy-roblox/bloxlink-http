@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.models import PartialMixin
 from resources.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
 
@@ -9,7 +8,7 @@ GAMEPASS_API = "https://economy.roblox.com/v1/game-pass"
 
 
 @dataclass(slots=True)
-class RobloxGamepass(PartialMixin, RobloxEntity):
+class RobloxGamepass(RobloxEntity):
     """Representation of a Gamepass on Roblox"""
 
     async def sync(self):

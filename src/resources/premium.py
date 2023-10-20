@@ -1,8 +1,31 @@
 from resources.bloxlink import instance as bloxlink
 import hikari
+from dataclasses import dataclass
 
 from .constants import SKU_TIERS
-from .models import GuildData, PremiumModel
+
+
+@dataclass(slots=True)
+class PremiumModel:
+    active: bool = False
+    type: str = None
+    payment_source: str = None
+    tier: str = None
+    term: str = None
+    features: set = None
+
+    def __str__(self):
+        buffer = []
+
+        if self.features:
+            if "premium" in self.features:
+                buffer.append("Basic - Premium commands")
+            if "pro" in self.features:
+                buffer.append(
+                    "Pro - Unlocks the Pro bot and a few [enterprise features](https://blox.link/pricing)"
+                )
+
+        return "\n".join(buffer) or "Not premium"
 
 
 def get_user_facing_tier(tier_name):

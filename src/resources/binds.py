@@ -2,21 +2,105 @@ from __future__ import annotations
 
 import re
 from typing import Literal
+from dataclasses import dataclass
 
 import hikari
 
 import resources.restriction as restriction
 import resources.roblox.users as users
-from resources.bloxlink import instance as bloxlink
+
+from resources.bloxlink import instance as bloxlink, GuildData
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
-from resources.models import EmbedPrompt, GroupBind, GuildBind, GuildData
+from resources.prompts import EmbedPrompt
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
-from resources.utils import fetch
+from resources.utils import fetch, default_field
+from resources.roblox.roblox_entity import RobloxEntity, create_entity
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
+
+
+
+@dataclass(slots=True)
+class GuildBind:
+    """Represents a binding from the database.
+
+    Post init it should be expected that the id, type, and entity types are not None.
+
+    Attributes:
+        nickname (str, optional): The nickname template to be applied to users. Defaults to None.
+        roles (list): The IDs of roles that should be given by this bind.
+        removeRole (list): The IDs of roles that should be removed when this bind is given.
+
+        id (int, optional): The ID of the entity for this binding. Defaults to None.
+        type (Literal[group, asset, gamepass, badge]): The type of binding this is representing.
+        bind (dict): The raw data that the database stores for this binding.
+
+        entity (RobloxEntity, optional): The entity that this binding represents. Defaults to None.
+    """
+
+    nickname: str = None
+    roles: list = default_field(list())
+    removeRoles: list = default_field(list())
+
+    id: int = None
+    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
+    bind: dict = default_field({"type": "", "id": None})
+
+    entity: RobloxEntity = None
+
+    def __post_init__(self):
+        self.id = self.bind.get("id")
+        self.type = self.bind.get("type")
+
+        self.entity = create_entity(self.type, self.id)
+
+
+class GroupBind(GuildBind):
+    """Represents additional attributes that only apply to group binds.
+
+    Except for min and max (which are used for ranges), only one attribute should be considered to be
+    not None at a time.
+
+    Attributes:
+        min (int, optional): The minimum rank that this bind applies to. Defaults to None.
+        max (int, optional): The maximum rank that this bind applies to. Defaults to None.
+        roleset (int, optional): The specific rank that this bind applies to. Defaults to None.
+            Can be negative (in legacy format) to signify that specific rank and higher.
+        everyone (bool, optional): Does this bind apply to everyone. Defaults to None.
+        guest (bool, optional): Does this bind apply to guests. Defaults to None.
+    """
+
+    min: int = None
+    max: int = None
+    roleset: int = None
+    everyone: bool = None
+    guest: bool = None
+
+    def __post_init__(self):
+        self.min = self.bind.get("min", None)
+        self.max = self.bind.get("max", None)
+        self.roleset = self.bind.get("roleset", None)
+        self.everyone = self.bind.get("everyone", None)
+        self.guest = self.bind.get("guest", None)
+
+        return super().__post_init__()
+
+    @property
+    def subtype(self) -> str:
+        """The specific type of this group bind.
+
+        Returns:
+            str: "linked_group" or "group_roles" depending on if there
+                are roles explicitly listed to be given or not.
+        """
+        if not self.roles or self.roles in ("undefined", "null"):
+            return "linked_group"
+        else:
+            return "group_roles"
+
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:

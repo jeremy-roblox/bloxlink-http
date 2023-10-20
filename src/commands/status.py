@@ -1,8 +1,8 @@
 from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
-from resources.models import CommandContext, PremiumModel
-from resources.premium import get_premium_status
+from resources.commands import CommandContext
+from resources.premium import get_premium_status, PremiumModel
 
 
 @bloxlink.command(category="Miscellaneous")

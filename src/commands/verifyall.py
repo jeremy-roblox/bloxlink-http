@@ -6,7 +6,7 @@ import hikari
 
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import Message
-from resources.models import CommandContext
+from resources.commands import CommandContext
 
 logger = logging.getLogger("verify_all")
 CHUNK_LIMIT = 1000

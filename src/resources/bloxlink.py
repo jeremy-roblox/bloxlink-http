@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
 from typing import Callable, Coroutine, Optional
+from dataclasses import dataclass
 
 import hikari
 import redis.asyncio as redis  # pylint: disable=import-error
@@ -15,8 +16,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger()
 
-from resources.commands import new_command
-from resources.models import GuildData, UserData
 from resources.redis import RedisMessageCollector
 from resources.secrets import (  # pylint: disable=no-name-in-module
     MONGO_URL,
@@ -24,8 +23,47 @@ from resources.secrets import (  # pylint: disable=no-name-in-module
     REDIS_PASSWORD,
     REDIS_PORT,
 )
+from resources.utils import default_field
 
 instance: "Bloxlink" = None
+
+
+@dataclass(slots=True)
+class UserData:
+    """Representation of a User's data in Bloxlink
+
+    Attributes:
+        id (int): The Discord ID of the user.
+        robloxID (str): The roblox ID of the user's primary account.
+        robloxAccounts (dict): All of the user's linked accounts, and any guild specific verifications.
+    """
+
+    id: int
+    robloxID: str = None
+    robloxAccounts: dict = default_field({"accounts": [], "guilds": {}})
+
+
+@dataclass(slots=True)
+class GuildData:
+    """Representation of the stored settings for a guild"""
+
+    id: int
+    binds: list = default_field([])  # FIXME
+
+    verifiedRoleEnabled: bool = True
+    verifiedRoleName: str = "Verified"  # deprecated
+    verifiedRole: str = None
+
+    unverifiedRoleEnabled: bool = True
+    unverifiedRoleName: str = "Unverified"  # deprecated
+    unverifiedRole: str = None
+
+    ageLimit: int = None
+    disallowAlts: bool = None
+    disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
+    groupLock: dict = None
+
+    premium: dict = None
 
 
 class Bloxlink(yuyo.AsgiBot):
@@ -315,6 +353,8 @@ class Bloxlink(yuyo.AsgiBot):
     @staticmethod
     def command(**command_attrs):
         """Decorator to register a command."""
+
+        from resources.commands import new_command
 
         def wrapper(*args, **kwargs):
             return new_command(*args, **kwargs, **command_attrs)
