@@ -4,7 +4,11 @@ from resources.bloxlink import instance as bloxlink
 from resources.models import CommandContext
 
 
-@bloxlink.command(category="Account", defer=True)
+@bloxlink.command(
+    category="Account",
+    defer=True,
+    aliases=["getrole"]
+)
 class VerifyCommand:
     """Link your Roblox account to your Discord account and get your server roles."""
 

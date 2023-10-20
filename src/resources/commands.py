@@ -135,22 +135,29 @@ def new_command(command: Any, **kwargs):
             )
             subcommands[attr_name] = attr
 
-    new_command = Command(
-        command_name,
-        command_fn,
-        kwargs.get("category", "Miscellaneous"),
-        kwargs.get("permissions", None),
-        kwargs.get("defer", False),
-        new_command_class.__doc__,
-        kwargs.get("options"),
-        subcommands,
-        rest_subcommands,
-        kwargs.get("accepted_custom_ids"),
-        kwargs.get("autocomplete_handlers"),
-        kwargs.get("dm_enabled"),
-    )
+    command_attrs = {
+        "name": command_name,
+        "fn": command_fn,
+        "category": kwargs.get("category", "Miscellaneous"),
+        "permissions": kwargs.get("permissions", None),
+        "defer": kwargs.get("defer", False),
+        "description": new_command_class.__doc__,
+        "options": kwargs.get("options"),
+        "subcommands": subcommands,
+        "rest_subcommands": rest_subcommands,
+        "accepted_custom_ids": kwargs.get("accepted_custom_ids"),
+        "autocomplete_handlers": kwargs.get("autocomplete_handlers"),
+        "dm_enabled": kwargs.get("dm_enabled"),
+    }
 
+    new_command = Command(**command_attrs)
     slash_commands[command_name] = new_command
+
+    for alias in kwargs.get("aliases", []):
+        command_attrs["name"] = alias
+        new_alias_command = Command(**command_attrs)
+        slash_commands[alias] = new_alias_command
+        logging.info(f"Registered command alias {alias} of {command_name}")
 
     logging.info(f"Registered command {command_name}")
 
@@ -237,7 +244,7 @@ class Command:
 
     def __init__(
         self,
-        command_name: str,
+        name: str,
         fn: Callable = None,  # None if it has sub commands
         category: str = "Miscellaneous",
         permissions=None,
@@ -250,7 +257,7 @@ class Command:
         autocomplete_handlers: list[str] = None,
         dm_enabled: bool = None,
     ):
-        self.name = command_name
+        self.name = name
         self.fn = fn
         self.category = category
         self.permissions = permissions
