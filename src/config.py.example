@@ -10,5 +10,7 @@ SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8010
 SERVER_AUTH = ""
 
-BIND_API = "http://127.0.0.1:8002"
+BIND_API = "http://localhost:8002"
 BIND_API_AUTH = ""
+
+ROBLOX_INFO_SERVER = "http://localhost:7002"

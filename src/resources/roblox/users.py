@@ -14,6 +14,7 @@ from resources.constants import ALL_USER_API_SCOPES
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
 from resources.models import PartialMixin, UserData
 from resources.utils import ReturnType, fetch
+from resources.secrets import ROBLOX_INFO_SERVER
 
 
 @dataclass(slots=True)
@@ -79,7 +80,7 @@ class RobloxAccount(PartialMixin):
 
         user_json_data, user_data_response = await fetch(
             "GET",
-            f"https://bloxlink-info-server-vunlj.ondigitalocean.app/roblox/info?{id_string}&{username_string}&include={includes}",
+            f"{ROBLOX_INFO_SERVER}/roblox/info?{id_string}&{username_string}&include={includes}",
             return_data=ReturnType.JSON,
         )
 

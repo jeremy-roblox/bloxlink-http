@@ -21,6 +21,7 @@ VALID_SECRETS = (
     "SERVER_HOST",
     "SERVER_PORT",
     "SERVER_AUTH",
+    "ROBLOX_INFO_SERVER"
 )
 
 for secret in VALID_SECRETS:
