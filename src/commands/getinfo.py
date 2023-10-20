@@ -18,7 +18,7 @@ from resources.models import CommandContext
         )
     ],
 )
-class WhoisCommand:
+class GetInfoCommand:
     """retrieve the Roblox information of a user"""
 
     async def __main__(self, ctx: CommandContext):
