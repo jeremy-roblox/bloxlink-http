@@ -1,4 +1,5 @@
 import hikari
+from .bloxlink import instance as bloxlink
 
 
 class Response:
@@ -20,6 +21,9 @@ class Response:
         content: str = None,
         embed: hikari.Embed = None,
         components: list = None,
+        ephemeral: bool = False,
+        channel: hikari.GuildTextChannel = None,
+        channel_id: str | int = None,
         **kwargs,
     ):
         """Send this Response to discord.
@@ -28,22 +32,41 @@ class Response:
             content (str, optional): Message content to send. Defaults to None.
             embed (hikari.Embed, optional): Embed to send. Defaults to None.
             components (list, optional): Components to attach to the message. Defaults to None.
+            ephemeral (bool, optional): Should this message be ephemeral. Defaults to False.
+            channel (hikari.GuildTextChannel, optional): Channel to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
+            channel_id (int, str, optional): Channel ID to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
             **kwargs: match what hikari expects for interaction.execute() or interaction.create_initial_response()
         """
-        if self.responded:
-            if isinstance(components, (list, tuple)):
-                await self.interaction.execute(content, embed=embed, components=components, **kwargs)
-            else:
-                await self.interaction.execute(content, embed=embed, component=components, **kwargs)
 
-        else:
+        if channel and channel_id:
+            raise ValueError("Cannot specify both channel and channel_id.")
+
+        if channel:
+            return await channel.send(content, embed=embed, components=components, **kwargs)
+
+        if channel_id:
+            # FIXME: bloxlink is None
+            # return await (await bloxlink.rest.fetch_channel(channel_id)).send(
+            #     content, embed=embed, components=components, **kwargs
+            # )
+            pass
+
+        if ephemeral:
+            kwargs["flags"] = hikari.messages.MessageFlag.EPHEMERAL
+
+        if self.deferred:
+            self.deferred = False
             self.responded = True
 
-            if isinstance(components, (list, tuple)):
-                await self.interaction.create_initial_response(
-                    hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
-                )
-            else:
-                await self.interaction.create_initial_response(
-                    hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
-                )
+            kwargs.pop("flags", None) # edit_initial_response doesn't support ephemeral
+
+            return await self.interaction.edit_initial_response(content, embed=embed, component=components, **kwargs)
+
+        if self.responded:
+            return await self.interaction.execute(content, embed=embed, component=components, **kwargs)
+
+        self.responded = True
+
+        return await self.interaction.create_initial_response(
+            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
+        )
