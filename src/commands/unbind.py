@@ -14,8 +14,9 @@ MAX_BINDS_PER_PAGE = 15
 
 
 @component_author_validation(author_segment=3)
-async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
+async def unbind_pagination_button(ctx: CommandContext):
     """Handle the left and right buttons for pagination."""
+    interaction = ctx.interaction
     message = interaction.message
 
     custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)
@@ -55,8 +56,10 @@ async def unbind_pagination_button(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=3, defer=False)
-async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
+async def unbind_discard_binding(ctx: CommandContext):
     """Handles the removal of a binding from the list."""
+
+    interaction = ctx.interaction
 
     await interaction.create_initial_response(
         hikari.ResponseType.DEFERRED_MESSAGE_CREATE, flags=hikari.MessageFlag.EPHEMERAL
@@ -101,8 +104,11 @@ async def unbind_discard_binding(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=3, defer=False)
-async def unbind_cancel_button(interaction: hikari.ComponentInteraction):
+async def unbind_cancel_button(ctx: CommandContext):
     """Handle the cancel button press."""
+
+    interaction = ctx.interaction
+
     if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
         await interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]

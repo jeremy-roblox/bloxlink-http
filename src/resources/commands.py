@@ -53,20 +53,10 @@ async def handle_command(interaction: hikari.CommandInteraction):
     response = Response(interaction)
 
     if command.defer:
-        response.responded = True
-        yield interaction.build_deferred_response()
+        response.deferred = True
+        yield interaction.build_deferred_response().set_flags(hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None)
 
-    ctx = CommandContext(
-        command_name=interaction.command_name,
-        command_id=interaction.command_id,
-        guild_id=interaction.guild_id,
-        member=interaction.member,
-        user=interaction.user,
-        response=response,
-        resolved=interaction.resolved,
-        options=command_options,
-        interaction=interaction,
-    )
+    ctx = build_context(interaction, response=response, command=command, options=command_options)
 
     await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)
 
@@ -91,7 +81,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
                 logging.error(f'Command {command.name} has no auto-complete handler "{command_option.name}"!')
                 return
 
-            return await autocomplete_fn(interaction)
+            return await autocomplete_fn(build_context(interaction, command=command))
 
 
 async def handle_component(interaction: hikari.ComponentInteraction):
@@ -102,7 +92,7 @@ async def handle_component(interaction: hikari.ComponentInteraction):
     for command in slash_commands.values():
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
-                return await custom_id_fn(interaction)
+                return await custom_id_fn(build_context(interaction))
 
 
 def new_command(command: Any, **kwargs):
@@ -141,6 +131,7 @@ def new_command(command: Any, **kwargs):
         "category": kwargs.get("category", "Miscellaneous"),
         "permissions": kwargs.get("permissions", None),
         "defer": kwargs.get("defer", False),
+        "defer_with_ephemeral": kwargs.get("defer_with_ephemeral", False),
         "description": new_command_class.__doc__,
         "options": kwargs.get("options"),
         "subcommands": subcommands,
@@ -250,6 +241,7 @@ class Command:
         category: str = "Miscellaneous",
         permissions=None,
         defer: bool = False,
+        defer_with_ephemeral: bool = False,
         description: str = None,
         options: list[hikari.commands.CommandOptions] = None,
         subcommands: dict[str, Callable] = None,
@@ -263,6 +255,7 @@ class Command:
         self.category = category
         self.permissions = permissions
         self.defer = defer
+        self.defer_with_ephemeral = defer_with_ephemeral
         self.description = description
         self.options = options
         self.subcommands = subcommands
@@ -313,3 +306,27 @@ class CommandContext:
     interaction: hikari.CommandInteraction
 
     response: Response
+
+
+def build_context(interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction, response: Response = None, command: Command = None, options=None) -> CommandContext:
+    """Build a CommandContext from an interaction.
+
+    Args:
+        interaction (hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction): The interaction to build a context for.
+        response (Response, optional): The response object for this interaction. Defaults to None. It will be created if not provided.
+        command (Command, optional): The command that this interaction is for. Defaults to None. This is only useful for handlers to know the current command name.
+        options (dict, optional): The options/arguments passed by the user to this command. Defaults to None. This is only useful to provide for subcommands.
+    Returns:
+        CommandContext: The built context.
+    """
+    return CommandContext(
+        command_name=command.name or interaction.command_name if hasattr(interaction, "command_name") else None,
+        command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
+        guild_id=interaction.guild_id,
+        member=interaction.member,
+        user=interaction.user,
+        resolved=interaction.resolved,
+        options=options or {o.name: o.value for o in interaction.options} if hasattr(interaction, "options") else None,
+        interaction=interaction,
+        response=response or Response(interaction),
+    )

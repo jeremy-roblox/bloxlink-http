@@ -4,10 +4,13 @@ import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.binds import GuildBind
+from resources.commands import CommandContext
 
 
-async def bind_category_autocomplete(interaction: hikari.AutocompleteInteraction):
+async def bind_category_autocomplete(ctx: CommandContext):
     """Autocomplete for a bind category input based upon the binds the user has."""
+
+    interaction = ctx.interaction
 
     guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
 
@@ -18,9 +21,11 @@ async def bind_category_autocomplete(interaction: hikari.AutocompleteInteraction
     )
 
 
-async def bind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
+async def bind_id_autocomplete(ctx: CommandContext):
     """Autocomplete for bind ID inputs, expects that there is an additional category option in the
     command arguments that must be set prior to this argument."""
+
+    interaction = ctx.interaction
 
     choices = [
         # base option
@@ -57,8 +62,10 @@ async def bind_id_autocomplete(interaction: hikari.AutocompleteInteraction):
     return interaction.build_response(choices[:25])
 
 
-async def roblox_lookup_autocomplete(interaction: hikari.AutocompleteInteraction):
+async def roblox_lookup_autocomplete(ctx: CommandContext):
     """Return a matching roblox user from a user's input."""
+
+    interaction = ctx.interaction
 
     # Makes sure that we get the correct command input in a generic way
     option = next(x for x in interaction.options if x.is_focused)

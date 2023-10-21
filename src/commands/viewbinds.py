@@ -13,8 +13,9 @@ MAX_BINDS_PER_PAGE = 5
 
 
 @component_author_validation(author_segment=3)
-async def viewbinds_button(interaction: hikari.ComponentInteraction):
+async def viewbinds_button(ctx: CommandContext):
     """Handle pagination left and right button presses."""
+    interaction = ctx.interaction
     message = interaction.message
 
     custom_id_data = get_custom_id_data(interaction.custom_id, segment_min=3)

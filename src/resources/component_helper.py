@@ -1,6 +1,7 @@
 import hikari
 
 from resources.bloxlink import instance as bloxlink
+from resources.commands import CommandContext
 
 
 async def get_component(message: hikari.Message, custom_id: str):
@@ -254,7 +255,9 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
     """
 
     def func_wrapper(func):
-        async def response_wrapper(interaction: hikari.ComponentInteraction):
+        async def response_wrapper(ctx: CommandContext):
+            interaction = ctx.interaction
+
             author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
 
             # Only accept input from the author of the command

@@ -97,7 +97,7 @@ DISCORD_ID_REGEX = r"(\d{17,})"
 
 
 @component_author_validation(author_segment=4, defer=False)
-async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
+async def bind_menu_select_criteria(ctx: CommandContext):
     """
     Handles the group bind criteria selection response & sets up the next prompt accordingly.
 
@@ -105,6 +105,7 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
     will be directed straight to role selection.
     """
 
+    interaction = ctx.interaction
     message = interaction.message
 
     # depending on choice, show more select menus to message
@@ -143,11 +144,13 @@ async def bind_menu_select_criteria(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=4, defer=False)
-async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
+async def bind_menu_select_roleset(ctx: CommandContext):
     """
     Handles the selected group rank response, one or two depending on the bind condition.
     Sets up role-selection prompt.
     """
+
+    interaction = ctx.interaction
     message = interaction.message
     roleset_choices = interaction.values
 
@@ -173,7 +176,7 @@ async def bind_menu_select_roleset(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=4, defer=False)
-async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
+async def bind_menu_select_role(ctx: CommandContext):
     """
     Handles the role selection prompt response.
 
@@ -181,6 +184,8 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
     the selections from this prompt to the original embed description.
     It then sets up the select roles to remove prompt.
     """
+
+    interaction = ctx.interaction
     message = interaction.message
 
     custom_data = get_custom_id_data(interaction.custom_id, segment_min=3, segment_max=6)
@@ -303,10 +308,12 @@ async def bind_menu_select_role(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=4, defer=False)
-async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction):
+async def bind_menu_select_remove_roles(ctx: CommandContext):
     """
     Handles the response from the selection prompt asking if users want roles to be removed.
     """
+
+    interaction = ctx.interaction
     original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
 
     if len(interaction.values) != 0:
@@ -348,7 +355,7 @@ async def bind_menu_select_remove_roles(interaction: hikari.ComponentInteraction
 
 
 @component_author_validation(author_segment=5, defer=False)
-async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
+async def bind_menu_add_role_button(ctx: CommandContext):
     """
     Handles what will occur on the add role button press.
 
@@ -356,6 +363,7 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
     applicable for group binds where specific ranks are desired, as well as
     asset, badge, and gamepass bindings.
     """
+    interaction = ctx.interaction
     custom_id = interaction.custom_id
     message = interaction.message
 
@@ -404,10 +412,12 @@ async def bind_menu_add_role_button(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=5, defer=False)
-async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
+async def bind_menu_save_button(ctx: CommandContext):
     """
     Saves the configuration found in the description of the embed to the database.
     """
+
+    interaction = ctx.interaction
     message = interaction.message
     guild_id = interaction.guild_id
 
@@ -552,9 +562,10 @@ async def bind_menu_save_button(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=3, defer=False)
-async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
+async def bind_menu_discard_button(ctx: CommandContext):
     """Brings up a menu allowing the user to remove bindings from the new embed field."""
 
+    interaction = ctx.interaction
     message = interaction.message
     embed = message.embeds[0]
     new_binds_field = embed.fields[1]
@@ -581,9 +592,10 @@ async def bind_menu_discard_button(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=4, defer=False)
-async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
+async def bind_menu_discard_binding(ctx: CommandContext):
     """Handles the removal of a binding from the list."""
 
+    interaction = ctx.interaction
     original_message_id = get_custom_id_data(interaction.custom_id, segment=3)
     channel = await interaction.fetch_channel()
     original_message = await channel.fetch_message(original_message_id)
@@ -620,12 +632,13 @@ async def bind_menu_discard_binding(interaction: hikari.ComponentInteraction):
 
 
 @component_author_validation(author_segment=3, defer=False)
-async def bind_menu_cancel_button(interaction: hikari.ComponentInteraction):
+async def bind_menu_cancel_button(ctx: CommandContext):
     """Handle "cancel" button presses for the bind prompt."""
     # Inferring that the only place we're allowed to skip is the role removal prompt.
     # Can't link to the original message unless we start passing along the original message id
     # to the cancel button custom_id
 
+    interaction = ctx.interaction
     original_message_id = get_custom_id_data(interaction.custom_id, segment=4)
     message_string = (
         f"https://discord.com/channels/{interaction.guild_id}/{interaction.channel_id}/{original_message_id}"
