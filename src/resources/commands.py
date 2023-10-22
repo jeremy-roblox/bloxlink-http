@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable
 from dataclasses import dataclass
+from typing import Any, Callable
 
 import hikari
 
@@ -54,7 +54,9 @@ async def handle_command(interaction: hikari.CommandInteraction):
 
     if command.defer:
         response.deferred = True
-        yield interaction.build_deferred_response().set_flags(hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None)
+        yield interaction.build_deferred_response().set_flags(
+            hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None
+        )
 
     ctx = build_context(interaction, response=response, command=command, options=command_options)
 
@@ -278,6 +280,7 @@ class Command:
         else:
             await self.fn(ctx)
 
+
 @dataclass(slots=True)
 class CommandContext:
     """Data related to a command that has been run.
@@ -308,7 +311,12 @@ class CommandContext:
     response: Response
 
 
-def build_context(interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction, response: Response = None, command: Command = None, options=None) -> CommandContext:
+def build_context(
+    interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction,
+    response: Response = None,
+    command: Command = None,
+    options=None,
+) -> CommandContext:
     """Build a CommandContext from an interaction.
 
     Args:
@@ -320,13 +328,19 @@ def build_context(interaction: hikari.CommandInteraction | hikari.ComponentInter
         CommandContext: The built context.
     """
     return CommandContext(
-        command_name=command.name or interaction.command_name if hasattr(interaction, "command_name") else None,
+        command_name=(
+            command.name or interaction.command_name if hasattr(interaction, "command_name") else None
+        ),
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
         guild_id=interaction.guild_id,
         member=interaction.member,
         user=interaction.user,
-        resolved=interaction.resolved,
-        options=options or {o.name: o.value for o in interaction.options} if hasattr(interaction, "options") else None,
+        resolved=interaction.resolved if hasattr(interaction, "resolved") else None,
+        options=(
+            options or {o.name: o.value for o in interaction.options}
+            if hasattr(interaction, "options")
+            else None
+        ),
         interaction=interaction,
         response=response or Response(interaction),
     )
