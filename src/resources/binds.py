@@ -1,26 +1,25 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
 from dataclasses import dataclass
+from typing import Literal
 
 import hikari
 
 import resources.restriction as restriction
 import resources.roblox.users as users
-
-from resources.bloxlink import instance as bloxlink, GuildData
+from resources.bloxlink import GuildData
+from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
 from resources.prompts import EmbedPrompt
-from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
-from resources.utils import fetch, default_field
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
+from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
+from resources.utils import default_field, fetch
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
-
 
 
 @dataclass(slots=True)
@@ -102,7 +101,6 @@ class GroupBind(GuildBind):
             return "group_roles"
 
 
-
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     """Count the number of binds that this guild_id has created.
 
@@ -118,7 +116,7 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     return (
         len(guild_data.binds)
         if not bind_id
-        else sum(1 for b in guild_data.binds if b["bind"]["id"] == int(bind_id)) or 0
+        else sum(1 for b in guild_data.binds if b["bind"].get("id") == int(bind_id)) or 0
     )
 
 
@@ -544,7 +542,10 @@ async def apply_binds(
             embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
 
         if not (add_roles and remove_roles):
-            embed.add_field(name="Roles", value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.")
+            embed.add_field(
+                name="Roles",
+                value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
+            )
 
         if applied_nickname:
             embed.add_field(name="Nickname Changed", value=applied_nickname)
