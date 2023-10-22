@@ -1,4 +1,7 @@
+from collections.abc import Iterable
+
 import hikari
+
 from .bloxlink import instance as bloxlink
 
 
@@ -41,6 +44,9 @@ class Response:
         if channel and channel_id:
             raise ValueError("Cannot specify both channel and channel_id.")
 
+        if not isinstance(components, Iterable):
+            components = [components]
+
         if channel:
             return await channel.send(content, embed=embed, components=components, **kwargs)
 
@@ -58,15 +64,17 @@ class Response:
             self.deferred = False
             self.responded = True
 
-            kwargs.pop("flags", None) # edit_initial_response doesn't support ephemeral
+            kwargs.pop("flags", None)  # edit_initial_response doesn't support ephemeral
 
-            return await self.interaction.edit_initial_response(content, embed=embed, component=components, **kwargs)
+            return await self.interaction.edit_initial_response(
+                content, embed=embed, components=components, **kwargs
+            )
 
         if self.responded:
-            return await self.interaction.execute(content, embed=embed, component=components, **kwargs)
+            return await self.interaction.execute(content, embed=embed, components=components, **kwargs)
 
         self.responded = True
 
         return await self.interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
+            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
