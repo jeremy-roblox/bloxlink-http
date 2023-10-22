@@ -44,7 +44,7 @@ async def handle_command(interaction: hikari.CommandInteraction):
     # get options
     if interaction.options:
         for option in interaction.options:
-            if option.name == subcommand_name:
+            if option.name == subcommand_name and option.options:
                 command_options = {o.name: o.value for o in option.options}
                 break
         else:
