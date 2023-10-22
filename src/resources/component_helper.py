@@ -1,7 +1,7 @@
 import hikari
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, build_context
 
 
 async def get_component(message: hikari.Message, custom_id: str):
@@ -281,7 +281,7 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
                     )
 
             # Trigger original method
-            return await func(interaction)
+            return await func(build_context(interaction))
 
         return response_wrapper
 
