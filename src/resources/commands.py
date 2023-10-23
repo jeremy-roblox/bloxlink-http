@@ -53,10 +53,9 @@ async def handle_command(interaction: hikari.CommandInteraction):
     response = Response(interaction)
 
     if command.defer:
-        response.deferred = True
-        yield interaction.build_deferred_response().set_flags(
-            hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None
-        )
+        #response.deferred = True
+        #yield interaction.build_deferred_response().set_flags(hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None)
+        yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
     ctx = build_context(interaction, response=response, command=command, options=command_options)
 
@@ -94,8 +93,14 @@ async def handle_component(interaction: hikari.ComponentInteraction):
     for command in slash_commands.values():
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
-                return await custom_id_fn(build_context(interaction))
+                generator_or_coroutine = custom_id_fn(build_context(interaction))
 
+                if hasattr(generator_or_coroutine, "__anext__"):
+                    async for generator_response in generator_or_coroutine:
+                        yield generator_response
+
+                else:
+                    await generator_or_coroutine
 
 def new_command(command: Any, **kwargs):
     """Registers a command with Bloxlink.

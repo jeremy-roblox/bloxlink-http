@@ -19,6 +19,30 @@ class Response:
         self.responded = False
         self.deferred = False
 
+    def defer(self, ephemeral: bool = False):
+        """Defer this interaction.
+
+        Args:
+            ephemeral (bool, optional): Should this message be ephemeral. Defaults to False.
+        """
+
+        if self.responded:
+            raise ValueError("Cannot defer a response that has already been responded to.")
+
+        self.responded = True
+
+        # if ephemeral:
+        #     return await self.interaction.create_initial_response(
+        #         hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.messages.MessageFlag.EPHEMERAL
+        #     )
+
+        # return await self.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+        return self.interaction.build_deferred_response(
+            hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+        ).set_flags(
+            hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
+        )
+
     async def send(
         self,
         content: str = None,
@@ -75,6 +99,17 @@ class Response:
 
         self.responded = True
 
-        return await self.interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
-        )
+        # return await self.interaction.create_initial_response(
+        #     hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
+        # )
+
+        response_builder = self.interaction.build_response(hikari.ResponseType.MESSAGE_CREATE).set_content(content).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+
+        if embed:
+            response_builder.add_embed(embed)
+
+        if components:
+            response_builder.add_component(components)
+
+
+        return response_builder
