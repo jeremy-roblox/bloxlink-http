@@ -1,12 +1,18 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
+import resources.binds as binds
+import resources.roblox.users as users
 import hikari
 
 async def verify_button_click(ctx: CommandContext):
-    # yield ctx.response.defer(True)
+    yield ctx.response.defer(True)
 
-    yield await ctx.response.send("ooop")
-    await ctx.response.send("ooop")
+    roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
+    message_response = await binds.apply_binds(
+        ctx.member, ctx.guild_id, roblox_account, moderate_user=True
+    )
+
+    await ctx.response.send(embed=message_response.embed, components=message_response.components)
 
 
 @bloxlink.command(
