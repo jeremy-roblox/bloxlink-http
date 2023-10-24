@@ -18,8 +18,4 @@ class VerifyCommand:
             ctx.member, ctx.guild_id, roblox_account, moderate_user=True
         )
 
-        # if not roblox_account:
-        #     await ctx.response.send("not verified")
-        #     return
-
         await ctx.response.send(embed=message_response.embed, components=message_response.components)
