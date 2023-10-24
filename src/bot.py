@@ -6,7 +6,7 @@ import hikari
 import uvicorn
 
 from resources.bloxlink import Bloxlink
-from resources.commands import handle_autocomplete, handle_command, handle_component, sync_commands
+from resources.commands import handle_autocomplete, handle_command, handle_component, sync_commands, handle_interaction
 from resources.constants import MODULES
 from resources.secrets import (  # pylint: disable=no-name-in-module
     DISCORD_PUBLIC_KEY,
@@ -25,9 +25,9 @@ bot = Bloxlink(
     token_type=hikari.TokenType.BOT,
     asgi_managed=False,
 )
-bot.interaction_server.set_listener(hikari.CommandInteraction, handle_command)
-bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_component)
-bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_autocomplete)
+bot.interaction_server.set_listener(hikari.CommandInteraction, handle_interaction)
+bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_interaction)
+bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_interaction)
 
 # IMPORTANT NOTE: blacksheep expects a trailing /
 # in the URL that is given to discord because this is a mount.
@@ -38,7 +38,7 @@ webserver.mount("/bot", bot)
 @webserver.on_start
 async def handle_start(_):
     await bot.start()
-    await sync_commands(bot)
+    # await sync_commands(bot)
 
 
 @webserver.on_stop
