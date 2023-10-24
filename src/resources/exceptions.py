@@ -46,3 +46,11 @@ class CancelCommand(BloxlinkException):
 class BadArgument(BloxlinkException):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+class CommandException(BloxlinkException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class AlreadyResponded(CommandException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

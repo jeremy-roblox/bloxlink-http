@@ -16,7 +16,151 @@ command_name_pattern = re.compile("(.+)Command")
 slash_commands = {}
 
 
-async def handle_command(interaction: hikari.CommandInteraction):
+class Command:
+    """Base representation of a slash command on Discord"""
+
+    def __init__(
+        self,
+        name: str,
+        fn: Callable = None,  # None if it has sub commands
+        category: str = "Miscellaneous",
+        permissions=None,
+        defer: bool = False,
+        defer_with_ephemeral: bool = False,
+        description: str = None,
+        options: list[hikari.commands.CommandOptions] = None,
+        subcommands: dict[str, Callable] = None,
+        rest_subcommands: list[hikari.CommandOption] = None,
+        accepted_custom_ids: list[str] = None,
+        autocomplete_handlers: list[str] = None,
+        dm_enabled: bool = None,
+    ):
+        self.name = name
+        self.fn = fn
+        self.category = category
+        self.permissions = permissions
+        self.defer = defer
+        self.defer_with_ephemeral = defer_with_ephemeral
+        self.description = description
+        self.options = options
+        self.subcommands = subcommands
+        self.rest_subcommands = rest_subcommands
+        self.accepted_custom_ids = accepted_custom_ids or {}
+        self.autocomplete_handlers = autocomplete_handlers or {}
+        self.dm_enabled = dm_enabled
+
+    async def execute(self, ctx: CommandContext, subcommand_name: str = None):
+        """Execute a command (or its subcommand)
+
+        Args:
+            ctx (CommandContext): Context for this command.
+            subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
+        """
+        # TODO: check for permissions
+
+        generator_or_coroutine = self.subcommands[subcommand_name](ctx) if subcommand_name else self.fn(ctx)
+
+        if hasattr(generator_or_coroutine, "__anext__"):
+            async for generator_response in generator_or_coroutine:
+                yield generator_response
+
+        else:
+            await generator_or_coroutine
+
+
+@dataclass(slots=True)
+class CommandContext:
+    """Data related to a command that has been run.
+
+    Attributes:
+        command_name (str): The name of the command triggered.
+        command_id (int): The ID of the command triggered.
+        guild_id (int): The name of the command triggered.
+        member (hikari.InteractionMember): The member that triggered this command.
+        user (hikari.User): The user that triggered this command.
+        resolved (hikari.ResolvedOptionData): Data of entities mentioned in command arguments that are
+            resolved by Discord.
+        options (dict): The options/arguments passed by the user to this command.
+        interaction (hikari.CommandInteraction): The interaction object from Discord.
+        response (Response): Bloxlink's wrapper for handling initial response sending.
+    """
+
+    command_name: str
+    command_id: int
+    guild_id: int
+    member: hikari.InteractionMember
+    user: hikari.User
+    resolved: hikari.ResolvedOptionData
+    options: dict[str, str | int]
+
+    interaction: hikari.CommandInteraction
+
+    response: Response
+
+
+async def handle_interaction(interaction: hikari.Interaction):
+    """
+    One-stop shop for interaction (command, component, autocomplete) handling.
+    Handles all errors from the handlers.
+
+    Top level exceptions include default messages for custom exceptions that are defined in
+    resources.exceptions.
+
+    Caught exceptions currently consist of:
+        - UserNotVerified
+        - BloxlinkForbidden
+        - hikari.errors.ForbiddenError
+        - RobloxNotFound
+        - RobloxDown
+        - Message
+        - Exception
+
+    Args:
+        interaction (hikari.Interaction): Interaction that was triggered.
+    """
+
+    correct_handler: Callable = None
+    response = Response(interaction)
+
+    if isinstance(interaction, hikari.CommandInteraction):
+        correct_handler = handle_command
+    elif isinstance(interaction, hikari.ComponentInteraction):
+        correct_handler = handle_component
+    elif isinstance(interaction, hikari.AutocompleteInteraction):
+        correct_handler = handle_autocomplete
+    else:
+        raise NotImplementedError()
+
+    try:
+        async for command_response in correct_handler(interaction, response=response):
+            yield command_response
+
+    except UserNotVerified as message:
+        await response.send(str(message) or "This user is not verified with Bloxlink!")
+    except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
+        await response.send(
+            str(message)
+            or "I have encountered a permission error! Please make sure I have the appropriate permissions."
+        )
+    except RobloxNotFound as message:
+        await response.send(
+            str(message) or "This Roblox entity does not exist! Please check the ID and try again."
+        )
+    except RobloxDown:
+        await response.send(
+            "Roblox appears to be down, so I was unable to process your command. "
+            "Please try again in a few minutes."
+        )
+    except Message as ex:
+        await response.send(ex.message)
+    except Exception as ex:
+        logging.exception(ex)
+        await response.send(
+            "An unexpected error occurred while processing this command. "
+            "Please try again in a few minutes."
+        )
+
+async def handle_command(interaction: hikari.CommandInteraction, response: Response):
     """Handle a command interaction."""
     command_name = interaction.command_name
     command_type = interaction.command_type
@@ -50,16 +194,13 @@ async def handle_command(interaction: hikari.CommandInteraction):
         else:
             command_options = {o.name: o.value for o in interaction.options}
 
-    response = Response(interaction)
-
     if command.defer:
-        #response.deferred = True
-        #yield interaction.build_deferred_response().set_flags(hikari.MessageFlag.EPHEMERAL if command.defer_with_ephemeral else None)
-        yield await response.defer(ephemeral=command.defer_with_ephemeral)
+        yield response.defer(ephemeral=command.defer_with_ephemeral)
 
     ctx = build_context(interaction, response=response, command=command, options=command_options)
 
-    await try_command(command.execute(ctx, subcommand_name=subcommand_name), response)
+    async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
+        yield command_response
 
 
 async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
@@ -82,10 +223,18 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
                 logging.error(f'Command {command.name} has no auto-complete handler "{command_option.name}"!')
                 return
 
-            return await autocomplete_fn(build_context(interaction, command=command))
+            response = Response(interaction)
+            generator_or_coroutine = autocomplete_fn(build_context(interaction, response=response))
+
+            if hasattr(generator_or_coroutine, "__anext__"):
+                async for generator_response in generator_or_coroutine:
+                    yield generator_response
+
+            else:
+                await generator_or_coroutine
 
 
-async def handle_component(interaction: hikari.ComponentInteraction):
+async def handle_component(interaction: hikari.ComponentInteraction, response: Response):
     """Handle a component interaction."""
     custom_id = interaction.custom_id
 
@@ -93,7 +242,7 @@ async def handle_component(interaction: hikari.ComponentInteraction):
     for command in slash_commands.values():
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
-                generator_or_coroutine = custom_id_fn(build_context(interaction))
+                generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
 
                 if hasattr(generator_or_coroutine, "__anext__"):
                     async for generator_response in generator_or_coroutine:
@@ -101,6 +250,7 @@ async def handle_component(interaction: hikari.ComponentInteraction):
 
                 else:
                     await generator_or_coroutine
+
 
 def new_command(command: Any, **kwargs):
     """Registers a command with Bloxlink.
@@ -198,124 +348,6 @@ async def sync_commands(bot: hikari.RESTBot):
     logging.info(f"Registered {len(slash_commands)} slash commands.")
 
 
-async def try_command(fn: Callable, response: Response):
-    """Run a command with top-level exception handling.
-
-    Top level exceptions include default messages for custom exceptions that are defined in
-    resources.exceptions.
-
-    Caught exceptions currently consist of:
-        - UserNotVerified
-        - BloxlinkForbidden
-        - hikari.errors.ForbiddenError
-        - RobloxNotFound
-        - RobloxDown
-        - Message
-
-    Args:
-        fn (Callable): Command function that is being triggered,
-        response (Response): Response object for the interaction that triggered the command.
-    """
-    try:
-        await fn
-    except UserNotVerified as message:
-        await response.send(str(message) or "This user is not verified with Bloxlink!")
-    except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
-        await response.send(
-            str(message)
-            or "I have encountered a permission error! Please make sure I have the appropriate permissions."
-        )
-    except RobloxNotFound as message:
-        await response.send(
-            str(message) or "This Roblox entity does not exist! Please check the ID and try again."
-        )
-    except RobloxDown:
-        await response.send(
-            "Roblox appears to be down, so I was unable to process your command. "
-            "Please try again in a few minutes."
-        )
-    except Message as ex:
-        await response.send(ex.message)
-
-
-class Command:
-    """Base representation of a slash command on Discord"""
-
-    def __init__(
-        self,
-        name: str,
-        fn: Callable = None,  # None if it has sub commands
-        category: str = "Miscellaneous",
-        permissions=None,
-        defer: bool = False,
-        defer_with_ephemeral: bool = False,
-        description: str = None,
-        options: list[hikari.commands.CommandOptions] = None,
-        subcommands: dict[str, Callable] = None,
-        rest_subcommands: list[hikari.CommandOption] = None,
-        accepted_custom_ids: list[str] = None,
-        autocomplete_handlers: list[str] = None,
-        dm_enabled: bool = None,
-    ):
-        self.name = name
-        self.fn = fn
-        self.category = category
-        self.permissions = permissions
-        self.defer = defer
-        self.defer_with_ephemeral = defer_with_ephemeral
-        self.description = description
-        self.options = options
-        self.subcommands = subcommands
-        self.rest_subcommands = rest_subcommands
-        self.accepted_custom_ids = accepted_custom_ids or {}
-        self.autocomplete_handlers = autocomplete_handlers or {}
-        self.dm_enabled = dm_enabled
-
-    async def execute(self, ctx: CommandContext, subcommand_name: str = None):
-        """Execute a command (or its subcommand)
-
-        Args:
-            ctx (CommandContext): Context for this command.
-            subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
-        """
-        # TODO: check for permissions
-
-        if subcommand_name:
-            await self.subcommands[subcommand_name](ctx)
-        else:
-            await self.fn(ctx)
-
-
-@dataclass(slots=True)
-class CommandContext:
-    """Data related to a command that has been run.
-
-    Attributes:
-        command_name (str): The name of the command triggered.
-        command_id (int): The ID of the command triggered.
-        guild_id (int): The name of the command triggered.
-        member (hikari.InteractionMember): The member that triggered this command.
-        user (hikari.User): The user that triggered this command.
-        resolved (hikari.ResolvedOptionData): Data of entities mentioned in command arguments that are
-            resolved by Discord.
-        options (dict): The options/arguments passed by the user to this command.
-        interaction (hikari.CommandInteraction): The interaction object from Discord.
-        response (Response): Bloxlink's wrapper for handling initial response sending.
-    """
-
-    command_name: str
-    command_id: int
-    guild_id: int
-    member: hikari.InteractionMember
-    user: hikari.User
-    resolved: hikari.ResolvedOptionData
-    options: dict[str, str | int]
-
-    interaction: hikari.CommandInteraction
-
-    response: Response
-
-
 def build_context(
     interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction,
     response: Response = None,
@@ -343,7 +375,7 @@ def build_context(
         resolved=interaction.resolved if hasattr(interaction, "resolved") else None,
         options=(
             options or {o.name: o.value for o in interaction.options}
-            if hasattr(interaction, "options")
+            if getattr(interaction, "options", None)
             else None
         ),
         interaction=interaction,
