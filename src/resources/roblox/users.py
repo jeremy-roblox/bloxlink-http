@@ -86,7 +86,7 @@ class RobloxAccount:
         if user_data_response.status == 200:
             self.id = user_json_data.get("id", self.id)
             self.description = user_json_data.get("description", self.description)
-            self.username = user_json_data.get("name", self.name)
+            self.username = user_json_data.get("name", self.username)
             self.banned = user_json_data.get("isBanned", self.banned)
             self.profile_link = user_json_data.get("profileLink", self.profile_link)
             self.badges = user_json_data.get("badges", self.badges)
