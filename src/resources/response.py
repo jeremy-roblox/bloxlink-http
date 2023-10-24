@@ -70,9 +70,12 @@ class Response:
         self.responded = True
 
         if self.interaction.type == hikari.InteractionType.APPLICATION_COMMAND:
-            response_builder = self.interaction.build_response().set_content(content).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+            response_builder = self.interaction.build_response().set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
         else:
-            response_builder = self.interaction.build_response(hikari.ResponseType.MESSAGE_CREATE).set_content(content).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+            response_builder = self.interaction.build_response(hikari.ResponseType.MESSAGE_CREATE).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+
+        if content:
+            response_builder.set_content(content)
 
         if embed:
             response_builder.add_embed(embed)
