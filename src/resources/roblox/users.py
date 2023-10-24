@@ -66,9 +66,6 @@ class RobloxAccount:
             if self.groups is not None and "groups" in includes:
                 includes.remove("groups")
 
-            if self.presence is not None and "presence" in includes:
-                includes.remove("presence")
-
             if self.badges is not None and "badges" in includes:
                 includes.remove("badges")
 
