@@ -16,13 +16,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger()
 
-from resources.redis import RedisMessageCollector
-from resources.secrets import (  # pylint: disable=no-name-in-module
-    MONGO_URL,
-    REDIS_HOST,
-    REDIS_PASSWORD,
-    REDIS_PORT,
-)
+from resources.redis import RedisMessageCollector, redis
+from resources.secrets import (MONGO_URL)
 from resources.utils import default_field
 
 instance: "Bloxlink" = None
@@ -69,6 +64,8 @@ class GuildData:
 class Bloxlink(yuyo.AsgiBot):
     """The Bloxlink bot."""
 
+    redis = redis
+
     def __init__(self, *args, **kwargs):
         """Initialize the bot & the MongoDB connection."""
         global instance  # pylint: disable=global-statement
@@ -81,13 +78,9 @@ class Bloxlink(yuyo.AsgiBot):
         instance = self
 
     async def start(self) -> Coroutine[any, any, None]:
-        """Start the bot + connect to Redis."""
-        self.redis = redis.Redis(  # pylint: disable=attribute-defined-outside-init
-            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD
-        )
-        self.redis_messages = RedisMessageCollector(  # pylint: disable=attribute-defined-outside-init
-            self.redis
-        )
+        """Start the bot"""
+
+        self.redis_messages = RedisMessageCollector()
 
         return await super().start()
 

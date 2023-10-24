@@ -6,8 +6,9 @@ import hikari
 import uvicorn
 
 from resources.bloxlink import Bloxlink
-from resources.commands import handle_autocomplete, handle_command, handle_component, sync_commands, handle_interaction
+from resources.commands import sync_commands, handle_interaction
 from resources.constants import MODULES
+from resources.redis import redis
 from resources.secrets import (  # pylint: disable=no-name-in-module
     DISCORD_PUBLIC_KEY,
     DISCORD_TOKEN,
@@ -37,8 +38,12 @@ webserver.mount("/bot", bot)
 
 @webserver.on_start
 async def handle_start(_):
+    # only sync commands once every hour
+    if not await redis.get("synced_commands"):
+        await redis.set("synced_commands", "true", ex=3600)
+        await sync_commands(bot)
+
     await bot.start()
-    # await sync_commands(bot)
 
 
 @webserver.on_stop

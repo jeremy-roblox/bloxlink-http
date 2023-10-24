@@ -1,8 +1,28 @@
 import asyncio
 import logging
 import time
-
 from redis.asyncio import Redis  # pylint: disable=import-error
+
+from resources.secrets import (
+    REDIS_HOST,
+    REDIS_PASSWORD,
+    REDIS_PORT,
+)
+
+redis: Redis = None
+
+def connect_redis():
+    global redis
+
+    redis = Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        password=REDIS_PASSWORD,
+        retry_on_timeout=True,
+        retry_on_error=True,
+    )
+
+    # TODO: ping keepalive
 
 
 class FutureMessage(asyncio.Future[dict]):
@@ -18,7 +38,7 @@ class RedisMessageCollector:
 
     logger = logging.getLogger("redis.collector")
 
-    def __init__(self, redis: Redis):
+    def __init__(self):
         self.redis = redis
         self.pubsub = self.redis.pubsub()
         self._futures: dict[str, FutureMessage] = {}
@@ -82,3 +102,5 @@ class RedisMessageCollector:
             # If the future is given a result, the channel is unsubscribed - but here, it is not.
             await self.pubsub.unsubscribe(channel)
             raise TimeoutError(f"No response was received on {channel}.") from None
+
+connect_redis()
