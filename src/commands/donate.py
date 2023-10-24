@@ -10,8 +10,6 @@ class DonateCommand:
     """Learn how to receive Bloxlink Premium"""
 
     async def __main__(self, ctx: CommandContext):
-        target_user = ctx.user
-
         embed = Embed(
             title="Bloxlink Premium", description="Premium purchases help support Bloxlink!", color=0x00B2FF
         )
@@ -34,4 +32,4 @@ class DonateCommand:
             .add_to_container()
         )
 
-        await ctx.response.send(embed=embed, components=button_menu)
+        yield ctx.response.send_first(embed=embed, components=button_menu)
