@@ -19,7 +19,6 @@ def connect_redis():
         port=REDIS_PORT,
         password=REDIS_PASSWORD,
         retry_on_timeout=True,
-        retry_on_error=True,
     )
 
     # TODO: ping keepalive
