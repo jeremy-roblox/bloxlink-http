@@ -34,6 +34,7 @@ class Command:
         accepted_custom_ids: list[str] = None,
         autocomplete_handlers: list[str] = None,
         dm_enabled: bool = None,
+        prompts: list[Callable] = None,
     ):
         self.name = name
         self.fn = fn
@@ -48,6 +49,7 @@ class Command:
         self.accepted_custom_ids = accepted_custom_ids or {}
         self.autocomplete_handlers = autocomplete_handlers or {}
         self.dm_enabled = dm_enabled
+        self.prompts = prompts or []
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
@@ -240,6 +242,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
+        # find matching custom_id handler
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
                 generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
@@ -250,6 +253,17 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 else:
                     await generator_or_coroutine
+
+                return
+
+        # find matching prompt handler
+        for command_prompt in command.prompts:
+            if custom_id.startswith(f"{command.name}:prompt:{command_prompt.__name__}"):
+                print("prompt found")
+                new_prompt = command_prompt(command.name, response)
+                yield await new_prompt.handle(interaction).__anext__()
+
+                return
 
 
 def new_command(command: Any, **kwargs):
@@ -296,6 +310,7 @@ def new_command(command: Any, **kwargs):
         "accepted_custom_ids": kwargs.get("accepted_custom_ids"),
         "autocomplete_handlers": kwargs.get("autocomplete_handlers"),
         "dm_enabled": kwargs.get("dm_enabled"),
+        "prompts": kwargs.get("prompts"),
     }
 
     new_command = Command(**command_attrs)
