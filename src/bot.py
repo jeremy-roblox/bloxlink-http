@@ -38,12 +38,12 @@ webserver.mount("/bot", bot)
 
 @webserver.on_start
 async def handle_start(_):
+    await bot.start()
+
     # only sync commands once every hour
     if not await redis.get("synced_commands"):
         await redis.set("synced_commands", "true", ex=3600)
         await sync_commands(bot)
-
-    await bot.start()
 
 
 @webserver.on_stop
