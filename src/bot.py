@@ -6,26 +6,30 @@ import hikari
 import uvicorn
 
 from resources.bloxlink import Bloxlink
-from resources.commands import sync_commands, handle_interaction
-from resources.constants import MODULES
-from resources.redis import redis
 from resources.secrets import (  # pylint: disable=no-name-in-module
     DISCORD_PUBLIC_KEY,
     DISCORD_TOKEN,
     SERVER_HOST,
     SERVER_PORT,
 )
-from web.webserver import webserver
 
-logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO)
-
+# Make sure bot is accessible from modules. We load the bot first before loading most modules.
 bot = Bloxlink(
     public_key=DISCORD_PUBLIC_KEY,
     token=DISCORD_TOKEN,
     token_type=hikari.TokenType.BOT,
     asgi_managed=False,
 )
+
+from resources.commands import handle_interaction, sync_commands
+from resources.constants import MODULES
+from resources.redis import redis
+from web.webserver import webserver
+
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
+
+
 bot.interaction_server.set_listener(hikari.CommandInteraction, handle_interaction)
 bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_interaction)
 bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_interaction)
