@@ -258,10 +258,12 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
         # find matching prompt handler
         for command_prompt in command.prompts:
-            if custom_id.startswith(f"{command.name}:prompt:{command_prompt.__name__}"):
-                print("prompt found")
+            if custom_id.startswith(f"{command.name}:{command_prompt.__name__}"):
                 new_prompt = command_prompt(command.name, response)
-                yield await new_prompt.handle(interaction).__anext__()
+                await new_prompt.save_data(interaction)
+                # yield await new_prompt.handle(interaction).__anext__()
+                async for generator_response in new_prompt.handle(interaction):
+                    yield generator_response
 
                 return
 

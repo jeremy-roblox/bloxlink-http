@@ -32,4 +32,4 @@ class DonateCommand:
             .add_to_container()
         )
 
-        yield ctx.response.send_first(embed=embed, components=button_menu)
+        yield await ctx.response.send_first(embed=embed, components=button_menu)

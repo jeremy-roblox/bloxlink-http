@@ -1,7 +1,8 @@
 import hikari
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext, build_context
+import resources.commands as commands
+import json
 
 
 async def get_component(message: hikari.Message, custom_id: str):
@@ -255,7 +256,7 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
     """
 
     def func_wrapper(func):
-        async def response_wrapper(ctx: CommandContext):
+        async def response_wrapper(ctx: commands.CommandContext):
             interaction = ctx.interaction
 
             author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
@@ -281,8 +282,30 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
                     )
 
             # Trigger original method
-            return await func(build_context(interaction))
+            return await func(commands.build_context(interaction))
 
         return response_wrapper
 
     return func_wrapper
+
+
+def component_values_to_dict(interaction: hikari.ComponentInteraction):
+    """Converts the values from a component into a dict.
+
+    Args:
+        interaction (hikari.ComponentInteraction): The interaction to get the values from.
+
+    Returns:
+        dict: dict representation of the values.
+    """
+    return {
+            "values": interaction.values,
+            "resolved": {
+                "users": [str(user_id) for user_id in interaction.resolved.users] if interaction.resolved else [],
+                "members": [str(member_id) for member_id in interaction.resolved.members] if interaction.resolved else [],
+                "roles": [str(role_id) for role_id in interaction.resolved.roles] if interaction.resolved else [],
+                "channels": [str(channel_id) for channel_id in interaction.resolved.channels] if interaction.resolved else [],
+                "messages": [str(message_id) for message_id in interaction.resolved.messages] if interaction.resolved else [],
+                # "attachments": interaction.resolved.attachments if interaction.resolved else [],
+            },
+        }
