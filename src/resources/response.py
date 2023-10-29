@@ -209,7 +209,7 @@ class Prompt:
                     hikari.ButtonStyle.PRIMARY,
                     f"{command_name}:{prompt.__class__.__name__}:{page['page_number']}:{component.custom_id}",
                     label=component.label,
-                    is_disabled=component.disabled
+                    is_disabled=component.is_disabled
                 )
             elif component.type == "role_select_menu":
                 role_action_row = bloxlink.rest.build_message_action_row()
@@ -219,7 +219,7 @@ class Prompt:
                     placeholder=component.placeholder,
                     min_values=component.min_values,
                     max_values=component.max_values,
-                    is_disabled=component.disabled
+                    is_disabled=component.is_disabled
                 )
                 components.append(role_action_row)
 
@@ -319,4 +319,4 @@ class PromptPageData:
         placeholder: str = None
         min_values: int = None
         max_values: int = None
-        disabled: bool = False
+        is_disabled: bool = False

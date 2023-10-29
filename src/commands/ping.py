@@ -23,16 +23,16 @@ class PingPrompts(Prompt):
                     type="button",
                     label="Next",
                     custom_id="next",
-                    disabled=True
+                    is_disabled=True
                 )
             ]
         )
     )
     async def page1(self, interaction):
-        yield self.response.defer()
+        # yield self.response.defer()
 
         if interaction.custom_id == "next":
-            await self.next()
+            yield await self.next()
             return
 
         current_data = await self.current_data()
@@ -40,9 +40,9 @@ class PingPrompts(Prompt):
         role_selected = current_data['role_select']['values'][0] if current_data['role_select']['values'] else None
 
         if role_selected:
-            await self.edit_component(
+            yield await self.edit_component(
                 custom_id="next",
-                disabled=False
+                is_disabled=False
             )
 
     @Prompt.page(
