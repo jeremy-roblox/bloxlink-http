@@ -21,6 +21,12 @@ class PingPrompts(Prompt):
                 ),
                 PromptPageData.Component(
                     type="button",
+                    label="Back",
+                    custom_id="back",
+                    is_disabled=True
+                ),
+                PromptPageData.Component(
+                    type="button",
                     label="Next",
                     custom_id="next",
                     is_disabled=True
@@ -32,7 +38,8 @@ class PingPrompts(Prompt):
         # yield self.response.defer()
 
         if interaction.custom_id == "next":
-            yield await self.next()
+            # yield await self.next()
+            yield await self.go_to(self.page2)
             return
 
         current_data = await self.current_data()
@@ -41,7 +48,7 @@ class PingPrompts(Prompt):
 
         if role_selected:
             yield await self.edit_component(
-                custom_id="next",
+                "next",
                 is_disabled=False
             )
 
@@ -49,6 +56,12 @@ class PingPrompts(Prompt):
         PromptPageData(
             description="hi 2",
             components=[
+                PromptPageData.Component(
+                    type="button",
+                    label="Back",
+                    custom_id="back",
+                    is_disabled=False
+                ),
                 PromptPageData.Component(
                     type="button",
                     label="Next",
@@ -60,7 +73,12 @@ class PingPrompts(Prompt):
     async def page2(self, interaction):
         print("page2")
 
-        yield await self.next()
+        if interaction.custom_id == "back":
+            yield await self.previous()
+            return
+
+        # yield await self.next()
+        yield await self.go_to(self.page3)
 
     @Prompt.page(
         PromptPageData(

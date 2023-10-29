@@ -1,8 +1,8 @@
 import hikari
-from typing import Literal
+from typing import Literal, Callable
 import json
 
-from .exceptions import AlreadyResponded, CancelCommand
+from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
 from dataclasses import dataclass, field
 from resources.bloxlink import instance as bloxlink
 import resources.component_helper as component_helper
@@ -193,7 +193,6 @@ class Prompt:
             func.__page_details__ = page_details
             return func
 
-
         return wrapper
 
     @staticmethod
@@ -261,8 +260,8 @@ class Prompt:
         if not redis_data:
             if raise_exception:
                 raise CancelCommand("Previous data not found. Please restart this command.")
-            else:
-                return {}
+
+            return {}
 
         return json.loads(redis_data)
 
@@ -277,10 +276,33 @@ class Prompt:
 
         await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}", json.dumps(data), ex=5*60)
 
+    async def previous(self, content=None):
+        """Go to the previous page of the prompt."""
+
+        self.current_page_number -= 1
+
+        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+
+        return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
+
     async def next(self, content=None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
+
+        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+
+        return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
+
+    async def go_to(self, page: Callable, content=None):
+        """Go to a specific page of the prompt."""
+
+        for this_page in self.pages:
+            if this_page["func"] == page:
+                self.current_page_number = this_page["page_number"]
+                break
+        else:
+            raise PageNotFound(f"Page {page} not found.")
 
         embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
 
