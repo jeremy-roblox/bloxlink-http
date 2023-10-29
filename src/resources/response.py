@@ -1,19 +1,28 @@
 import hikari
 from typing import Literal, Callable
+from attrs import define, field
 import json
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
-from dataclasses import dataclass, field
 from resources.bloxlink import instance as bloxlink
 import resources.component_helper as component_helper
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class EmbedPrompt:
     """Represents a prompt consisting of an embed & components for the message."""
 
     embed: hikari.Embed = hikari.Embed()
-    components: list = field(default_factory=list)
+    components: list = field(factory=list)
+
+@define
+class PromptCustomID:
+    """Represents a custom ID for a prompt component."""
+
+    command_name: str
+    prompt_name: str
+    page_number: int = field(converter=int)
+    component_custom_id: str
 
 class Response:
     """Response to a discord interaction.
@@ -235,11 +244,10 @@ class Prompt:
     async def handle(self, interaction):
         """Entry point when a component is called. Redirect to the correct page."""
 
-        custom_id = interaction.custom_id
+        custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
 
-        prompt_data = custom_id.split(":")
-        current_page_number = int(prompt_data[2])
-        component_custom_id = prompt_data[3]
+        current_page_number = custom_id.page_number
+        component_custom_id = custom_id.component_custom_id
 
         self.current_page_number = current_page_number
         interaction.custom_id = component_custom_id # TODO: make a better solution
@@ -267,9 +275,10 @@ class Prompt:
 
 
     async def save_data(self, interaction: hikari.ComponentInteraction):
-        """Save the data from the current page to Redis."""
+        """Save the data from the interaction from the current page to Redis."""
 
-        component_custom_id = interaction.custom_id.split(":")[3]
+        custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
+        component_custom_id = custom_id.component_custom_id
 
         data = await self.current_data(raise_exception=False)
         data[component_custom_id] = component_helper.component_values_to_dict(interaction)
@@ -327,13 +336,13 @@ class Prompt:
 
         return await self.response.send_first(embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
-@dataclass(slots=True)
+@define(slots=True)
 class PromptPageData:
     description: str
-    components: list = field(default_factory=list)
+    components: list = field(default=list)
     title: str = None
 
-    @dataclass(slots=True)
+    @define(slots=True)
     class Component:
         type: Literal["button", "role_select_menu"]
         custom_id: str
