@@ -3,6 +3,7 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
 from typing import Type, TypeVar
+from attrs import make_class, fields
 
 T = TypeVar('T')
 
@@ -325,3 +326,24 @@ def parse_custom_id(T: Type[T], custom_id: str) -> T:
     return T(
         *custom_id.split(":")
     )
+
+def get_custom_id(T: Type[T], **kwargs) -> str:
+    """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.
+
+    Args:
+        T (Type[T]): The attrs dataclass type for which the custom_id will be constructed.
+        **kwargs: Keyword arguments representing the field values of the dataclass.
+
+    Returns:
+        str: The custom_id string separated by colons.
+    """
+    # Create an instance of the attrs dataclass with the provided keyword arguments
+    custom_id_instance = T(**kwargs)
+
+    # Retrieve the field values in the order specified by the dataclass
+    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T)]
+
+    # Create the custom_id string by joining the field values with colons
+    custom_id_string = ":".join(field_values)
+
+    return custom_id_string

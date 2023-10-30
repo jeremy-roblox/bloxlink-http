@@ -8,8 +8,9 @@ from typing import Any, Callable
 import hikari
 
 from resources.exceptions import *
-from resources.response import Response
+from resources.response import Response, PromptCustomID
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
+from resources.component_helper import parse_custom_id
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -258,7 +259,9 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
         # find matching prompt handler
         for command_prompt in command.prompts:
-            if custom_id.startswith(f"{command.name}:{command_prompt.__name__}"):
+            parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+
+            if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
                 new_prompt = command_prompt(command.name, response)
                 await new_prompt.save_data(interaction)
                 # yield await new_prompt.handle(interaction).__anext__()

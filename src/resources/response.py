@@ -215,7 +215,7 @@ class Prompt:
             if component.type == "button":
                 button_action_row.add_interactive_button(
                     hikari.ButtonStyle.PRIMARY,
-                    f"{command_name}:{prompt.__class__.__name__}:{page['page_number']}:{component.custom_id}",
+                    component_helper.get_custom_id(PromptCustomID, command_name=command_name, prompt_name=prompt.__class__.__name__, page_number=page["page_number"], component_custom_id=component.custom_id),
                     label=component.label,
                     is_disabled=component.is_disabled
                 )
@@ -223,7 +223,7 @@ class Prompt:
                 role_action_row = bloxlink.rest.build_message_action_row()
                 role_action_row.add_select_menu(
                     hikari.ComponentType.ROLE_SELECT_MENU,
-                    f"{command_name}:{prompt.__class__.__name__}:{page['page_number']}:{component.custom_id}",
+                    component_helper.get_custom_id(PromptCustomID, command_name=command_name, prompt_name=prompt.__class__.__name__, page_number=page["page_number"], component_custom_id=component.custom_id),
                     placeholder=component.placeholder,
                     min_values=component.min_values,
                     max_values=component.max_values,
@@ -328,7 +328,7 @@ class Prompt:
         current_page = self.pages[self.current_page_number]
 
         for component in current_page["details"].components:
-            if component.custom_id.endswith(custom_id):
+            if component.custom_id == custom_id:
                 for attr_name, attr_value in kwargs.items():
                     setattr(component, attr_name, attr_value)
 
