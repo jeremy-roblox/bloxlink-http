@@ -2,10 +2,9 @@ import hikari
 
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
-import json
-from typing import TypeVar, Generic, Callable
+from typing import Type, TypeVar
 
-T = TypeVar("T", Callable)
+T = TypeVar('T')
 
 async def get_component(message: hikari.Message, custom_id: str):
     """Get a component in a message based on the custom_id"""
@@ -312,12 +311,12 @@ def component_values_to_dict(interaction: hikari.ComponentInteraction):
             },
         }
 
-def parse_custom_id(T: Generic[T], custom_id: str) -> T:
+def parse_custom_id(T: Type[T], custom_id: str) -> T:
     """Parses a custom_id into T.
 
     Args:
+        T (Type[T]): The type to parse the custom_id into.
         custom_id (str): The custom_id to parse.
-        T (Generic[T]): The type to parse the custom_id into.
 
     Returns:
         T: The parsed custom_id.
