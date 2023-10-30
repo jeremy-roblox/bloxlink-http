@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from attrs import define
 from typing import Literal
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class RobloxEntity(ABC):
     """Representation of an entity on Roblox.
 

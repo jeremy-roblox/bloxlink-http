@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from attrs import define, field
 from datetime import datetime
 
 import dateutil.parser as parser
@@ -16,7 +16,7 @@ from resources.utils import ReturnType, fetch
 from resources.secrets import ROBLOX_INFO_SERVER
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class RobloxAccount:
     """Representation of a user on Roblox."""
 
@@ -37,7 +37,7 @@ class RobloxAccount:
 
     complete: bool = False
 
-    _data: dict = field(default_factory=lambda: {})
+    _data: dict = field(factory=lambda: {})
 
     async def sync(
         self,

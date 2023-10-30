@@ -1,5 +1,5 @@
 from typing import Literal
-from dataclasses import dataclass, field
+from attrs import define, field
 
 import hikari
 
@@ -12,12 +12,12 @@ from resources.roblox.groups import get_group
 from resources.roblox.roblox_entity import create_entity
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class EmbedPrompt:
     """Represents a prompt consisting of an embed & components for the message."""
 
     embed: hikari.Embed = hikari.Embed()
-    components: list = field(default_factory=list)
+    components: list = field(factory=list)
 
 
 async def build_interactive_bind_base(

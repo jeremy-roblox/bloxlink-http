@@ -1,7 +1,7 @@
 import asyncio
 from enum import Enum
 from json import JSONDecodeError, loads
-from dataclasses import field
+from attrs import field
 import copy
 
 import aiohttp
@@ -179,4 +179,4 @@ async def fetch(
         raise RobloxDown() from None
 
 def default_field(obj: list | dict):
-    return field(default_factory=lambda: copy.copy(obj))
+    return field(factory=lambda: copy.copy(obj))

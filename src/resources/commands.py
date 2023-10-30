@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any, Callable
+from attrs import define
 
 import hikari
 
@@ -71,7 +71,7 @@ class Command:
             await generator_or_coroutine
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class CommandContext:
     """Data related to a command that has been run.
 

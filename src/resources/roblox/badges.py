@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.roblox.roblox_entity import RobloxEntity
@@ -7,7 +7,7 @@ from resources.utils import fetch
 BADGE_API = "https://badges.roblox.com/v1/badges"
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class RobloxBadge(RobloxEntity):
     """Representation of a Badge on Roblox."""
 

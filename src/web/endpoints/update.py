@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from attrs import define
 
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
@@ -11,7 +11,7 @@ from resources.exceptions import BloxlinkForbidden, Message
 from ..decorators import authenticate
 
 
-@dataclass
+@define
 class UpdateBody:
     """
     The expected content when a request from the gateway -> the server

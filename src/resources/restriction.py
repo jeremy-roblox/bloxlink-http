@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from attrs import define
 from typing import Literal
 
 import hikari
@@ -13,7 +13,7 @@ import resources.prompts as prompts
 from resources.roblox.groups import RobloxGroup
 
 
-@dataclass
+@define
 class Restriction:
     """Representation of how a restriction applies to a user, if at all."""
 

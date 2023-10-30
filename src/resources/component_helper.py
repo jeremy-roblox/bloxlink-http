@@ -3,7 +3,7 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
 from typing import Type, TypeVar
-from attrs import make_class, fields
+from attrs import fields
 
 T = TypeVar('T')
 
