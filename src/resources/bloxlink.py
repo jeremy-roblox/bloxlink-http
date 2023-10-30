@@ -319,6 +319,9 @@ class Bloxlink(yuyo.AsgiBot):
         Args:
             import_name (str): Name of the module to import
         """
+
+        logger.info(f"Attempting to load module {import_name}")
+
         try:
             module = importlib.import_module(import_name)
 
