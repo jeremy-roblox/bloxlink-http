@@ -103,13 +103,19 @@ class Response:
 
         if content:
             response_builder.set_content(content)
+        else:
+            response_builder.clear_content()
 
         if embed:
             response_builder.add_embed(embed)
+        else:
+            response_builder.clear_embeds()
 
         if components:
             for component in components:
                 response_builder.add_component(component)
+        else:
+            response_builder.clear_components()
 
         return response_builder
 
