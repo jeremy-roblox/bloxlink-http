@@ -42,6 +42,13 @@ class PromptPageData:
         is_disabled: bool = False
 
 
+@define(slots=True)
+class Page:
+    func: Callable
+    details: PromptPageData
+    page_number: int
+
+
 class Response:
     """Response to a discord interaction.
 
@@ -206,7 +213,7 @@ class Response:
 
 class Prompt:
     def __init__(self, command_name: str, response: Response, prompt_name: str):
-        self.pages = []
+        self.pages: list[Page] = []
         self.current_page_number = 0
         self.response = response
         self.command_name = command_name
@@ -216,33 +223,29 @@ class Prompt:
             attr = getattr(self, attr_name)
 
             if hasattr(attr, "__page_details__"):
-                self.pages.append({
-                    "func": attr,
-                    "details": attr.__page_details__,
-                    "page_number": len(self.pages)
-                })
+                self.pages.append(Page(func=attr, details=attr.__page_details__, page_number=len(self.pages)))
 
     @staticmethod
-    def page(page_details: dict):
-        def wrapper(func):
+    def page(page_details: PromptPageData):
+        def wrapper(func: Callable):
             func.__page_details__ = page_details
             return func
 
         return wrapper
 
     @staticmethod
-    def embed_prompt(command_name, user_id, prompt, page):
+    def embed_prompt(command_name: str, user_id: int, prompt: 'Prompt', page: Page):
         """Build an EmbedPrompt from a prompt and page."""
 
         button_action_row = bloxlink.rest.build_message_action_row()
         components = []
 
-        for component in page["details"].components:
+        for component in page.details.components:
             parsed_custom_id = component_helper.get_custom_id(
                 PromptCustomID,
                 command_name=command_name,
                 prompt_name=prompt.__class__.__name__,
-                page_number=page["page_number"],
+                page_number=page.page_number,
                 component_custom_id=component.custom_id,
                 user_id=user_id
             )
@@ -269,8 +272,8 @@ class Prompt:
 
         return EmbedPrompt(
             embed=hikari.Embed(
-                title=page["details"].title or "Prompt",
-                description=page["details"].description,
+                title=page.details.title or "Prompt",
+                description=page.details.description,
             ),
             components=components
         )
@@ -290,10 +293,10 @@ class Prompt:
         self.current_page_number = current_page_number
         interaction.custom_id = component_custom_id # TODO: make a better solution
 
-        generator_or_coroutine = self.pages[current_page_number]["func"](interaction)
+        generator_or_coroutine = self.pages[current_page_number].func(interaction)
 
         if hasattr(generator_or_coroutine, "__anext__"):
-            async for generator_response in self.pages[current_page_number]["func"](interaction):
+            async for generator_response in self.pages[current_page_number].func(interaction):
                 yield generator_response
         else:
             await generator_or_coroutine
@@ -323,7 +326,7 @@ class Prompt:
 
         await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}", json.dumps(data), ex=5*60)
 
-    async def previous(self, content=None):
+    async def previous(self, content: str=None):
         """Go to the previous page of the prompt."""
 
         self.current_page_number -= 1
@@ -332,7 +335,7 @@ class Prompt:
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
-    async def next(self, content=None):
+    async def next(self, content: str=None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
@@ -341,12 +344,12 @@ class Prompt:
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
-    async def go_to(self, page: Callable, content=None):
+    async def go_to(self, page: Callable, content: str=None):
         """Go to a specific page of the prompt."""
 
         for this_page in self.pages:
-            if this_page["func"] == page:
-                self.current_page_number = this_page["page_number"]
+            if this_page.func == page:
+                self.current_page_number = this_page.page_number
                 break
         else:
             raise PageNotFound(f"Page {page} not found.")
@@ -355,17 +358,17 @@ class Prompt:
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
-    async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list = None):
+    async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
         """Finish the prompt."""
 
         return await self.response.send_first(content=content, embed=embed, components=components, edit_original=True)
 
-    async def edit_component(self, custom_id, **kwargs):
+    async def edit_component(self, custom_id: str, **kwargs):
         """Edit a component on the current page."""
 
         current_page = self.pages[self.current_page_number]
 
-        for component in current_page["details"].components:
+        for component in current_page.details.components:
             if component.custom_id == custom_id:
                 for attr_name, attr_value in kwargs.items():
                     setattr(component, attr_name, attr_value)
