@@ -21,20 +21,40 @@ class PromptCustomID:
 
     command_name: str
     prompt_name: str
+    user_id: int = field(converter=int)
     page_number: int = field(converter=int)
     component_custom_id: str
+
+@define(slots=True)
+class PromptPageData:
+    description: str
+    components: list = field(default=list)
+    title: str = None
+
+    @define(slots=True)
+    class Component:
+        type: Literal["button", "role_select_menu"]
+        custom_id: str
+        label: str = None
+        placeholder: str = None
+        min_values: int = None
+        max_values: int = None
+        is_disabled: bool = False
+
 
 class Response:
     """Response to a discord interaction.
 
     Attributes:
         interaction (hikari.CommandInteraction): Interaction that this response is for.
+        user_id (hikari.Snowflake): The user ID who triggered this interaction.
         responded (bool): Has this interaction been responded to. Default is False.
         deferred (bool): Is this response a deferred response. Default is False.
     """
 
     def __init__(self, interaction: hikari.CommandInteraction):
         self.interaction = interaction
+        self.user_id = interaction.user.id
         self.responded = False
         self.deferred = False
 
@@ -180,7 +200,7 @@ class Response:
 
         first_page = prompt.pages[0]
 
-        embed_prompt = prompt.embed_prompt(self.interaction.command_name, prompt, first_page)
+        embed_prompt = prompt.embed_prompt(self.interaction.command_name, self.user_id, prompt, first_page)
 
         await self.send(embed=embed_prompt.embed, components=embed_prompt.components)
 
@@ -211,17 +231,25 @@ class Prompt:
         return wrapper
 
     @staticmethod
-    def embed_prompt(command_name, prompt, page):
+    def embed_prompt(command_name, user_id, prompt, page):
         """Build an EmbedPrompt from a prompt and page."""
 
         button_action_row = bloxlink.rest.build_message_action_row()
         components = []
 
         for component in page["details"].components:
+            parsed_custom_id = component_helper.get_custom_id(
+                PromptCustomID,
+                command_name=command_name,
+                prompt_name=prompt.__class__.__name__,
+                page_number=page["page_number"],
+                component_custom_id=component.custom_id,
+                user_id=user_id
+            )
             if component.type == "button":
                 button_action_row.add_interactive_button(
                     hikari.ButtonStyle.PRIMARY,
-                    component_helper.get_custom_id(PromptCustomID, command_name=command_name, prompt_name=prompt.__class__.__name__, page_number=page["page_number"], component_custom_id=component.custom_id),
+                    parsed_custom_id,
                     label=component.label,
                     is_disabled=component.is_disabled
                 )
@@ -229,7 +257,7 @@ class Prompt:
                 role_action_row = bloxlink.rest.build_message_action_row()
                 role_action_row.add_select_menu(
                     hikari.ComponentType.ROLE_SELECT_MENU,
-                    component_helper.get_custom_id(PromptCustomID, command_name=command_name, prompt_name=prompt.__class__.__name__, page_number=page["page_number"], component_custom_id=component.custom_id),
+                    parsed_custom_id,
                     placeholder=component.placeholder,
                     min_values=component.min_values,
                     max_values=component.max_values,
@@ -247,13 +275,17 @@ class Prompt:
             components=components
         )
 
-    async def handle(self, interaction):
+    async def handle(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
         custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
 
         current_page_number = custom_id.page_number
         component_custom_id = custom_id.component_custom_id
+
+        if interaction.user.id != custom_id.user_id:
+            yield await self.response.send_first(f"This prompt can only be used by <@{custom_id.user_id}>.", ephemeral=True)
+            return
 
         self.current_page_number = current_page_number
         interaction.custom_id = component_custom_id # TODO: make a better solution
@@ -296,7 +328,7 @@ class Prompt:
 
         self.current_page_number -= 1
 
-        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -305,7 +337,7 @@ class Prompt:
 
         self.current_page_number += 1
 
-        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -319,7 +351,7 @@ class Prompt:
         else:
             raise PageNotFound(f"Page {page} not found.")
 
-        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -338,22 +370,6 @@ class Prompt:
                 for attr_name, attr_value in kwargs.items():
                     setattr(component, attr_name, attr_value)
 
-        embed_prompt = self.embed_prompt(self.command_name, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
 
         return await self.response.send_first(embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
-
-@define(slots=True)
-class PromptPageData:
-    description: str
-    components: list = field(default=list)
-    title: str = None
-
-    @define(slots=True)
-    class Component:
-        type: Literal["button", "role_select_menu"]
-        custom_id: str
-        label: str = None
-        placeholder: str = None
-        min_values: int = None
-        max_values: int = None
-        is_disabled: bool = False
