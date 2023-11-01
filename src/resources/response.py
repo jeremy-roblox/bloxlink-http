@@ -1,5 +1,5 @@
 import hikari
-from typing import Literal, Callable
+from typing import Literal, Callable, Type
 from attrs import define, field
 import json
 
@@ -199,15 +199,20 @@ class Response:
         self.responded = True
 
         return await self.interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, component=components, **kwargs
+            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    async def prompt(self, prompt):
+    async def prompt(self, prompt: Type['Prompt']):
         """Prompt the user with the first page of the prompt."""
 
-        first_page = prompt.pages[0]
+        if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
+            raise NotImplementedError("Can only prompt from a slash command.")
 
-        embed_prompt = prompt.embed_prompt(self.interaction.command_name, self.user_id, prompt, first_page)
+        new_prompt = prompt(self.interaction.command_name, self)
+
+        first_page = new_prompt.pages[0]
+
+        embed_prompt = new_prompt.embed_prompt(self.interaction.command_name, self.user_id, first_page)
 
         await self.send(embed=embed_prompt.embed, components=embed_prompt.components)
 
@@ -233,8 +238,7 @@ class Prompt:
 
         return wrapper
 
-    @staticmethod
-    def embed_prompt(command_name: str, user_id: int, prompt: 'Prompt', page: Page):
+    def embed_prompt(self, command_name: str, user_id: int, page: Page):
         """Build an EmbedPrompt from a prompt and page."""
 
         button_action_row = bloxlink.rest.build_message_action_row()
@@ -244,7 +248,7 @@ class Prompt:
             parsed_custom_id = component_helper.get_custom_id(
                 PromptCustomID,
                 command_name=command_name,
-                prompt_name=prompt.__class__.__name__,
+                prompt_name=self.__class__.__name__,
                 page_number=page.page_number,
                 component_custom_id=component.custom_id,
                 user_id=user_id
@@ -331,7 +335,7 @@ class Prompt:
 
         self.current_page_number -= 1
 
-        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -340,7 +344,7 @@ class Prompt:
 
         self.current_page_number += 1
 
-        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -354,7 +358,7 @@ class Prompt:
         else:
             raise PageNotFound(f"Page {page} not found.")
 
-        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
@@ -373,6 +377,6 @@ class Prompt:
                 for attr_name, attr_value in kwargs.items():
                     setattr(component, attr_name, attr_value)
 
-        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self, self.pages[self.current_page_number])
+        embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
         return await self.response.send_first(embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
