@@ -28,18 +28,26 @@ class PromptCustomID:
 @define(slots=True)
 class PromptPageData:
     description: str
-    components: list = field(default=list)
+    components: list['Component'] = field(default=list)
     title: str = None
 
     @define(slots=True)
     class Component:
-        type: Literal["button", "role_select_menu"]
+        type: Literal["button", "role_select_menu", "select_menu"]
         custom_id: str
         label: str = None
         placeholder: str = None
         min_values: int = None
         max_values: int = None
         is_disabled: bool = False
+        options: list['Option'] = field(default=list)
+
+        @define(slots=True)
+        class Option:
+            name: str
+            value: str
+            description: str = None
+            is_default: bool = False
 
 
 @define(slots=True)
@@ -271,6 +279,24 @@ class Prompt:
                     is_disabled=component.is_disabled
                 )
                 components.append(role_action_row)
+            elif component.type == "select_menu":
+                text_action_row = bloxlink.rest.build_message_action_row()
+                text_menu = text_action_row.add_text_menu(
+                    parsed_custom_id,
+                    placeholder=component.placeholder,
+                    min_values=component.min_values,
+                    max_values=component.max_values,
+                    is_disabled=component.is_disabled
+                )
+                for option in component.options:
+                    text_menu.add_option(
+                        option.name,
+                        option.value,
+                        description=option.description,
+                        is_default=option.is_default
+                    )
+
+                components.append(text_action_row)
 
         components.append(button_action_row)
 
