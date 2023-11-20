@@ -263,6 +263,8 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
             if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
                 new_prompt = command_prompt(command.name, response)
+                new_prompt.insert_pages(command_prompt)
+
                 await new_prompt.save_data(interaction)
                 # yield await new_prompt.handle(interaction).__anext__()
                 async for generator_response in new_prompt.handle(interaction):
