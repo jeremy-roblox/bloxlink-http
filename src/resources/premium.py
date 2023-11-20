@@ -1,11 +1,11 @@
 from resources.bloxlink import instance as bloxlink
 import hikari
-from dataclasses import dataclass
+from attrs import define
 
 from .constants import SKU_TIERS
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class PremiumModel:
     active: bool = False
     type: str = None

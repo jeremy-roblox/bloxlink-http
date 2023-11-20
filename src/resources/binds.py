@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from attrs import define
 from typing import Literal
 
 import hikari
@@ -22,7 +22,7 @@ any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class GuildBind:
     """Represents a binding from the database.
 

@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.roblox.roblox_entity import RobloxEntity
@@ -9,7 +9,7 @@ GROUP_API = "https://groups.roblox.com/v1/groups"
 ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class RobloxGroup(RobloxEntity):
     """Representation of a Group on Roblox.
 

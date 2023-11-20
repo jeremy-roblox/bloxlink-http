@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any, Callable
+from attrs import define
 
 import hikari
 
 from resources.exceptions import *
-from resources.response import Response
+from resources.response import Response, PromptCustomID
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
+from resources.component_helper import parse_custom_id
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -34,6 +35,7 @@ class Command:
         accepted_custom_ids: list[str] = None,
         autocomplete_handlers: list[str] = None,
         dm_enabled: bool = None,
+        prompts: list[Callable] = None,
     ):
         self.name = name
         self.fn = fn
@@ -48,6 +50,7 @@ class Command:
         self.accepted_custom_ids = accepted_custom_ids or {}
         self.autocomplete_handlers = autocomplete_handlers or {}
         self.dm_enabled = dm_enabled
+        self.prompts = prompts or []
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
@@ -68,7 +71,7 @@ class Command:
             await generator_or_coroutine
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class CommandContext:
     """Data related to a command that has been run.
 
@@ -240,6 +243,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
+        # find matching custom_id handler
         for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
             if custom_id.startswith(accepted_custom_id):
                 generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
@@ -250,6 +254,23 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 else:
                     await generator_or_coroutine
+
+                return
+
+        # find matching prompt handler
+        for command_prompt in command.prompts:
+            parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+
+            if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
+                new_prompt = command_prompt(command.name, response)
+                new_prompt.insert_pages(command_prompt)
+
+                await new_prompt.save_data(interaction)
+                # yield await new_prompt.handle(interaction).__anext__()
+                async for generator_response in new_prompt.handle(interaction):
+                    yield generator_response
+
+                return
 
 
 def new_command(command: Any, **kwargs):
@@ -296,6 +317,7 @@ def new_command(command: Any, **kwargs):
         "accepted_custom_ids": kwargs.get("accepted_custom_ids"),
         "autocomplete_handlers": kwargs.get("autocomplete_handlers"),
         "dm_enabled": kwargs.get("dm_enabled"),
+        "prompts": kwargs.get("prompts"),
     }
 
     new_command = Command(**command_attrs)

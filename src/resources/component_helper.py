@@ -1,8 +1,11 @@
 import hikari
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext, build_context
+import resources.commands as commands
+from typing import Type, TypeVar
+from attrs import fields
 
+T = TypeVar('T')
 
 async def get_component(message: hikari.Message, custom_id: str):
     """Get a component in a message based on the custom_id"""
@@ -255,7 +258,7 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
     """
 
     def func_wrapper(func):
-        async def response_wrapper(ctx: CommandContext):
+        async def response_wrapper(ctx: commands.CommandContext):
             interaction = ctx.interaction
 
             author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
@@ -281,8 +284,66 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
                     )
 
             # Trigger original method
-            return await func(build_context(interaction))
+            return await func(commands.build_context(interaction))
 
         return response_wrapper
 
     return func_wrapper
+
+
+def component_values_to_dict(interaction: hikari.ComponentInteraction):
+    """Converts the values from a component into a dict.
+
+    Args:
+        interaction (hikari.ComponentInteraction): The interaction to get the values from.
+
+    Returns:
+        dict: dict representation of the values.
+    """
+    return {
+            "values": interaction.values,
+            "resolved": {
+                "users": [str(user_id) for user_id in interaction.resolved.users] if interaction.resolved else [],
+                "members": [str(member_id) for member_id in interaction.resolved.members] if interaction.resolved else [],
+                "roles": [str(role_id) for role_id in interaction.resolved.roles] if interaction.resolved else [],
+                "channels": [str(channel_id) for channel_id in interaction.resolved.channels] if interaction.resolved else [],
+                "messages": [str(message_id) for message_id in interaction.resolved.messages] if interaction.resolved else [],
+                # "attachments": interaction.resolved.attachments if interaction.resolved else [],
+            },
+        }
+
+def parse_custom_id(T: Type[T], custom_id: str) -> T:
+    """Parses a custom_id into T.
+
+    Args:
+        T (Type[T]): The type to parse the custom_id into.
+        custom_id (str): The custom_id to parse.
+
+    Returns:
+        T: The parsed custom_id.
+    """
+
+    return T(
+        *custom_id.split(":")
+    )
+
+def get_custom_id(T: Type[T], **kwargs) -> str:
+    """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.
+
+    Args:
+        T (Type[T]): The attrs dataclass type for which the custom_id will be constructed.
+        **kwargs: Keyword arguments representing the field values of the dataclass.
+
+    Returns:
+        str: The custom_id string separated by colons.
+    """
+    # Create an instance of the attrs dataclass with the provided keyword arguments
+    custom_id_instance = T(**kwargs)
+
+    # Retrieve the field values in the order specified by the dataclass
+    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T)]
+
+    # Create the custom_id string by joining the field values with colons
+    custom_id_string = ":".join(field_values)
+
+    return custom_id_string

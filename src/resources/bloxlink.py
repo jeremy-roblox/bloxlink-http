@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
 from typing import Callable, Coroutine, Optional
-from dataclasses import dataclass
+from attrs import define
 
 import hikari
 import redis.asyncio as redis  # pylint: disable=import-error
@@ -23,7 +23,7 @@ from resources.utils import default_field
 instance: "Bloxlink" = None
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class UserData:
     """Representation of a User's data in Bloxlink
 
@@ -38,7 +38,7 @@ class UserData:
     robloxAccounts: dict = default_field({"accounts": [], "guilds": {}})
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class GuildData:
     """Representation of the stored settings for a guild"""
 
@@ -319,6 +319,9 @@ class Bloxlink(yuyo.AsgiBot):
         Args:
             import_name (str): Name of the module to import
         """
+
+        logger.info(f"Attempting to load module {import_name}")
+
         try:
             module = importlib.import_module(import_name)
 

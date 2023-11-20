@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.roblox.roblox_entity import RobloxEntity
@@ -7,7 +7,7 @@ from resources.utils import fetch
 ASSET_API = "https://economy.roblox.com/v2/assets"
 
 
-@dataclass(slots=True)
+@define(slots=True)
 class RobloxAsset(RobloxEntity):
     """Representation of an Asset on Roblox."""
 

@@ -25,4 +25,4 @@ class StatusCommand:
                 "This server does not have premium. A server admin may purchase it [here](https://blox.link)."
             )
 
-        yield ctx.response.send_first(embed=embed)
+        yield await ctx.response.send_first(embed=embed)
