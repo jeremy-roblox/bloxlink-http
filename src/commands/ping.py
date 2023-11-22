@@ -35,7 +35,7 @@ class PingPrompts(Prompt):
         )
     )
     async def page1(self, interaction):
-        # yield self.response.defer()
+        # yield await self.response.defer()
 
         if interaction.custom_id == "next":
             # yield await self.next()

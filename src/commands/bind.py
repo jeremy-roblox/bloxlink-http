@@ -4,6 +4,7 @@ from resources.response import Prompt, Response, PromptPageData
 from resources.exceptions import RobloxNotFound
 from hikari.commands import CommandOption, OptionType
 import hikari
+import asyncio
 
 # bind resource API
 from resources.roblox.assets import get_asset
@@ -73,9 +74,43 @@ class GroupPrompt(Prompt):
             ]
         )
     )
-    async def create_bind_page(self, interaction: hikari.CommandInteraction):
-        pass
+    async def create_bind_page(self, interaction: hikari.ComponentInteraction):
+        print(interaction.values)
+        match interaction.values[0]:
+            case "exact_match":
+                yield await self.go_to(self.bind_exact_match)
 
+    @Prompt.programmatic_page()
+    async def bind_exact_match(self, interaction: hikari.ComponentInteraction):
+        yield await self.response.defer()
+
+        yield PromptPageData(
+            title="Bind Group Rank",
+            description="Please select a group rank and corresponding Discord role. No existing Discord role? No problem, just click `Create new role`.",
+            components=[
+                PromptPageData.Component(
+                    type="select_menu",
+                    placeholder="Choose group rank",
+                    min_values=0,
+                    max_values=1,
+                    custom_id="group_rank",
+                    options=[
+                        PromptPageData.Component.Option(
+                            name="Rank must match exactly...",
+                            value="exact_match",
+                        )
+
+                    ]
+                ),
+                PromptPageData.Component(
+                    type="button",
+                    label="Create a new role",
+                    custom_id="new_role",
+                    is_disabled=False,
+                    on_submit = self.create_bind_page
+                )
+            ]
+        )
 
 
 @bloxlink.command(

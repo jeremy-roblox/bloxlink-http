@@ -74,8 +74,9 @@ class Response:
         self.user_id = interaction.user.id
         self.responded = False
         self.deferred = False
+        self.defer_through_rest = False
 
-    def defer(self, ephemeral: bool = False):
+    async def defer(self, ephemeral: bool = False):
         """Defer this interaction. This needs to be yielded and called as the first response.
 
         Args:
@@ -88,12 +89,14 @@ class Response:
         self.responded = True
         self.deferred = True
 
-        # if ephemeral:
-        #     return await self.interaction.create_initial_response(
-        #         hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.messages.MessageFlag.EPHEMERAL
-        #     )
+        if self.defer_through_rest:
+            if ephemeral:
+                return await self.interaction.create_initial_response(
+                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, flags=hikari.messages.MessageFlag.EPHEMERAL
+                )
 
-        # return await self.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+            return await self.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+
         if self.interaction.type == hikari.InteractionType.APPLICATION_COMMAND:
             return self.interaction.build_deferred_response().set_flags(
                 hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
@@ -225,6 +228,7 @@ class Response:
 
         if first_page.programmatic:
             page_details: PromptPageData = await first_page.func(self.interaction)
+
             first_page.details = page_details
 
         embed_prompt = new_prompt.embed_prompt(self.interaction.command_name, self.user_id, first_page)
@@ -238,6 +242,8 @@ class Prompt:
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
+
+        response.defer_through_rest = True
 
     @staticmethod
     def page(page_details: PromptPageData):
@@ -344,6 +350,20 @@ class Prompt:
 
                 page_number += 1
 
+    async def populate_programmatic_page(self, interaction: hikari.ComponentInteraction):
+        current_page = self.pages[self.current_page_number]
+
+        if current_page.programmatic:
+            generator_or_coroutine = current_page.func(interaction)
+
+            if hasattr(generator_or_coroutine, "__anext__"):
+                await generator_or_coroutine.__anext__() # usually a response builder object
+                page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
+            else:
+                page_details: PromptPageData = await generator_or_coroutine
+
+            current_page.details = page_details
+
     async def handle(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
@@ -362,11 +382,10 @@ class Prompt:
         current_page = self.pages[current_page_number]
 
         if current_page.programmatic:
-            # we need to fire the programmatic page again to know what to do when the component is activated
-            page_details: PromptPageData = await current_page.func(interaction)
-            current_page.details = page_details
+            # we need to fire the programmatic page to know what to do when the component is activated
+            await self.populate_programmatic_page(interaction)
 
-            for component in page_details.components:
+            for component in current_page.details.components:
                 if component.custom_id == component_custom_id:
                     # TODO assume it's a page
                     yield await self.go_to(component.on_submit)
@@ -410,6 +429,8 @@ class Prompt:
 
         self.current_page_number -= 1
 
+        await self.populate_programmatic_page(self.response.interaction)
+
         embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
         return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
@@ -418,6 +439,8 @@ class Prompt:
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
+
+        await self.populate_programmatic_page(self.response.interaction)
 
         embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
@@ -433,9 +456,11 @@ class Prompt:
         else:
             raise PageNotFound(f"Page {page} not found.")
 
+        await self.populate_programmatic_page(self.response.interaction)
+
         embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
-        return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=False)
+        return await self.response.send_first(content=content, embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
     async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
         """Finish the prompt."""

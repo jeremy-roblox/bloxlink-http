@@ -198,7 +198,7 @@ async def handle_command(interaction: hikari.CommandInteraction, response: Respo
             command_options = {o.name: o.value for o in interaction.options}
 
     if command.defer:
-        yield response.defer(ephemeral=command.defer_with_ephemeral)
+        yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
     ctx = build_context(interaction, response=response, command=command, options=command_options)
 
@@ -266,7 +266,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                 new_prompt.insert_pages(command_prompt)
 
                 await new_prompt.save_data(interaction)
-                # yield await new_prompt.handle(interaction).__anext__()
+
                 async for generator_response in new_prompt.handle(interaction):
                     yield generator_response
 

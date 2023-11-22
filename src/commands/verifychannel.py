@@ -5,7 +5,7 @@ import resources.roblox.users as users
 import hikari
 
 async def verify_button_click(ctx: CommandContext):
-    yield ctx.response.defer(True)
+    yield await ctx.response.defer(True)
 
     roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
     message_response = await binds.apply_binds(
