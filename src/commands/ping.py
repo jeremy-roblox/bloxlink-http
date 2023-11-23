@@ -17,18 +17,18 @@ class PingPrompts(Prompt):
                     placeholder="Select a role",
                     min_values=0,
                     max_values=1,
-                    custom_id="role_select",
+                    component_id="role_select",
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Back",
-                    custom_id="back",
+                    component_id="back",
                     is_disabled=True
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Next",
-                    custom_id="next",
+                    component_id="next",
                     is_disabled=True
                 )
             ]
@@ -59,13 +59,13 @@ class PingPrompts(Prompt):
                 PromptPageData.Component(
                     type="button",
                     label="Back",
-                    custom_id="back",
+                    component_id="back",
                     is_disabled=False
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Next",
-                    custom_id="finish"
+                    component_id="finish"
                 )
             ]
         )
@@ -87,7 +87,7 @@ class PingPrompts(Prompt):
                 PromptPageData.Component(
                     type="button",
                     label="Finish",
-                    custom_id="finish"
+                    component_id="finish"
                 )
             ]
         )

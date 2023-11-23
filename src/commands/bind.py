@@ -1,8 +1,9 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
-from resources.response import Prompt, Response, PromptPageData
+from resources.response import Prompt, Response, PromptPageData, PromptCustomID
 from resources.exceptions import RobloxNotFound
 from hikari.commands import CommandOption, OptionType
+from attrs import define, field
 import hikari
 import asyncio
 
@@ -14,28 +15,36 @@ from resources.roblox.groups import get_group
 from resources.binds import create_bind
 
 
+
+@define
+class GroupPromptCustomID(PromptCustomID):
+    group_id: int = field(converter=int)
+
+
 class GroupPrompt(Prompt):
     def __init__(self, interaction: hikari.CommandInteraction, response: Response):
         super().__init__(interaction, response, self.__class__.__name__)
 
 
     @Prompt.programmatic_page()
-    async def current_binds(self, interaction: hikari.CommandInteraction):
+    async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
         # TODO: get current binds
 
-        return PromptPageData(
+        yield PromptPageData(
             title="Current Binds",
             description="Here are the current binds for your server. Click the button below to make a new bind.",
             components=[
                 PromptPageData.Component(
                     type="button",
                     label="Create a new bind",
-                    custom_id="new_bind",
+                    component_id="new_bind",
                     is_disabled=False,
-                    on_submit = self.create_bind_page
                 )
             ]
         )
+
+        if fired_component_id == "new_bind":
+            yield await self.go_to(self.create_bind_page)
 
     @Prompt.page(
         PromptPageData(
@@ -47,7 +56,7 @@ class GroupPrompt(Prompt):
                     placeholder="Select a condition",
                     min_values=0,
                     max_values=1,
-                    custom_id="criteria_select",
+                    component_id="criteria_select",
                     options=[
                         PromptPageData.Component.Option(
                             name="Rank must match exactly...",
@@ -74,15 +83,16 @@ class GroupPrompt(Prompt):
             ]
         )
     )
-    async def create_bind_page(self, interaction: hikari.ComponentInteraction):
-        print(interaction.values)
+    async def create_bind_page(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
         match interaction.values[0]:
             case "exact_match":
                 yield await self.go_to(self.bind_exact_match)
 
     @Prompt.programmatic_page()
-    async def bind_exact_match(self, interaction: hikari.ComponentInteraction):
+    async def bind_exact_match(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
         yield await self.response.defer()
+
+        roblox_group = await get_group(interaction.values[0])
 
         yield PromptPageData(
             title="Bind Group Rank",
@@ -93,24 +103,50 @@ class GroupPrompt(Prompt):
                     placeholder="Choose group rank",
                     min_values=0,
                     max_values=1,
-                    custom_id="group_rank",
+                    component_id="group_rank",
                     options=[
                         PromptPageData.Component.Option(
-                            name="Rank must match exactly...",
-                            value="exact_match",
+                            name="TODO",
+                            value="TODO",
                         )
-
                     ]
                 ),
                 PromptPageData.Component(
+                    type="role_select_menu",
+                    placeholder="Choose a Discord role",
+                    min_values=0,
+                    max_values=1,
+                    component_id="discord_role",
+                ),
+                PromptPageData.Component(
                     type="button",
-                    label="Create a new role",
-                    custom_id="new_role",
+                    label="Create new role",
+                    component_id="new_role",
                     is_disabled=False,
-                    on_submit = self.create_bind_page
                 )
             ]
         )
+
+        if fired_component_id == "new_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": True,
+                },
+                new_role={
+                    "label": "Use existing role",
+                    "component_id": "new_role-existing_role"
+                }
+            )
+        elif fired_component_id == "new_role-existing_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": False,
+                },
+                new_role={
+                    "label": "Create new role",
+                    "component_id": "new_role"
+                }
+            )
 
 
 @bloxlink.command(
@@ -161,7 +197,12 @@ class BindCommand:
             )
 
         if bind_mode == "specific_roles":
-            await ctx.response.prompt(GroupPrompt)
+            await ctx.response.prompt(GroupPrompt, custom_id_format=(
+                GroupPromptCustomID,
+                {
+                    "group_id": group_id,
+                }
+            ))
 
         elif bind_mode == "entire_group":
             # Isn't interactive - just makes the binding and tells the user if it worked or not.

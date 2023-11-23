@@ -347,3 +347,32 @@ def get_custom_id(T: Type[T], **kwargs) -> str:
     custom_id_string = ":".join(field_values)
 
     return custom_id_string
+
+def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
+    """Sets specific fields in a custom_id string and returns the updated custom_id.
+
+    Args:
+        T (Type[T]): The attrs dataclass type.
+        custom_id (str): The existing custom_id string.
+        **kwargs: Keyword arguments representing the fields to be updated.
+
+    Returns:
+        str: The updated custom_id string separated by colons.
+    """
+    # Split the existing custom_id into parts
+    parts = custom_id.split(':')
+
+    # Create an instance of the attrs dataclass with the existing field values
+    custom_id_instance = T(*parts)
+
+    # Update specified fields with the provided keyword arguments
+    for field_name, value in kwargs.items():
+        setattr(custom_id_instance, field_name, value)
+
+    # Retrieve the updated field values in the order specified by the dataclass
+    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T)]
+
+    # Create the updated custom_id string by joining the field values with colons
+    updated_custom_id = ":".join(field_values)
+
+    return updated_custom_id
