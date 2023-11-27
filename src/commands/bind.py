@@ -23,8 +23,7 @@ class GroupPromptCustomID(PromptCustomID):
 
 class GroupPrompt(Prompt):
     def __init__(self, interaction: hikari.CommandInteraction, response: Response):
-        super().__init__(interaction, response, self.__class__.__name__)
-
+        super().__init__(interaction, response, self.__class__.__name__, GroupPromptCustomID)
 
     @Prompt.programmatic_page()
     async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
@@ -43,7 +42,10 @@ class GroupPrompt(Prompt):
             ]
         )
 
+        print("passed promptpagedata", fired_component_id)
+
         if fired_component_id == "new_bind":
+            # print("fired_component_id == new_bind")
             yield await self.go_to(self.create_bind_page)
 
     @Prompt.page(
@@ -84,6 +86,8 @@ class GroupPrompt(Prompt):
         )
     )
     async def create_bind_page(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        # print(interaction.values[0])
+        print("create_bind_page()")
         match interaction.values[0]:
             case "exact_match":
                 yield await self.go_to(self.bind_exact_match)
@@ -197,12 +201,12 @@ class BindCommand:
             )
 
         if bind_mode == "specific_roles":
-            await ctx.response.prompt(GroupPrompt, custom_id_format=(
-                GroupPromptCustomID,
-                {
+            await ctx.response.prompt(
+                GroupPrompt,
+                custom_id_data={
                     "group_id": group_id,
                 }
-            ))
+            )
 
         elif bind_mode == "entire_group":
             # Isn't interactive - just makes the binding and tells the user if it worked or not.

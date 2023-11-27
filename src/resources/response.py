@@ -1,6 +1,6 @@
 import hikari
 from typing import Literal, Callable, Type
-from attrs import define, field
+from attrs import define, field, fields
 import json
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
@@ -24,6 +24,10 @@ class PromptCustomID:
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)
     component_custom_id: str
+
+    def __str__(self):
+        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
+        return ":".join(field_values)
 
 @define(slots=True)
 class PromptPageData:
@@ -218,7 +222,7 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    async def prompt(self, prompt: Type['Prompt'], custom_id_format = None):
+    async def prompt(self, prompt: Type['Prompt'], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
         if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
@@ -232,17 +236,19 @@ class Response:
         if first_page.programmatic:
             await new_prompt.populate_programmatic_page(self.interaction)
 
-        embed_prompt = new_prompt.embed_prompt(self.interaction.command_name, self.user_id, first_page, custom_id_format)
+        embed_prompt = new_prompt.embed_prompt(self.interaction.command_name, self.user_id, first_page, custom_id_data)
 
         return await self.send_first(embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
 
 class Prompt:
-    def __init__(self, command_name: str, response: Response, prompt_name: str):
+    def __init__(self, command_name: str, response: Response, prompt_name: str, custom_id_format: Type[Callable]=PromptCustomID):
         self.pages: list[Page] = []
         self.current_page_number = 0
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
+        self.custom_id_format = custom_id_format
+        self.custom_id: PromptCustomID = None # only set if the component is activated
 
         response.defer_through_rest = True
 
@@ -266,35 +272,36 @@ class Prompt:
 
         return wrapper
 
-    def embed_prompt(self, command_name: str, user_id: int, page: Page, custom_id_data=None):
+    def embed_prompt(self, command_name: str, user_id: int, page: Page, custom_id_data: dict = None):
         """Build an EmbedPrompt from a prompt and page."""
 
         components = []
+
+
+        if not self.custom_id:
+            # this is only fired when response.prompt() is called
+            print(page.page_number)
+            self.custom_id = self.custom_id_format(
+                command_name=command_name,
+                prompt_name=self.__class__.__name__,
+                page_number=page.page_number,
+                component_custom_id="none",
+                user_id=user_id,
+                **(custom_id_data or {})
+            )
 
         if page.details.components:
             button_action_row = bloxlink.rest.build_message_action_row()
             has_button = False
 
-            if custom_id_data:
-                custom_id_format = custom_id_data[0]
-            else:
-                custom_id_format = PromptCustomID
-
             for component in page.details.components:
-                parsed_custom_id = component_helper.get_custom_id(
-                    custom_id_format,
-                    command_name=command_name,
-                    prompt_name=self.__class__.__name__,
-                    page_number=page.page_number,
-                    component_custom_id=component.component_id,
-                    user_id=user_id,
-                    **(custom_id_data[1] if custom_id_data else {})
+                component_custom_id = component_helper.set_custom_id_field(self.custom_id_format, str(self.custom_id), component_custom_id=component.component_id)
+                print("oof", component_custom_id)
 
-                )
                 if component.type == "button":
                     button_action_row.add_interactive_button(
                         component.style or hikari.ButtonStyle.PRIMARY,
-                        parsed_custom_id,
+                        component_custom_id,
                         label=component.label,
                         is_disabled=component.is_disabled
                     )
@@ -303,7 +310,7 @@ class Prompt:
                     role_action_row = bloxlink.rest.build_message_action_row()
                     role_action_row.add_select_menu(
                         hikari.ComponentType.ROLE_SELECT_MENU,
-                        parsed_custom_id,
+                        component_custom_id,
                         placeholder=component.placeholder,
                         min_values=component.min_values,
                         max_values=component.max_values,
@@ -313,7 +320,7 @@ class Prompt:
                 elif component.type == "select_menu":
                     text_action_row = bloxlink.rest.build_message_action_row()
                     text_menu = text_action_row.add_text_menu(
-                        parsed_custom_id,
+                        component_custom_id,
                         placeholder=component.placeholder,
                         min_values=component.min_values,
                         max_values=component.max_values,
@@ -331,6 +338,8 @@ class Prompt:
 
             if has_button:
                 components.append(button_action_row)
+
+        print(components)
 
         return EmbedPrompt(
             embed=hikari.Embed(
@@ -358,11 +367,11 @@ class Prompt:
 
                 page_number += 1
 
-    async def populate_programmatic_page(self, interaction: hikari.ComponentInteraction):
+    async def populate_programmatic_page(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None):
         current_page = self.pages[self.current_page_number]
 
         if current_page.programmatic and current_page.unparsed_programmatic:
-            generator_or_coroutine = current_page.func(interaction, None)
+            generator_or_coroutine = current_page.func(interaction, fired_component_id)
 
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
@@ -378,22 +387,19 @@ class Prompt:
             current_page.details = page_details
             current_page.unparsed_programmatic = False
 
-    async def handle(self, interaction: hikari.ComponentInteraction):
+    async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
-        custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
+        self.custom_id = component_helper.parse_custom_id(self.custom_id_format, interaction.custom_id)
+        self.current_page_number = self.custom_id.page_number
+        self.current_page = self.pages[self.current_page_number]
 
-        current_page_number = custom_id.page_number
-        component_custom_id = custom_id.component_custom_id
+        component_custom_id = self.custom_id.component_custom_id
+        print("component_custom_id", component_custom_id)
 
-        if interaction.user.id != custom_id.user_id:
-            yield await self.response.send_first(f"This prompt can only be used by <@{custom_id.user_id}>.", ephemeral=True)
+        if interaction.user.id != self.custom_id.user_id:
+            yield await self.response.send_first(f"This prompt can only be used by <@{self.custom_id.user_id}>.", ephemeral=True)
             return
-
-        self.current_page_number = current_page_number
-        # interaction.custom_id = component_custom_id # TODO: make a better solution
-
-        current_page = self.pages[current_page_number]
 
         # if current_page.programmatic:
         #     return
@@ -411,10 +417,22 @@ class Prompt:
 
         #     return
 
-        generator_or_coroutine = current_page.func(interaction, component_custom_id)
+        if self.current_page.programmatic:
+            await self.populate_programmatic_page(interaction, component_custom_id)
+            # embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
+
+            # yield await self.response.send_first(embed=embed_prompt.embed, components=embed_prompt.components, edit_original=True)
+
+            # return
+
+
+
+        generator_or_coroutine = self.current_page.func(interaction, component_custom_id)
+        print("generator_or_coroutine", generator_or_coroutine)
 
         if hasattr(generator_or_coroutine, "__anext__"):
             async for generator_response in generator_or_coroutine:
+                print("generator_response", generator_response)
                 yield generator_response
         else:
             await generator_or_coroutine
@@ -476,7 +494,11 @@ class Prompt:
         else:
             raise PageNotFound(f"Page {page} not found.")
 
+        print("go_to() populating")
+
         await self.populate_programmatic_page(self.response.interaction)
+
+        print("go_to()", self.current_page_number)
 
         embed_prompt = self.embed_prompt(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 

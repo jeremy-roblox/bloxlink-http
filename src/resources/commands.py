@@ -259,6 +259,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
         # find matching prompt handler
         for command_prompt in command.prompts:
+            print(custom_id)
             parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
 
             if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
@@ -267,21 +268,21 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 await new_prompt.save_data(interaction)
 
-                async for generator_response in new_prompt.handle(interaction):
+                async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):
                         yield generator_response
 
                 return
 
 
-def new_command(command: Any, **kwargs):
+def new_command(command: Callable, **kwargs):
     """Registers a command with Bloxlink.
 
     This is only used for the wrapper function in resources.bloxlink on the bot object. Commands should not
     be added using this method directly.
 
     Args:
-        command (Any): The command to register locally. (Presumably callable)
+        command (Callable): The command to register locally.
     """
     new_command_class = command()
 
