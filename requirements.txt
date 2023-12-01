@@ -1,4 +1,4 @@
-git+https://github.com/davfsa/hikari@task/missing-field-clears
+hikari==2.0.0.dev122
 hikari-yuyo[asgi]==1.14.2
 motor==2.3
 hiredis
