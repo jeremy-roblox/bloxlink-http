@@ -42,10 +42,11 @@ class GroupPrompt(Prompt):
             ]
         )
 
-        print("passed promptpagedata", fired_component_id)
+        # print("passed promptpagedata 1", fired_component_id, self.response.responded)
 
         if fired_component_id == "new_bind":
             # print("fired_component_id == new_bind")
+            # print("passed promptpagedata 2", fired_component_id, self.response.responded)
             yield await self.go_to(self.create_bind_page)
 
     @Prompt.page(
@@ -94,9 +95,11 @@ class GroupPrompt(Prompt):
 
     @Prompt.programmatic_page()
     async def bind_exact_match(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        print('bind_exact_match() 1')
         yield await self.response.defer()
+        print('bind_exact_match() 2')
 
-        roblox_group = await get_group(interaction.values[0])
+        # roblox_group = await get_group(interaction.values[0])
 
         yield PromptPageData(
             title="Bind Group Rank",
