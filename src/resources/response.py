@@ -593,22 +593,19 @@ class Prompt:
 
         self.current_page_number -= 1
 
-        await self.populate_programmatic_page(self.response.interaction)
-
-        built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
-
-        return await self.response.send_first(content=content, embed=built_page.embed, components=built_page.components, edit_original=True)
+        return await self.run_page().__anext__()
 
     async def next(self, content: str=None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
 
-        await self.populate_programmatic_page(self.response.interaction)
+        # await self.populate_programmatic_page(self.response.interaction)
 
-        built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
+        # built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
 
-        return await self.response.send_first(content=content, embed=built_page.embed, components=built_page.components, edit_original=True)
+        # return await self.response.send_first(content=content, embed=built_page.embed, components=built_page.components, edit_original=True)
+        return await self.run_page().__anext__()
 
     async def go_to(self, page: Callable, content: str=None):
         """Go to a specific page of the prompt."""
@@ -647,6 +644,10 @@ class Prompt:
     async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
         """Finish the prompt."""
 
+        current_page = self.pages[self.current_page_number]
+
+        current_page.edited = True
+
         return await self.response.send_first(content=content, embed=embed, components=components, edit_original=True)
 
     async def edit_component(self, **component_data):
@@ -671,8 +672,8 @@ class Prompt:
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
-        current_page.details = built_page
-        current_page.unparsed_programmatic = False
+        # current_page.details = built_page
+        # current_page.unparsed_programmatic = False
         current_page.edited = True
 
         return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)

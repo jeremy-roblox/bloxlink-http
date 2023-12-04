@@ -34,10 +34,10 @@ class PingPrompts(Prompt):
             ]
         )
     )
-    async def page1(self, interaction):
+    async def page1(self, interaction, fired_component_id: str | None):
         # yield await self.response.defer()
 
-        if interaction.custom_id == "next":
+        if fired_component_id == "next":
             # yield await self.next()
             yield await self.go_to(self.page2)
             return
@@ -48,8 +48,9 @@ class PingPrompts(Prompt):
 
         if role_selected:
             yield await self.edit_component(
-                "next",
-                is_disabled=False
+                next = {
+                    "is_disabled": False
+                }
             )
 
     @Prompt.page(
@@ -70,10 +71,10 @@ class PingPrompts(Prompt):
             ]
         )
     )
-    async def page2(self, interaction):
+    async def page2(self, interaction, fired_component_id: str | None):
         print("page2")
 
-        if interaction.custom_id == "back":
+        if fired_component_id == "back":
             yield await self.previous()
             return
 
@@ -92,7 +93,7 @@ class PingPrompts(Prompt):
             ]
         )
     )
-    async def page3(self, interaction):
+    async def page3(self, interaction, fired_component_id: str | None):
         print("page3")
 
         yield await self.finish("Finished")
@@ -106,4 +107,4 @@ class PingCommand:
     """check if the bot is alive"""
 
     async def __main__(self, ctx: CommandContext):
-        await ctx.response.prompt(PingPrompts)
+        yield await ctx.response.prompt(PingPrompts)
