@@ -8,7 +8,7 @@ from attrs import define
 import hikari
 
 from resources.exceptions import *
-from resources.response import Response, PromptCustomID
+from resources.response import Response, PromptCustomID, PromptPageData
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.component_helper import parse_custom_id
 
@@ -240,6 +240,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):
     """Handle a component interaction."""
     custom_id = interaction.custom_id
+    print(1, response.responded)
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
@@ -262,25 +263,31 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
             parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
 
             if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
+                print(2, response.responded)
                 new_prompt = command_prompt(command.name, response)
+                print(3, response.responded)
                 new_prompt.insert_pages(command_prompt)
+                print(4, response.responded)
 
                 await new_prompt.save_data(interaction)
 
-                async for generator_response in new_prompt.handle(interaction):
-                    yield generator_response
+                # yield await new_prompt.entry_point(interaction)
+
+                async for generator_response in new_prompt.entry_point(interaction):
+                    if not isinstance(generator_response, PromptPageData):
+                        yield generator_response
 
                 return
 
 
-def new_command(command: Any, **kwargs):
+def new_command(command: Callable, **kwargs):
     """Registers a command with Bloxlink.
 
     This is only used for the wrapper function in resources.bloxlink on the bot object. Commands should not
     be added using this method directly.
 
     Args:
-        command (Any): The command to register locally. (Presumably callable)
+        command (Callable): The command to register locally.
     """
     new_command_class = command()
 

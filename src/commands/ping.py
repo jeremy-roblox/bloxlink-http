@@ -17,27 +17,27 @@ class PingPrompts(Prompt):
                     placeholder="Select a role",
                     min_values=0,
                     max_values=1,
-                    custom_id="role_select",
+                    component_id="role_select",
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Back",
-                    custom_id="back",
+                    component_id="back",
                     is_disabled=True
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Next",
-                    custom_id="next",
+                    component_id="next",
                     is_disabled=True
                 )
             ]
         )
     )
-    async def page1(self, interaction):
+    async def page1(self, interaction, fired_component_id: str | None):
         # yield await self.response.defer()
 
-        if interaction.custom_id == "next":
+        if fired_component_id == "next":
             # yield await self.next()
             yield await self.go_to(self.page2)
             return
@@ -48,8 +48,9 @@ class PingPrompts(Prompt):
 
         if role_selected:
             yield await self.edit_component(
-                "next",
-                is_disabled=False
+                next = {
+                    "is_disabled": False
+                }
             )
 
     @Prompt.page(
@@ -59,21 +60,21 @@ class PingPrompts(Prompt):
                 PromptPageData.Component(
                     type="button",
                     label="Back",
-                    custom_id="back",
+                    component_id="back",
                     is_disabled=False
                 ),
                 PromptPageData.Component(
                     type="button",
                     label="Next",
-                    custom_id="finish"
+                    component_id="finish"
                 )
             ]
         )
     )
-    async def page2(self, interaction):
+    async def page2(self, interaction, fired_component_id: str | None):
         print("page2")
 
-        if interaction.custom_id == "back":
+        if fired_component_id == "back":
             yield await self.previous()
             return
 
@@ -87,12 +88,12 @@ class PingPrompts(Prompt):
                 PromptPageData.Component(
                     type="button",
                     label="Finish",
-                    custom_id="finish"
+                    component_id="finish"
                 )
             ]
         )
     )
-    async def page3(self, interaction):
+    async def page3(self, interaction, fired_component_id: str | None):
         print("page3")
 
         yield await self.finish("Finished")
@@ -106,4 +107,4 @@ class PingCommand:
     """check if the bot is alive"""
 
     async def __main__(self, ctx: CommandContext):
-        await ctx.response.prompt(PingPrompts)
+        yield await ctx.response.prompt(PingPrompts)

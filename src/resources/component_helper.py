@@ -313,19 +313,23 @@ def component_values_to_dict(interaction: hikari.ComponentInteraction):
         }
 
 def parse_custom_id(T: Type[T], custom_id: str) -> T:
-    """Parses a custom_id into T.
+    """Parses a custom_id into T, discarding additional values in the string.
 
     Args:
-        T (Type[T]): The type to parse the custom_id into.
+        T (Type[T]): The attrs dataclass type to parse the custom_id into.
         custom_id (str): The custom_id to parse.
 
     Returns:
-        T: The parsed custom_id.
+        T: The parsed custom_id with additional values discarded.
     """
+    # Split the custom_id into parts
+    parts = custom_id.split(':')
 
-    return T(
-        *custom_id.split(":")
-    )
+    # Create an instance of the attrs dataclass with the custom_id values
+    custom_id_instance = T(*parts[:len(fields(T))])
+
+    # Return the dataclass instance, discarding additional values
+    return custom_id_instance
 
 def get_custom_id(T: Type[T], **kwargs) -> str:
     """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.
@@ -340,10 +344,33 @@ def get_custom_id(T: Type[T], **kwargs) -> str:
     # Create an instance of the attrs dataclass with the provided keyword arguments
     custom_id_instance = T(**kwargs)
 
-    # Retrieve the field values in the order specified by the dataclass
-    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T)]
+    return str(custom_id_instance)
 
-    # Create the custom_id string by joining the field values with colons
-    custom_id_string = ":".join(field_values)
+def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
+    """Sets specific fields in a custom_id string and returns the updated custom_id.
 
-    return custom_id_string
+    Args:
+        T (Type[T]): The attrs dataclass type.
+        custom_id (str): The existing custom_id string.
+        **kwargs: Keyword arguments representing the fields to be updated.
+
+    Returns:
+        str: The updated custom_id string separated by colons.
+    """
+    # Split the existing custom_id into parts
+    parts = custom_id.split(':')
+
+    # Create an instance of the attrs dataclass with the existing field values
+    custom_id_instance = T(*parts)
+
+    # Update specified fields with the provided keyword arguments
+    for field_name, value in kwargs.items():
+        setattr(custom_id_instance, field_name, value)
+
+    # Retrieve the updated field values in the order specified by the dataclass
+    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T) if field.name != "_custom_id"]
+
+    # Create the updated custom_id string by joining the field values with colons
+    updated_custom_id = ":".join(field_values)
+
+    return updated_custom_id
