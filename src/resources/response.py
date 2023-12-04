@@ -65,6 +65,7 @@ class Page:
     page_number: int
     programmatic: bool = False
     unparsed_programmatic: bool = False
+    edited: bool = False
 
 
 class Response:
@@ -403,7 +404,7 @@ class Prompt:
         #     current_page.unparsed_programmatic = False
         #     print("populate_programmatic_page details=", current_page.details)
 
-        if current_page.programmatic:
+        if current_page.programmatic and current_page.unparsed_programmatic:
             generator_or_coroutine = current_page.func(interaction, fired_component_id)
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
@@ -529,9 +530,11 @@ class Prompt:
             current_page.details = page_details
             built_page = self.build_page(self.command_name, self.response.user_id, current_page, custom_id_data, hash_)
 
-            # prompt() requires below send_first, but entry_point() doesn't since it calls other functions
-            if current_page.page_number != self.current_page_number:
+            # this stops the page from being sent if the user has already moved on
+            if current_page.page_number != self.current_page_number or current_page.edited:
                 return
+
+            # prompt() requires below send_first, but entry_point() doesn't since it calls other functions
             yield await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
             return
 
@@ -668,5 +671,8 @@ class Prompt:
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
+        current_page.details = built_page
+        current_page.unparsed_programmatic = False
+        current_page.edited = True
+
         return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
-        # return await self.run_page().__anext__()
