@@ -132,6 +132,9 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             ]
         )
 
+        print(fired_component_id)
+        # print("data=", await self.current_data())
+
         if fired_component_id == "new_role":
             await self.edit_component(
                 discord_role={
@@ -152,6 +155,20 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     "component_id": "new_role"
                 }
             )
+
+        current_data = await self.current_data()
+
+        discord_role = current_data["discord_role"]["values"][0] if current_data.get("discord_role") else None
+        group_rank = current_data["group_rank"]["values"][0] if current_data.get("group_rank") else None
+
+        print("discord role is ", discord_role)
+        print("group rank is ", group_rank)
+
+        # if discord_role and group_rank:
+        #     yield await self.go_to(self.current_binds, content=f"{discord_role}{group_rank}")
+
+        await self.ack()
+
 
 
 @bloxlink.command(

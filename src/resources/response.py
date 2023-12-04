@@ -541,6 +541,12 @@ class Prompt(Generic[T]):
 
         return await self.response.send_first(content=content, embed=embed, components=components, edit_original=True)
 
+    async def ack(self):
+        """Acknowledge the interaction. This tells the prompt to not send a response."""
+
+        current_page = self.pages[self.current_page_number]
+        current_page.edited = True
+
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
 
