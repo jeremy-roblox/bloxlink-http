@@ -21,9 +21,10 @@ class GroupPromptCustomID(PromptCustomID):
     group_id: int = field(converter=int)
 
 
-class GroupPrompt(Prompt):
+class GroupPrompt(Prompt[GroupPromptCustomID]):
     def __init__(self, interaction: hikari.CommandInteraction, response: Response):
-        super().__init__(interaction, response, self.__class__.__name__, GroupPromptCustomID)
+        super().__init__(interaction, response, self.__class__.__name__,
+                         custom_id_format=GroupPromptCustomID)
 
     @Prompt.programmatic_page()
     async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
@@ -87,19 +88,16 @@ class GroupPrompt(Prompt):
         )
     )
     async def create_bind_page(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
-        # print(interaction.values[0])
-        print("create_bind_page()")
         match interaction.values[0]:
             case "exact_match":
                 yield await self.go_to(self.bind_exact_match)
 
     @Prompt.programmatic_page()
     async def bind_exact_match(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
-        print('bind_exact_match() 1')
         yield await self.response.defer()
-        print('bind_exact_match() 2')
 
-        # roblox_group = await get_group(interaction.values[0])
+        group_id = self.custom_id.group_id
+        roblox_group = await get_group(group_id)
 
         yield PromptPageData(
             title="Bind Group Rank",
@@ -113,9 +111,9 @@ class GroupPrompt(Prompt):
                     component_id="group_rank",
                     options=[
                         PromptPageData.Component.Option(
-                            name="TODO",
-                            value="TODO",
-                        )
+                            name=roleset_name,
+                            value=roleset_id,
+                        ) for roleset_id, roleset_name in roblox_group.rolesets.items()
                     ]
                 ),
                 PromptPageData.Component(

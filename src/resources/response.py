@@ -1,5 +1,5 @@
 import hikari
-from typing import Literal, Callable, Type
+from typing import Literal, Callable, Type, TypeVar, Generic
 from attrs import define, field, fields
 import json
 
@@ -64,8 +64,10 @@ class Page:
     details: PromptPageData
     page_number: int
     programmatic: bool = False
-    unparsed_programmatic: bool = False
     edited: bool = False
+
+
+T = TypeVar('T', bound='PromptCustomID')
 
 
 class Response:
@@ -251,15 +253,15 @@ class Response:
         print("prompt() hash=", hash_)
         return await new_prompt.run_page(custom_id_data, hash_=hash_).__anext__()
 
-class Prompt:
-    def __init__(self, command_name: str, response: Response, prompt_name: str, custom_id_format: Type[Callable]=PromptCustomID):
+class Prompt(Generic[T]):
+    def __init__(self, command_name: str, response: Response, prompt_name: str, custom_id_format: Type[T] = PromptCustomID):
         self.pages: list[Page] = []
         self.current_page_number = 0
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
-        self.custom_id_format = custom_id_format
-        self.custom_id: PromptCustomID = None # only set if the component is activated
+        self.custom_id_format: Type[T] = custom_id_format
+        self.custom_id: T = None  # only set if the component is activated
 
         response.defer_through_rest = True
 
@@ -374,7 +376,7 @@ class Prompt:
         for attr_name, attr in prompt.__dict__.items(): # so we can get the class attributes in insertion-order
             if hasattr(attr, "__page__"):
                 if getattr(attr, "__programmatic_page__", False):
-                    self.pages.append(Page(func=getattr(self, attr_name), programmatic=True, unparsed_programmatic=True, details=PromptPageData(description="Unparsed programmatic page", components=[]), page_number=page_number))
+                    self.pages.append(Page(func=getattr(self, attr_name), programmatic=True, details=PromptPageData(description="Unparsed programmatic page", components=[]), page_number=page_number))
                 else:
                     self.pages.append(Page(func=getattr(self, attr_name), details=attr.__page_details__, page_number=page_number))
 
@@ -384,27 +386,7 @@ class Prompt:
         current_page = self.pages[self.current_page_number]
         print("current_page=", current_page)
 
-        # if current_page.programmatic and current_page.unparsed_programmatic:
-        #     generator_or_coroutine = current_page.func(interaction, fired_component_id)
-
-        #     if hasattr(generator_or_coroutine, "__anext__"):
-        #         async for generator_response in generator_or_coroutine:
-        #             if isinstance(generator_response, PromptPageData):
-        #                 page_details = generator_response
-        #                 # break
-        #             else:
-        #                 yield generator_response
-        #             # await generator_response
-        #         # await generator_or_coroutine.__anext__() # usually a response builder object
-        #         # page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
-        #     else:
-        #         page_details: PromptPageData = await generator_or_coroutine
-
-        #     current_page.details = page_details
-        #     current_page.unparsed_programmatic = False
-        #     print("populate_programmatic_page details=", current_page.details)
-
-        if current_page.programmatic and current_page.unparsed_programmatic:
+        if current_page.programmatic:
             generator_or_coroutine = current_page.func(interaction, fired_component_id)
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
@@ -413,19 +395,10 @@ class Prompt:
 
                     if isinstance(generator_response, PromptPageData):
                         page_details = generator_response
-                        # break
-                    # else:
-                    #     yield generator_response
-                        # await generator_response
-                # await generator_or_coroutine.__anext__() # usually a response builder object
-                # page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
             else:
                 page_details: PromptPageData = await generator_or_coroutine
 
             current_page.details = page_details
-            # built_page = self.build_page(self.command_name, self.response.user_id, current_page, custom_id_data, hash_)
-
-
 
     async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
@@ -433,66 +406,19 @@ class Prompt:
         self.custom_id = component_helper.parse_custom_id(self.custom_id_format, interaction.custom_id)
         self.current_page_number = self.custom_id.page_number
         self.current_page = self.pages[self.current_page_number]
-        # print(self.custom_id)
-
-        component_custom_id = self.custom_id.component_custom_id
-        # print("component_custom_id", component_custom_id)
 
         if interaction.user.id != self.custom_id.user_id:
             yield await self.response.send_first(f"This prompt can only be used by <@{self.custom_id.user_id}>.", ephemeral=True)
             return
 
-        # if current_page.programmatic:
-        #     return
-
-        # if current_page.programmatic:
-        #     # we need to fire the programmatic page to know what to do when the component is activated
-        #     await self.populate_programmatic_page(interaction)
-
-        #     for component in current_page.details.components:
-        #         if component.custom_id == component_custom_id:
-        #             if component.on_submit:
-        #                 # TODO assume it's a page
-        #                 yield await self.go_to(component.on_submit)
-        #                 break
-
-        #     return
-
-        # print(5, self.response.responded)
-
-        # if self.current_page.programmatic:
-        #     yield await self.populate_programmatic_page(interaction, component_custom_id)
-        #     print(6, self.response.responded)
-        #     return
-        #     # built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
-
-        #     # yield await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
-
-        #     # return
-
-
-
-        # generator_or_coroutine = self.current_page.func(interaction, component_custom_id)
-        # print("generator_or_coroutine", generator_or_coroutine)
-
-        # if hasattr(generator_or_coroutine, "__anext__"):
-        #     async for generator_response in generator_or_coroutine:
-        #         print("generator_response", generator_response)
-        #         yield generator_response
-        # else:
-        #     await generator_or_coroutine
-
         hash_ = uuid.uuid4().hex
         print("entry_point() hash=", hash_)
 
         async for generator_response in self.run_page(hash_=hash_):
-            # print("running page entry_point()", generator_response)
             if isinstance(generator_response, hikari.Message):
                 continue
             print(hash_, "generator_response entry_point()", generator_response)
             yield generator_response
-
-        # return await self.run_page().__anext__()
 
     async def run_page(self, custom_id_data: dict = None, hash_=None):
         """Run the current page."""
@@ -500,10 +426,6 @@ class Prompt:
         hash_ = hash_ or uuid.uuid4().hex
 
         current_page = self.pages[self.current_page_number]
-        print(hash_, "current page number", self.current_page_number)
-
-        # if current_page.programmatic:
-        #     await self.populate_programmatic_page(self.response.interaction)
 
         print(hash_, "run_page() current page=", current_page)
 
@@ -518,12 +440,8 @@ class Prompt:
 
                     if isinstance(generator_response, PromptPageData):
                         page_details = generator_response
-                        # break
                     else:
                         yield generator_response
-                        # await generator_response
-                # await generator_or_coroutine.__anext__() # usually a response builder object
-                # page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
             else:
                 page_details: PromptPageData = await generator_or_coroutine
 
@@ -548,9 +466,6 @@ class Prompt:
             return
 
         yield await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
-
-        # if current_page.programmatic:
-        #     return
 
         if not current_page.programmatic:
             if hasattr(generator_or_coroutine, "__anext__"):
@@ -600,46 +515,22 @@ class Prompt:
 
         self.current_page_number += 1
 
-        # await self.populate_programmatic_page(self.response.interaction)
-
-        # built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
-
-        # return await self.response.send_first(content=content, embed=built_page.embed, components=built_page.components, edit_original=True)
         return await self.run_page().__anext__()
 
     async def go_to(self, page: Callable, content: str=None):
         """Go to a specific page of the prompt."""
 
-        # print("go_to() called")
-
         for this_page in self.pages:
             if this_page.func == page:
                 self.current_page_number = this_page.page_number
-                # print("setting page number to", this_page.page_number)
                 break
         else:
             raise PageNotFound(f"Page {page} not found.")
-
-        # print("go_to() 1", self.response.responded, self.pages[self.current_page_number].details)
-
-        # await self.populate_programmatic_page(self.response.interaction)
-
-        # print("go_to() 2", self.current_page_number, self.response.responded, self.pages[self.current_page_number].details)
-
-        # built_page = self.build_page(self.command_name, self.response.user_id, self.pages[self.current_page_number])
-        # print("go_to() 3", self.current_page_number, self.response.responded)
-        # print(built_page.embed, built_page.components)
-
-        # return await self.response.send_first(content=content, embed=built_page.embed, components=built_page.components, edit_original=True)
 
         hash_ = uuid.uuid4().hex
         print("go_to() hash=", hash_)
 
         return await self.run_page(hash_=hash_).__anext__()
-
-        # async for generator_response in self.run_page():
-        #     print("generator_response go_to()", generator_response)
-        #     yield generator_response
 
     async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
         """Finish the prompt."""
@@ -672,8 +563,6 @@ class Prompt:
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
-        # current_page.details = built_page
-        # current_page.unparsed_programmatic = False
         current_page.edited = True
 
         return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
