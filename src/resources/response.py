@@ -383,25 +383,46 @@ class Prompt:
         current_page = self.pages[self.current_page_number]
         print("current_page=", current_page)
 
-        if current_page.programmatic and current_page.unparsed_programmatic:
-            generator_or_coroutine = current_page.func(interaction, fired_component_id)
+        # if current_page.programmatic and current_page.unparsed_programmatic:
+        #     generator_or_coroutine = current_page.func(interaction, fired_component_id)
 
+        #     if hasattr(generator_or_coroutine, "__anext__"):
+        #         async for generator_response in generator_or_coroutine:
+        #             if isinstance(generator_response, PromptPageData):
+        #                 page_details = generator_response
+        #                 # break
+        #             else:
+        #                 yield generator_response
+        #             # await generator_response
+        #         # await generator_or_coroutine.__anext__() # usually a response builder object
+        #         # page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
+        #     else:
+        #         page_details: PromptPageData = await generator_or_coroutine
+
+        #     current_page.details = page_details
+        #     current_page.unparsed_programmatic = False
+        #     print("populate_programmatic_page details=", current_page.details)
+
+        if current_page.programmatic:
+            generator_or_coroutine = current_page.func(interaction, fired_component_id)
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
+                    if not generator_response:
+                        continue
+
                     if isinstance(generator_response, PromptPageData):
                         page_details = generator_response
                         # break
-                    else:
-                        yield generator_response
-                    # await generator_response
+                    # else:
+                    #     yield generator_response
+                        # await generator_response
                 # await generator_or_coroutine.__anext__() # usually a response builder object
                 # page_details: PromptPageData = await generator_or_coroutine.__anext__() # actual page details
             else:
                 page_details: PromptPageData = await generator_or_coroutine
 
             current_page.details = page_details
-            current_page.unparsed_programmatic = False
-            print("populate_programmatic_page details=", current_page.details)
+            # built_page = self.build_page(self.command_name, self.response.user_id, current_page, custom_id_data, hash_)
 
 
 
@@ -628,10 +649,13 @@ class Prompt:
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
 
+        hash_ = uuid.uuid4().hex
+        print("edit_component() hash=", hash_)
+
         current_page = self.pages[self.current_page_number]
 
-        # if current_page.programmatic:
-        #     await self.populate_programmatic_page(self.response.interaction)
+        if current_page.programmatic:
+            await self.populate_programmatic_page(self.response.interaction)
 
         for component in current_page.details.components:
             for component_custom_id, kwargs in component_data.items():
@@ -642,7 +666,7 @@ class Prompt:
                         else:
                             setattr(component, attr_name, attr_value)
 
-        built_page = self.build_page(self.command_name, self.response.user_id, current_page)
+        built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
         return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
         # return await self.run_page().__anext__()
