@@ -263,11 +263,8 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
             parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
 
             if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
-                print(2, response.responded)
                 new_prompt = command_prompt(command.name, response)
-                print(3, response.responded)
                 new_prompt.insert_pages(command_prompt)
-                print(4, response.responded)
 
                 await new_prompt.save_data(interaction)
 
@@ -346,10 +343,11 @@ async def sync_commands(bot: hikari.RESTBot):
     Args:
         bot (hikari.RESTBot): The bot object to publish slash commands for.
     """
+
     commands = []
 
     for new_command_data in slash_commands.values():
-        command: hikari.commands.SlashCommandBuilder = bot.rest.slash_command_builder(
+        command: hikari.api.SlashCommandBuilder = bot.rest.slash_command_builder(
             new_command_data.name, new_command_data.description
         )
 
