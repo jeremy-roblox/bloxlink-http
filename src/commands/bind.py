@@ -24,14 +24,23 @@ class GroupPromptCustomID(PromptCustomID):
 class GroupPrompt(Prompt[GroupPromptCustomID]):
     def __init__(self, interaction: hikari.CommandInteraction, response: Response):
         super().__init__(interaction, response, self.__class__.__name__,
-                         custom_id_format=GroupPromptCustomID)
+                         custom_id_format=GroupPromptCustomID,
+                         start_with_fresh_data=False
+                         )
 
     @Prompt.programmatic_page()
     async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
         # TODO: get current binds
 
+        current_binds = []
+        new_binds = (await self.current_data(raise_exception=False)).get("pendingBinds", [])
+
+        if new_binds:
+            print("pending binds found")
+            pass
+
         yield PromptPageData(
-            title="Current Binds",
+            title=f"{'[UNSAVED CHANGES] ' if new_binds else ''}New Group Bind",
             description="Here are the current binds for your server. Click the button below to make a new bind.",
             components=[
                 PromptPageData.Component(
@@ -39,6 +48,13 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     label="Create a new bind",
                     component_id="new_bind",
                     is_disabled=False,
+                ),
+                PromptPageData.Component(
+                    type="button",
+                    label="Publish",
+                    component_id="publish",
+                    is_disabled=len(new_binds) == 0,
+                    style=hikari.ButtonStyle.SUCCESS
                 )
             ]
         )
@@ -46,9 +62,17 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         # print("passed promptpagedata 1", fired_component_id, self.response.responded)
 
         if fired_component_id == "new_bind":
-            # print("fired_component_id == new_bind")
-            # print("passed promptpagedata 2", fired_component_id, self.response.responded)
-            yield await self.go_to(self.create_bind_page)
+            yield await self.next()
+
+        elif fired_component_id == "publish":
+            yield await self.edit_page(
+                description="This bind menu was saved to your server. You can edit it at any time by running `/bind group` again.",
+                componenents=[]
+            )
+            yield await self.response.send("Your changes have been saved to your server.")
+            await self.clear_data()
+            await self.ack()
+            return
 
     @Prompt.page(
         PromptPageData(
@@ -165,7 +189,19 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         print("group rank is ", group_rank)
 
         if discord_role and group_rank:
-            yield await self.go_to(self.current_binds, description=f"{discord_role}{group_rank}")
+            existing_pending_binds = current_data.get("pendingBinds", [])
+            existing_pending_binds.append({
+                "bindType": "group",
+                "bindId": group_id,
+                "bindData": {
+                    "groupRank": group_rank,
+                    "discordRole": discord_role,
+                }
+            })
+
+            await self.save_stateful_data(pendingBinds=existing_pending_binds)
+            await self.response.send("Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.", ephemeral=True)
+            yield await self.go_to(self.current_binds)
 
         if fired_component_id in ("group_rank", "discord_role"):
             await self.ack()

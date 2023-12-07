@@ -266,7 +266,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                 new_prompt = command_prompt(command.name, response)
                 new_prompt.insert_pages(command_prompt)
 
-                await new_prompt.save_data(interaction)
+                await new_prompt._save_data_from_interaction(interaction)
 
                 # yield await new_prompt.entry_point(interaction)
 

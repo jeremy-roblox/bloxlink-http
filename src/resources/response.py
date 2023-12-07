@@ -239,14 +239,22 @@ class Response:
 
         new_prompt = prompt(self.interaction.command_name, self)
         new_prompt.insert_pages(prompt)
-        await new_prompt.clear_data()
+
+        if new_prompt.start_with_fresh_data:
+            await new_prompt.clear_data()
 
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
         return await new_prompt.run_page(custom_id_data, hash_=hash_).__anext__()
 
 class Prompt(Generic[T]):
-    def __init__(self, command_name: str, response: Response, prompt_name: str, custom_id_format: Type[T] = PromptCustomID):
+    def __init__(self,
+                 command_name: str,
+                 response: Response,
+                 prompt_name: str,
+                 *,
+                 custom_id_format: Type[T] = PromptCustomID,
+                 start_with_fresh_data: bool = True):
         self.pages: list[Page] = []
         self.current_page_number = 0
         self.response = response
@@ -255,6 +263,7 @@ class Prompt(Generic[T]):
         self._custom_id_format: Type[T] = custom_id_format
         self.custom_id: T = None  # only set if the component is activated
         self._pending_embed_changes = {}
+        self.start_with_fresh_data = start_with_fresh_data
 
         response.defer_through_rest = True
 
@@ -352,6 +361,10 @@ class Prompt(Generic[T]):
             if self._pending_embed_changes.get("description"):
                 page.details.description = self._pending_embed_changes["description"]
                 self._pending_embed_changes.pop("description")
+
+            if self._pending_embed_changes.get("title"):
+                page.details.title = self._pending_embed_changes["title"]
+                self._pending_embed_changes.pop("title")
 
         return EmbedPrompt(
             embed=hikari.Embed(
@@ -490,7 +503,7 @@ class Prompt(Generic[T]):
         return json.loads(redis_data)
 
 
-    async def save_data(self, interaction: hikari.ComponentInteraction):
+    async def _save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
         """Save the data from the interaction from the current page to Redis."""
 
         custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
@@ -500,6 +513,15 @@ class Prompt(Generic[T]):
         data[component_custom_id] = component_helper.component_values_to_dict(interaction)
 
         await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}", json.dumps(data), ex=5*60)
+
+
+    async def save_stateful_data(self, **save_data):
+        """Save the data for the current page to Redis."""
+
+        data = await self.current_data(raise_exception=False) or {}
+        data.update(save_data)
+
+        await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}", json.dumps(data), ex=5*60)
 
     async def clear_data(self):
         """Clear the data for the current page from Redis."""
@@ -520,7 +542,7 @@ class Prompt(Generic[T]):
 
         return await self.run_page().__anext__()
 
-    async def go_to(self, page: Callable, content: str=None, description: str=None):
+    async def go_to(self, page: Callable, **kwargs):
         """Go to a specific page of the prompt."""
 
         for this_page in self.pages:
@@ -533,8 +555,9 @@ class Prompt(Generic[T]):
         hash_ = uuid.uuid4().hex
         print("go_to() hash=", hash_)
 
-        if description:
-            self._pending_embed_changes["description"] = description
+        if kwargs:
+            for attr_name, attr_value in kwargs.items():
+                self._pending_embed_changes[attr_name] = attr_value
 
         return await self.run_page(hash_=hash_).__anext__()
 
@@ -572,6 +595,34 @@ class Prompt(Generic[T]):
                             component.component_id = attr_value
                         else:
                             setattr(component, attr_name, attr_value)
+
+        built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
+
+        current_page.edited = True
+
+        return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+
+    async def edit_page(self, components=None, **new_page_data):
+        """Edit the current page."""
+
+        hash_ = uuid.uuid4().hex
+        print("edit_page() hash=", hash_)
+
+        current_page = self.pages[self.current_page_number]
+
+
+        for attr_name, attr_value in new_page_data.items():
+            self._pending_embed_changes[attr_name] = attr_value
+
+        if components:
+            for component_custom_id, kwargs in components.items():
+                for component in current_page.details.components:
+                    if component.component_id == component_custom_id:
+                        for attr_name, attr_value in kwargs.items():
+                            if attr_name == "component_id":
+                                component.component_id = attr_value
+                            else:
+                                setattr(component, attr_name, attr_value)
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
