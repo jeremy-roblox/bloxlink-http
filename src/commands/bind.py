@@ -164,12 +164,11 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         print("discord role is ", discord_role)
         print("group rank is ", group_rank)
 
-        # if discord_role and group_rank:
-        #     yield await self.go_to(self.current_binds, content=f"{discord_role}{group_rank}")
+        if discord_role and group_rank:
+            yield await self.go_to(self.current_binds, description=f"{discord_role}{group_rank}")
 
-        await self.ack()
-
-
+        if fired_component_id in ("group_rank", "discord_role"):
+            await self.ack()
 
 @bloxlink.command(
     category="Administration",

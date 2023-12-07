@@ -239,15 +239,7 @@ class Response:
 
         new_prompt = prompt(self.interaction.command_name, self)
         new_prompt.insert_pages(prompt)
-
-        first_page = new_prompt.pages[0]
-
-        # if first_page.programmatic:
-        #     await new_prompt.populate_programmatic_page(self.interaction)
-
-        # built_page = new_prompt.build_page(self.interaction.command_name, self.user_id, first_page, custom_id_data)
-
-        # return await self.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+        await new_prompt.clear_data()
 
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
@@ -260,8 +252,9 @@ class Prompt(Generic[T]):
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
-        self.custom_id_format: Type[T] = custom_id_format
+        self._custom_id_format: Type[T] = custom_id_format
         self.custom_id: T = None  # only set if the component is activated
+        self._pending_embed_changes = {}
 
         response.defer_through_rest = True
 
@@ -293,7 +286,7 @@ class Prompt(Generic[T]):
         if not self.custom_id:
             # this is only fired when response.prompt() is called
             print(page.page_number)
-            self.custom_id = self.custom_id_format(
+            self.custom_id = self._custom_id_format(
                 command_name=command_name,
                 prompt_name=self.__class__.__name__,
                 page_number=page.page_number,
@@ -309,7 +302,7 @@ class Prompt(Generic[T]):
             has_button = False
 
             for component in page.details.components:
-                component_custom_id = component_helper.set_custom_id_field(self.custom_id_format, str(self.custom_id), component_custom_id=component.component_id)
+                component_custom_id = component_helper.set_custom_id_field(self._custom_id_format, str(self.custom_id), component_custom_id=component.component_id)
                 print(hash_, "oof", component_custom_id, page)
 
                 if component.type == "button":
@@ -354,6 +347,11 @@ class Prompt(Generic[T]):
                 components.append(button_action_row)
 
         print(components)
+
+        if self._pending_embed_changes:
+            if self._pending_embed_changes.get("description"):
+                page.details.description = self._pending_embed_changes["description"]
+                self._pending_embed_changes.pop("description")
 
         return EmbedPrompt(
             embed=hikari.Embed(
@@ -403,7 +401,7 @@ class Prompt(Generic[T]):
     async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
-        self.custom_id = component_helper.parse_custom_id(self.custom_id_format, interaction.custom_id)
+        self.custom_id = component_helper.parse_custom_id(self._custom_id_format, interaction.custom_id)
         self.current_page_number = self.custom_id.page_number
         self.current_page = self.pages[self.current_page_number]
 
@@ -503,6 +501,11 @@ class Prompt(Generic[T]):
 
         await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}", json.dumps(data), ex=5*60)
 
+    async def clear_data(self):
+        """Clear the data for the current page from Redis."""
+
+        await bloxlink.redis.delete(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}")
+
     async def previous(self, content: str=None):
         """Go to the previous page of the prompt."""
 
@@ -517,7 +520,7 @@ class Prompt(Generic[T]):
 
         return await self.run_page().__anext__()
 
-    async def go_to(self, page: Callable, content: str=None):
+    async def go_to(self, page: Callable, content: str=None, description: str=None):
         """Go to a specific page of the prompt."""
 
         for this_page in self.pages:
@@ -529,6 +532,9 @@ class Prompt(Generic[T]):
 
         hash_ = uuid.uuid4().hex
         print("go_to() hash=", hash_)
+
+        if description:
+            self._pending_embed_changes["description"] = description
 
         return await self.run_page(hash_=hash_).__anext__()
 
