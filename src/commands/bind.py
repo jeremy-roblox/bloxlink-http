@@ -12,7 +12,7 @@ from resources.roblox.assets import get_asset
 from resources.roblox.badges import get_badge
 from resources.roblox.gamepasses import get_gamepass
 from resources.roblox.groups import get_group
-from resources.binds import create_bind
+from resources.binds import create_bind, get_binds
 
 
 
@@ -32,8 +32,8 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
     async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
         # TODO: get current binds
 
-        current_binds = []
-        new_binds = (await self.current_data(raise_exception=False)).get("pendingBinds", [])
+        current_binds = await get_binds(interaction.guild_id)
+        new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
 
         if new_binds:
             print("pending binds found")
@@ -59,19 +59,24 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             ]
         )
 
-        # print("passed promptpagedata 1", fired_component_id, self.response.responded)
-
         if fired_component_id == "new_bind":
             yield await self.next()
 
         elif fired_component_id == "publish":
+            for bind in new_binds:
+                await create_bind(
+                    interaction.guild_id,
+                    bind_type=bind["type"],
+                    bind_id=self.custom_id.group_id,
+                    roles=[],
+                    remove_roles=[],
+                    roleset=bind["bind_data"]["roleset"]
+                )
             yield await self.edit_page(
-                description="This bind menu was saved to your server. You can edit it at any time by running `/bind group` again.",
-                componenents=[]
+                description="The binds on this menu were saved to your server. You can edit your binds at any time by running `/bind` again."
             )
-            yield await self.response.send("Your changes have been saved to your server.")
-            await self.clear_data()
-            await self.ack()
+            yield await self.response.send("Your new binds have been saved to your server.")
+            await self.finish()
             return
 
     @Prompt.page(
@@ -189,17 +194,20 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         print("group rank is ", group_rank)
 
         if discord_role and group_rank:
-            existing_pending_binds = current_data.get("pendingBinds", [])
+            existing_pending_binds = current_data.get("pending_binds", [])
             existing_pending_binds.append({
-                "bindType": "group",
-                "bindId": group_id,
-                "bindData": {
-                    "groupRank": group_rank,
-                    "discordRole": discord_role,
+                "type": "group",
+                "bind_id": group_id,
+                "bind_data": {
+                    "group_rank": group_rank,
+                    "discord_role": discord_role,
+                    "roles": [],
+                    "remove_roles": [],
+                    "roleset": group_rank,
                 }
             })
 
-            await self.save_stateful_data(pendingBinds=existing_pending_binds)
+            await self.save_stateful_data(pending_binds=existing_pending_binds)
             await self.response.send("Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.", ephemeral=True)
             yield await self.go_to(self.current_binds)
 

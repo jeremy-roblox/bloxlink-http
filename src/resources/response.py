@@ -561,14 +561,23 @@ class Prompt(Generic[T]):
 
         return await self.run_page(hash_=hash_).__anext__()
 
-    async def finish(self, content: str = "Finished prompt.", embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
+    async def finish(self, *, disable_components=True):
         """Finish the prompt."""
 
         current_page = self.pages[self.current_page_number]
-
         current_page.edited = True
 
-        return await self.response.send_first(content=content, embed=embed, components=components, edit_original=True)
+        await self.clear_data()
+        await self.ack()
+
+        if disable_components and current_page.details.components:
+            return await self.edit_page(
+                components={
+                    component.component_id: {
+                        "is_disabled": True
+                    } for component in current_page.details.components
+                }
+            )
 
     async def ack(self):
         """Acknowledge the interaction. This tells the prompt to not send a response."""
@@ -609,7 +618,7 @@ class Prompt(Generic[T]):
         print("edit_page() hash=", hash_)
 
         current_page = self.pages[self.current_page_number]
-
+        current_page.edited = True
 
         for attr_name, attr_value in new_page_data.items():
             self._pending_embed_changes[attr_name] = attr_value
@@ -625,7 +634,5 @@ class Prompt(Generic[T]):
                                 setattr(component, attr_name, attr_value)
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
-
-        current_page.edited = True
 
         return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)

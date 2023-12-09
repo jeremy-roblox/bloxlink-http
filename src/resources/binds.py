@@ -120,6 +120,22 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     )
 
 
+async def get_binds(guild_id: int | str, bind_id: int | str = None) -> list[GuildData.binds]:
+    """Get the current guild binds.
+
+    Args:
+        guild_id (int | str): ID of the guild.
+        bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
+
+    Returns:
+        int: The number of bindings this guild has created.
+    """
+
+    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
+
+    return guild_data.binds if not bind_id else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
+
+
 async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
@@ -156,6 +172,7 @@ async def create_bind(
     guild_id: int | str,
     bind_type: Literal["group", "asset", "badge", "gamepass"],
     bind_id: int,
+    *,
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
@@ -184,24 +201,25 @@ async def create_bind(
 
     # Check to see if there is a binding in place matching the given input
     existing_binds = []
+
     for bind in guild_binds:
         b = bind["bind"]
 
-        if b["type"] != bind_type:
-            continue
-        if b.get("id") != bind_id:
+        if b["type"] != bind_type or b["id"] != bind_id:
             continue
 
         if len(bind_data) > 0:
-            cond = (
+            bind_cond = (
                 (b.get("roleset") == bind_data.get("roleset") if "roleset" in bind_data else False)
                 or (b.get("min") == bind_data.get("min") if "min" in bind_data else False)
                 or (b.get("max") == bind_data.get("max") if "max" in bind_data else False)
                 or (b.get("guest") == bind_data.get("guest") if "guest" in bind_data else False)
                 or (b.get("everyone") == bind_data.get("everyone") if "everyone" in bind_data else False)
             )
-            if not cond:
+
+            if not bind_cond:
                 continue
+
         elif len(b) > 2 and len(bind_data) == 0:
             continue
 
