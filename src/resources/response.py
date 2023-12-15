@@ -1,12 +1,14 @@
-import hikari
-from typing import Literal, Callable, Type, TypeVar, Generic
-from attrs import define, field, fields
 import json
+import uuid
+from typing import Callable, Generic, Literal, Type, TypeVar
+
+import hikari
+from attrs import define, field, fields
+
+import resources.component_helper as component_helper
+from resources.bloxlink import instance as bloxlink
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
-from resources.bloxlink import instance as bloxlink
-import resources.component_helper as component_helper
-import uuid
 
 
 @define(slots=True)
@@ -16,6 +18,7 @@ class EmbedPrompt:
     embed: hikari.Embed = hikari.Embed()
     components: list = field(factory=list)
     page_number: int = 0
+
 
 @define
 class PromptCustomID:
@@ -31,12 +34,13 @@ class PromptCustomID:
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
         return ":".join(field_values)
 
+
 @define(slots=True)
 class PromptPageData:
     description: str
-    components: list['Component'] = field(default=list())
+    components: list["Component"] = field(default=list())
     title: str = None
-    fields: list['Field'] = field(default=list())
+    fields: list["Field"] = field(default=list())
 
     @define(slots=True)
     class Component:
@@ -44,11 +48,17 @@ class PromptPageData:
         component_id: str
         label: str = None
         placeholder: str = None
-        style: Literal[hikari.ButtonStyle.PRIMARY, hikari.ButtonStyle.SECONDARY, hikari.ButtonStyle.SUCCESS, hikari.ButtonStyle.DANGER, hikari.ButtonStyle.LINK] = None
+        style: Literal[
+            hikari.ButtonStyle.PRIMARY,
+            hikari.ButtonStyle.SECONDARY,
+            hikari.ButtonStyle.SUCCESS,
+            hikari.ButtonStyle.DANGER,
+            hikari.ButtonStyle.LINK,
+        ] = None
         min_values: int = None
         max_values: int = None
         is_disabled: bool = False
-        options: list['Option'] = None
+        options: list["Option"] = None
         # on_submit: Callable = None
 
         @define(slots=True)
@@ -74,7 +84,7 @@ class Page:
     edited: bool = False
 
 
-T = TypeVar('T', bound='PromptCustomID')
+T = TypeVar("T", bound="PromptCustomID")
 
 
 class Response:
@@ -123,9 +133,7 @@ class Response:
 
         return self.interaction.build_deferred_response(
             hikari.ResponseType.DEFERRED_MESSAGE_CREATE
-        ).set_flags(
-            hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
-        )
+        ).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
 
     async def send_first(
         self,
@@ -133,7 +141,7 @@ class Response:
         embed: hikari.Embed = None,
         components: list = None,
         ephemeral: bool = False,
-        edit_original: bool = False
+        edit_original: bool = False,
     ):
         """Directly respond to Discord with this response. This should not be called more than once. This needs to be yielded."""
 
@@ -149,16 +157,24 @@ class Response:
 
         if self.responded:
             if edit_original:
-                return await self.interaction.edit_initial_response(content, embed=embed, components=components)
+                return await self.interaction.edit_initial_response(
+                    content, embed=embed, components=components
+                )
 
             return await self.send(content, embed=embed, components=components, ephemeral=ephemeral)
 
         self.responded = True
 
         if self.interaction.type == hikari.InteractionType.APPLICATION_COMMAND:
-            response_builder = self.interaction.build_response().set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+            response_builder = self.interaction.build_response().set_flags(
+                hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
+            )
         elif self.interaction.type == hikari.InteractionType.MESSAGE_COMPONENT:
-            response_builder = self.interaction.build_response(hikari.ResponseType.MESSAGE_CREATE if not edit_original else hikari.ResponseType.MESSAGE_UPDATE).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+            response_builder = self.interaction.build_response(
+                hikari.ResponseType.MESSAGE_CREATE
+                if not edit_original
+                else hikari.ResponseType.MESSAGE_UPDATE
+            ).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
         else:
             raise NotImplementedError()
 
@@ -178,10 +194,9 @@ class Response:
         else:
             response_builder.clear_components()
 
-        print(response_builder)
+        # print(response_builder)
 
         return response_builder
-
 
     async def send(
         self,
@@ -238,7 +253,7 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    async def prompt(self, prompt: Type['Prompt'], custom_id_data: dict = None):
+    async def prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
         if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
@@ -256,21 +271,24 @@ class Response:
         print("prompt() hash=", hash_)
         return await new_prompt.run_page(custom_id_data, hash_=hash_).__anext__()
 
+
 class Prompt(Generic[T]):
-    def __init__(self,
-                 command_name: str,
-                 response: Response,
-                 prompt_name: str,
-                 *,
-                 custom_id_format: Type[T] = PromptCustomID,
-                 start_with_fresh_data: bool = True):
+    def __init__(
+        self,
+        command_name: str,
+        response: Response,
+        prompt_name: str,
+        *,
+        custom_id_format: Type[T] = PromptCustomID,
+        start_with_fresh_data: bool = True,
+    ):
         self.pages: list[Page] = []
         self.current_page_number = 0
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
         self._custom_id_format: Type[T] = custom_id_format
-        self.custom_id: T = None # this is set in add_custom_id()
+        self.custom_id: T = None  # this is set in add_custom_id()
         self._pending_embed_changes = {}
         self.start_with_fresh_data = start_with_fresh_data
 
@@ -305,11 +323,12 @@ class Prompt(Generic[T]):
             page_number=page_number,
             component_custom_id=component_custom_id,
             user_id=self.response.user_id,
-            **(custom_id_data or {})
+            **(custom_id_data or {}),
         )
 
-
-    def build_page(self, command_name: str, user_id: int, page: Page, custom_id_data: dict = None, hash_=None):
+    def build_page(
+        self, command_name: str, user_id: int, page: Page, custom_id_data: dict = None, hash_=None
+    ):
         """Build an EmbedPrompt from a prompt and page."""
 
         components = []
@@ -329,15 +348,17 @@ class Prompt(Generic[T]):
             has_button = False
 
             for component in page.details.components:
-                component_custom_id = component_helper.set_custom_id_field(self._custom_id_format, str(self.custom_id), component_custom_id=component.component_id)
-                print(hash_, "oof", component_custom_id, page)
+                component_custom_id = component_helper.set_custom_id_field(
+                    self._custom_id_format, str(self.custom_id), component_custom_id=component.component_id
+                )
+                print(hash_, "page components", component_custom_id, page.page_number, page.details.title)
 
                 if component.type == "button":
                     button_action_row.add_interactive_button(
                         component.style or hikari.ButtonStyle.PRIMARY,
                         component_custom_id,
                         label=component.label,
-                        is_disabled=component.is_disabled
+                        is_disabled=component.is_disabled,
                     )
                     has_button = True
                 elif component.type == "role_select_menu":
@@ -348,7 +369,7 @@ class Prompt(Generic[T]):
                         placeholder=component.placeholder,
                         min_values=component.min_values,
                         max_values=component.max_values,
-                        is_disabled=component.is_disabled
+                        is_disabled=component.is_disabled,
                     )
                     components.append(role_action_row)
                 elif component.type == "select_menu":
@@ -358,14 +379,14 @@ class Prompt(Generic[T]):
                         placeholder=component.placeholder,
                         min_values=component.min_values,
                         max_values=component.max_values,
-                        is_disabled=component.is_disabled
+                        is_disabled=component.is_disabled,
                     )
                     for option in component.options:
                         text_menu.add_option(
                             option.name,
                             option.value,
                             description=option.description,
-                            is_default=option.is_default
+                            is_default=option.is_default,
                         )
 
                     components.append(text_action_row)
@@ -379,22 +400,20 @@ class Prompt(Generic[T]):
 
         if self._pending_embed_changes:
             if self._pending_embed_changes.get("description"):
-                #page.details.description = self._pending_embed_changes["description"]
+                # page.details.description = self._pending_embed_changes["description"]
                 embed.description = self._pending_embed_changes["description"]
                 self._pending_embed_changes.pop("description")
 
             if self._pending_embed_changes.get("title"):
-                #page.details.title = self._pending_embed_changes["title"]
+                # page.details.title = self._pending_embed_changes["title"]
                 embed.title = self._pending_embed_changes["title"]
                 self._pending_embed_changes.pop("title")
 
         return EmbedPrompt(
-            embed=embed,
-            components=components if components else None,
-            page_number=page.page_number
+            embed=embed, components=components if components else None, page_number=page.page_number
         )
 
-    def insert_pages(self, prompt: Type['Prompt']):
+    def insert_pages(self, prompt: Type["Prompt"]):
         """Get all pages from the prompt.
 
         This needs to be called OUTSIDE of self to get the class attributes in insertion-order.
@@ -403,16 +422,34 @@ class Prompt(Generic[T]):
 
         page_number = 0
 
-        for attr_name, attr in prompt.__dict__.items(): # so we can get the class attributes in insertion-order
+        for (
+            attr_name,
+            attr,
+        ) in prompt.__dict__.items():  # so we can get the class attributes in insertion-order
             if hasattr(attr, "__page__"):
                 if getattr(attr, "__programmatic_page__", False):
-                    self.pages.append(Page(func=getattr(self, attr_name), programmatic=True, details=PromptPageData(description="Unparsed programmatic page", components=[]), page_number=page_number))
+                    self.pages.append(
+                        Page(
+                            func=getattr(self, attr_name),
+                            programmatic=True,
+                            details=PromptPageData(description="Unparsed programmatic page", components=[]),
+                            page_number=page_number,
+                        )
+                    )
                 else:
-                    self.pages.append(Page(func=getattr(self, attr_name), details=attr.__page_details__, page_number=page_number))
+                    self.pages.append(
+                        Page(
+                            func=getattr(self, attr_name),
+                            details=attr.__page_details__,
+                            page_number=page_number,
+                        )
+                    )
 
                 page_number += 1
 
-    async def populate_programmatic_page(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None):
+    async def populate_programmatic_page(
+        self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None
+    ):
         current_page = self.pages[self.current_page_number]
         print("current_page=", current_page)
 
@@ -438,7 +475,9 @@ class Prompt(Generic[T]):
         self.current_page = self.pages[self.current_page_number]
 
         if interaction.user.id != self.custom_id.user_id:
-            yield await self.response.send_first(f"This prompt can only be used by <@{self.custom_id.user_id}>.", ephemeral=True)
+            yield await self.response.send_first(
+                f"This prompt can only be used by <@{self.custom_id.user_id}>.", ephemeral=True
+            )
             return
 
         hash_ = uuid.uuid4().hex
@@ -457,9 +496,11 @@ class Prompt(Generic[T]):
 
         current_page = self.pages[self.current_page_number]
 
-        print(hash_, "run_page() current page=", current_page)
+        print(hash_, "run_page() current page=", self.current_page_number, current_page.details.title)
 
-        generator_or_coroutine = current_page.func(self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None)
+        generator_or_coroutine = current_page.func(
+            self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None
+        )
 
         # if this is a programmatic page, we need to run it first
         if current_page.programmatic:
@@ -476,26 +517,39 @@ class Prompt(Generic[T]):
                 page_details: PromptPageData = await generator_or_coroutine
 
             current_page.details = page_details
-            built_page = self.build_page(self.command_name, self.response.user_id, current_page, custom_id_data, hash_)
+            built_page = self.build_page(
+                self.command_name, self.response.user_id, current_page, custom_id_data, hash_
+            )
 
             # this stops the page from being sent if the user has already moved on
             if current_page.page_number != self.current_page_number or current_page.edited:
                 return
 
             # prompt() requires below send_first, but entry_point() doesn't since it calls other functions
-            yield await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+            yield await self.response.send_first(
+                embed=built_page.embed, components=built_page.components, edit_original=True
+            )
             return
 
-        print(hash_, "building page run_page(), current page=", current_page)
+        print(
+            hash_,
+            "building page run_page(), current page=",
+            self.current_page_number,
+            current_page.details.title,
+        )
 
-        built_page = self.build_page(self.command_name, self.response.user_id, current_page, custom_id_data, hash_)
+        built_page = self.build_page(
+            self.command_name, self.response.user_id, current_page, custom_id_data, hash_
+        )
 
-        print(hash_, "run_page() built page", built_page)
+        print(hash_, "run_page() built page", built_page.embed.title)
 
         if built_page.page_number != self.current_page_number:
             return
 
-        yield await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+        yield await self.response.send_first(
+            embed=built_page.embed, components=built_page.components, edit_original=True
+        )
 
         if not current_page.programmatic:
             if hasattr(generator_or_coroutine, "__anext__"):
@@ -507,11 +561,12 @@ class Prompt(Generic[T]):
                 if async_result:
                     yield async_result
 
-
     async def current_data(self, raise_exception: bool = True):
         """Get the data for the current page from Redis."""
 
-        redis_data = await bloxlink.redis.get(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}")
+        redis_data = await bloxlink.redis.get(
+            f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}"
+        )
 
         if not redis_data:
             if raise_exception:
@@ -520,7 +575,6 @@ class Prompt(Generic[T]):
             return {}
 
         return json.loads(redis_data)
-
 
     async def _save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
         """Save the data from the interaction from the current page to Redis."""
@@ -531,8 +585,11 @@ class Prompt(Generic[T]):
         data = await self.current_data(raise_exception=False)
         data[component_custom_id] = component_helper.component_values_to_dict(interaction)
 
-        await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}", json.dumps(data), ex=5*60)
-
+        await bloxlink.redis.set(
+            f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",
+            json.dumps(data),
+            ex=5 * 60,
+        )
 
     async def save_stateful_data(self, **save_data):
         """Save the data for the current page to Redis."""
@@ -540,7 +597,11 @@ class Prompt(Generic[T]):
         data = await self.current_data(raise_exception=False) or {}
         data.update(save_data)
 
-        await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}", json.dumps(data), ex=5*60)
+        await bloxlink.redis.set(
+            f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
+            json.dumps(data),
+            ex=5 * 60,
+        )
 
     async def clear_data(self, *remove_data_keys: list[str]):
         """Clear the data for the current page from Redis."""
@@ -551,18 +612,24 @@ class Prompt(Generic[T]):
             for key in remove_data_keys:
                 data.pop(key, None)
 
-            await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}", json.dumps(data), ex=5*60)
+            await bloxlink.redis.set(
+                f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
+                json.dumps(data),
+                ex=5 * 60,
+            )
         else:
-            await bloxlink.redis.delete(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}")
+            await bloxlink.redis.delete(
+                f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}"
+            )
 
-    async def previous(self, content: str=None):
+    async def previous(self, content: str = None):
         """Go to the previous page of the prompt."""
 
         self.current_page_number -= 1
 
         return await self.run_page().__anext__()
 
-    async def next(self, content: str=None):
+    async def next(self, content: str = None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
@@ -600,9 +667,8 @@ class Prompt(Generic[T]):
         if disable_components and current_page.details.components:
             return await self.edit_page(
                 components={
-                    component.component_id: {
-                        "is_disabled": True
-                    } for component in current_page.details.components
+                    component.component_id: {"is_disabled": True}
+                    for component in current_page.details.components
                 }
             )
 
@@ -636,7 +702,9 @@ class Prompt(Generic[T]):
 
         current_page.edited = True
 
-        return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+        return await self.response.send_first(
+            embed=built_page.embed, components=built_page.components, edit_original=True
+        )
 
     async def edit_page(self, components=None, **new_page_data):
         """Edit the current page."""
@@ -662,4 +730,6 @@ class Prompt(Generic[T]):
 
         built_page = self.build_page(self.command_name, self.response.user_id, current_page, hash_=hash_)
 
-        return await self.response.send_first(embed=built_page.embed, components=built_page.components, edit_original=True)
+        return await self.response.send_first(
+            embed=built_page.embed, components=built_page.components, edit_original=True
+        )
