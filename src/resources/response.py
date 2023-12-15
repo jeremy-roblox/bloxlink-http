@@ -36,6 +36,7 @@ class PromptPageData:
     description: str
     components: list['Component'] = field(default=list())
     title: str = None
+    fields: list['Field'] = field(default=list())
 
     @define(slots=True)
     class Component:
@@ -56,6 +57,12 @@ class PromptPageData:
             value: str
             description: str = None
             is_default: bool = False
+
+    @define(slots=True)
+    class Field:
+        name: str
+        value: str
+        inline: bool = False
 
 
 @define(slots=True)
@@ -243,6 +250,8 @@ class Response:
         if new_prompt.start_with_fresh_data:
             await new_prompt.clear_data()
 
+        new_prompt.add_custom_id(0, "none", custom_id_data)
+
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
         return await new_prompt.run_page(custom_id_data, hash_=hash_).__anext__()
@@ -261,7 +270,7 @@ class Prompt(Generic[T]):
         self.command_name = command_name
         self.prompt_name = prompt_name
         self._custom_id_format: Type[T] = custom_id_format
-        self.custom_id: T = None  # only set if the component is activated
+        self.custom_id: T = None # this is set in add_custom_id()
         self._pending_embed_changes = {}
         self.start_with_fresh_data = start_with_fresh_data
 
@@ -287,22 +296,31 @@ class Prompt(Generic[T]):
 
         return wrapper
 
+    def add_custom_id(self, page_number: int, component_custom_id: str = "none", custom_id_data: dict = None):
+        """Generate and save the custom ID."""
+
+        self.custom_id: T = self._custom_id_format(
+            command_name=self.command_name,
+            prompt_name=self.__class__.__name__,
+            page_number=page_number,
+            component_custom_id=component_custom_id,
+            user_id=self.response.user_id,
+            **(custom_id_data or {})
+        )
+
+
     def build_page(self, command_name: str, user_id: int, page: Page, custom_id_data: dict = None, hash_=None):
         """Build an EmbedPrompt from a prompt and page."""
 
         components = []
+        embed = hikari.Embed(
+            description=page.details.description,
+            title=page.details.title or "Prompt",
+        )
 
         if not self.custom_id:
             # this is only fired when response.prompt() is called
-            print(page.page_number)
-            self.custom_id = self._custom_id_format(
-                command_name=command_name,
-                prompt_name=self.__class__.__name__,
-                page_number=page.page_number,
-                component_custom_id="none",
-                user_id=user_id,
-                **(custom_id_data or {})
-            )
+            self.add_custom_id(page.page_number, "none", custom_id_data)
 
         self.custom_id.page_number = page.page_number
 
@@ -355,22 +373,23 @@ class Prompt(Generic[T]):
             if has_button:
                 components.append(button_action_row)
 
-        print(components)
+        if page.details.fields:
+            for field in page.details.fields:
+                embed.add_field(field.name, field.value, inline=field.inline)
 
         if self._pending_embed_changes:
             if self._pending_embed_changes.get("description"):
-                page.details.description = self._pending_embed_changes["description"]
+                #page.details.description = self._pending_embed_changes["description"]
+                embed.description = self._pending_embed_changes["description"]
                 self._pending_embed_changes.pop("description")
 
             if self._pending_embed_changes.get("title"):
-                page.details.title = self._pending_embed_changes["title"]
+                #page.details.title = self._pending_embed_changes["title"]
+                embed.title = self._pending_embed_changes["title"]
                 self._pending_embed_changes.pop("title")
 
         return EmbedPrompt(
-            embed=hikari.Embed(
-                title=page.details.title or "Prompt",
-                description=page.details.description,
-            ),
+            embed=embed,
             components=components if components else None,
             page_number=page.page_number
         )
@@ -523,10 +542,18 @@ class Prompt(Generic[T]):
 
         await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}", json.dumps(data), ex=5*60)
 
-    async def clear_data(self):
+    async def clear_data(self, *remove_data_keys: list[str]):
         """Clear the data for the current page from Redis."""
 
-        await bloxlink.redis.delete(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}")
+        if remove_data_keys:
+            data = await self.current_data(raise_exception=False) or {}
+
+            for key in remove_data_keys:
+                data.pop(key, None)
+
+            await bloxlink.redis.set(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}", json.dumps(data), ex=5*60)
+        else:
+            await bloxlink.redis.delete(f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}")
 
     async def previous(self, content: str=None):
         """Go to the previous page of the prompt."""

@@ -12,7 +12,7 @@ from resources.roblox.assets import get_asset
 from resources.roblox.badges import get_badge
 from resources.roblox.gamepasses import get_gamepass
 from resources.roblox.groups import get_group
-from resources.binds import create_bind, get_binds
+from resources.binds import create_bind, get_binds, get_bind_desc
 
 
 
@@ -30,18 +30,24 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
     @Prompt.programmatic_page()
     async def current_binds(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
-        # TODO: get current binds
-
-        current_binds = await get_binds(interaction.guild_id)
+        current_bind_desc = await get_bind_desc(interaction.guild_id, bind_id=self.custom_id.group_id)
         new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
 
-        if new_binds:
-            print("pending binds found")
-            pass
+        await self.clear_data("discord_role", "group_rank") # clear the data so we can re-use the menu
 
         yield PromptPageData(
             title=f"{'[UNSAVED CHANGES] ' if new_binds else ''}New Group Bind",
             description="Here are the current binds for your server. Click the button below to make a new bind.",
+            fields=[
+                PromptPageData.Field(
+                    # name=f"Group [{current_bind_desc['name']}](https://www.roblox.com/groups/{current_bind_desc['id']}/-)",
+                    # value="\n".join(
+                    #     f"**{bind['bind_data']['group_rank']}** - <@&{bind['bind_data']['discord_role']}>"
+                    #     for bind in current_bind_desc["binds"]
+                    name="Current binds",
+                    value=current_bind_desc or "No binds exist. Create one below!"
+                )
+            ],
             components=[
                 PromptPageData.Component(
                     type="button",
@@ -68,11 +74,11 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     interaction.guild_id,
                     bind_type=bind["type"],
                     bind_id=self.custom_id.group_id,
-                    roles=[],
-                    remove_roles=[],
+                    roles=bind["bind_data"]["roles"],
+                    remove_roles=bind["bind_data"]["remove_roles"],
                     roleset=bind["bind_data"]["roleset"]
                 )
-            yield await self.edit_page(
+            yield await self.edit_page( # FIXME
                 description="The binds on this menu were saved to your server. You can edit your binds at any time by running `/bind` again."
             )
             yield await self.response.send("Your new binds have been saved to your server.")
@@ -91,7 +97,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     max_values=1,
                     component_id="criteria_select",
                     options=[
-                        PromptPageData.Component.Option(
+                        PromptPageData.Component.Option( #
                             name="Rank must match exactly...",
                             value="exact_match",
                         ),
@@ -200,8 +206,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                 "bind_id": group_id,
                 "bind_data": {
                     "group_rank": group_rank,
-                    "discord_role": discord_role,
-                    "roles": [],
+                    "roles": [discord_role],
                     "remove_roles": [],
                     "roleset": group_rank,
                 }

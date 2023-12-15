@@ -594,9 +594,13 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
     """
     binds = []
 
+    id_filter_str = str(id_filter).lower() if id_filter else None
+
+    print(id_filter)
+
     if id_filter:
         id_filter = (
-            None if id_filter.lower() == "none" or id_filter.lower() == "view binds" else str(id_filter)
+            None if id_filter_str == "none" or id_filter_str == "view binds" else str(id_filter)
         )
 
     for bind in bind_list:
@@ -619,8 +623,9 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
         binds.append(classed_bind)
 
     bind_list = list(binds)
+    print(bind_list)
     if id_filter is not None:
-        bind_list.sort(key=lambda e: e.id)
+        bind_list.sort(key=lambda e: e.bind["id"])
     return bind_list
 
 
