@@ -160,12 +160,12 @@ async def get_bind_desc(
     guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
     guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
-    bind_strings = [await bind_description_generator(bind) for bind in guild_binds]
+    bind_strings = [await bind_description_generator(bind) for bind in guild_binds[:5]]
+    output = "\n".join(bind_strings)
 
-    output = "\n".join(bind_strings[:5])
-    if len(bind_strings) > 5:
+    if len(guild_binds) > 5:
         output += (
-            f"\n_... and {len(bind_strings) - 5} more. "
+            f"\n_... and {len(guild_binds) - 5} more. "
             f"Click [here](https://www.blox.link/dashboard/guilds/{guild_id}/binds) to view the rest!_"
         )
     return output
