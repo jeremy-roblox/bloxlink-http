@@ -54,7 +54,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     #     for bind in current_bind_desc["binds"]
                     name="Current binds",
                     value=current_bind_desc or "No binds exist. Create one below!",
-                )
+                ),
             ],
             components=[
                 PromptPageData.Component(
@@ -118,7 +118,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                             value="lte",
                         ),
                         PromptPageData.Component.Option(
-                            name="Rank must be within 2 rolesets...",
+                            name="Rank must be between two rolesets...",
                             value="range",
                         ),
                         PromptPageData.Component.Option(
@@ -131,15 +131,15 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         )
     )
     async def create_bind_page(
-        self, interaction: hikari.ComponentInteraction, fired_component_id: str | None
+        self, interaction: hikari.ComponentInteraction, _fired_component_id: str | None
     ):
         match interaction.values[0]:
-            case "exact_match":
-                yield await self.go_to(self.bind_exact_match)
+            case "exact_match" | "gte" | "lte":
+                yield await self.go_to(self.bind_rank_and_role)
 
     @Prompt.programmatic_page()
-    async def bind_exact_match(
-        self, interaction: hikari.ComponentInteraction, fired_component_id: str | None
+    async def bind_rank_and_role(
+        self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None
     ):
         yield await self.response.defer()
 
@@ -180,9 +180,6 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             ],
         )
 
-        print(fired_component_id)
-        # print("data=", await self.current_data())
-
         if fired_component_id == "new_role":
             await self.edit_component(
                 discord_role={
@@ -206,6 +203,14 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         print("discord role is ", discord_role)
         print("group rank is ", group_rank)
 
+        roleset_db_string = "roleset"
+        user_choice = current_data["criteria_select"]["values"][0]
+
+        if user_choice == "gte":
+            roleset_db_string = "min"
+        elif user_choice == "lte":
+            roleset_db_string = "max"
+
         if discord_role and group_rank:
             existing_pending_binds = current_data.get("pending_binds", [])
             existing_pending_binds.append(
@@ -216,7 +221,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                         "group_rank": group_rank,
                         "roles": [discord_role],
                         "remove_roles": [],
-                        "roleset": group_rank,
+                        roleset_db_string: group_rank,
                     },
                 }
             )
