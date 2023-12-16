@@ -184,6 +184,13 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         group_id = self.custom_id.group_id
         roblox_group = await get_group(group_id)
 
+        current_data = await self.current_data()
+        user_choice = current_data["criteria_select"]["values"][0]
+
+        # Remove the guest roleset if they are not making an exact match type.
+        if user_choice != "exact_match":
+            del roblox_group.rolesets[0]
+
         yield PromptPageData(
             title="Bind Group Rank",
             description="Please select a group rank and corresponding Discord role. "
@@ -234,16 +241,10 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                 new_role={"label": "Create new role", "component_id": "new_role"},
             )
 
-        current_data = await self.current_data()
-
         discord_role = current_data["discord_role"]["values"][0] if current_data.get("discord_role") else None
         group_rank = current_data["group_rank"]["values"][0] if current_data.get("group_rank") else None
 
-        print("discord role is ", discord_role)
-        print("group rank is ", group_rank)
-
         roleset_db_string = "roleset"
-        user_choice = current_data["criteria_select"]["values"][0]
 
         if user_choice == "gte":
             roleset_db_string = "min"
