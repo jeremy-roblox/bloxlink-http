@@ -36,6 +36,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         interaction: hikari.CommandInteraction | hikari.ComponentInteraction,
         fired_component_id: str | None,
     ):
+        """Default page for the prompt. Shows users what binds they have made, and unsaved binds if any."""
         new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
 
         match fired_component_id:
@@ -178,6 +179,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
     async def create_bind_page(
         self, interaction: hikari.ComponentInteraction, _fired_component_id: str | None
     ):
+        """Prompt telling users to choose which bind type is being made."""
         match interaction.values[0]:
             case "exact_match" | "gte" | "lte":
                 yield await self.go_to(self.bind_rank_and_role)
@@ -190,6 +192,8 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
     async def bind_rank_and_role(
         self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None
     ):
+        """Prompts a user to choose a rank and a role to give.
+        Used for exact-rank bindings, as well as >= and <= bindings."""
         yield await self.response.defer()
 
         group_id = self.custom_id.group_id
@@ -285,6 +289,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
     @Prompt.programmatic_page()
     async def bind_range(self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        """Prompts a user to select two group ranks and a Discord role to give."""
         yield await self.response.defer()
 
         group_id = self.custom_id.group_id
@@ -379,6 +384,9 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
     @Prompt.programmatic_page()
     async def bind_role(self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        """Prompts for a user to select which roles will be given for bind.
+        Used for guest bindings & all group member bindings.
+        """
         yield await self.response.defer()
 
         current_data = await self.current_data()
