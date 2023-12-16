@@ -1,10 +1,8 @@
-import asyncio
-
 import hikari
 from attrs import define, field
 from hikari.commands import CommandOption, OptionType
 
-from resources.binds import create_bind, get_bind_desc, get_binds
+from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.exceptions import RobloxNotFound
@@ -38,60 +36,100 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         interaction: hikari.CommandInteraction | hikari.ComponentInteraction,
         fired_component_id: str | None,
     ):
-        current_bind_desc = await get_bind_desc(interaction.guild_id, bind_id=self.custom_id.group_id)
         new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
 
-        await self.clear_data("discord_role", "group_rank")  # clear the data so we can re-use the menu
+        match fired_component_id:
+            case "new_bind":
+                # Create an empty page first, we don't need the original page content to be generated again.
+                # Code throws if a page is not yielded prior to trying to go to next.
+                # This would in theory cause an issue if we were using self.previous()? untested.
+                yield PromptPageData(title="", description="", fields=[], components=[])
 
-        yield PromptPageData(
-            title=f"{'[UNSAVED CHANGES] ' if new_binds else ''}New Group Bind",
-            description="Here are the current binds for your server. Click the button below to make a new bind.",
-            fields=[
-                PromptPageData.Field(
-                    # name=f"Group [{current_bind_desc['name']}](https://www.roblox.com/groups/{current_bind_desc['id']}/-)",
-                    # value="\n".join(
-                    #     f"**{bind['bind_data']['group_rank']}** - <@&{bind['bind_data']['discord_role']}>"
-                    #     for bind in current_bind_desc["binds"]
-                    name="Current binds",
-                    value=current_bind_desc or "No binds exist. Create one below!",
-                ),
-            ],
-            components=[
-                PromptPageData.Component(
-                    type="button",
-                    label="Create a new bind",
-                    component_id="new_bind",
-                    is_disabled=False,
-                ),
-                PromptPageData.Component(
-                    type="button",
-                    label="Publish",
-                    component_id="publish",
-                    is_disabled=len(new_binds) == 0,
-                    style=hikari.ButtonStyle.SUCCESS,
-                ),
-            ],
-        )
+                yield await self.next()
 
-        if fired_component_id == "new_bind":
-            yield await self.next()
+            case "publish":
+                # Establish a baseline prompt. Same reasoning as the new_bind case.
+                yield PromptPageData(title="", description="", fields=[], components=[])
 
-        elif fired_component_id == "publish":
-            for bind in new_binds:
-                await create_bind(
-                    interaction.guild_id,
-                    bind_type=bind["type"],
-                    bind_id=self.custom_id.group_id,
-                    roles=bind["bind_data"]["roles"],
-                    remove_roles=bind["bind_data"]["remove_roles"],
-                    roleset=bind["bind_data"]["roleset"],
+                for bind in new_binds:
+                    # Used to generically pass rank specifications to create_bind.
+                    bind_data: dict = bind["bind"].copy()
+                    bind_data.pop("id")
+
+                    # TODO: If no role exists in the bind, make one with the same name as the rank(??) and save.
+                    # Maybe this should be done as part of the prior page, saves a request to roblox.
+
+                    await create_bind(
+                        interaction.guild_id,
+                        bind_type=bind_data.pop("type"),
+                        bind_id=self.custom_id.group_id,
+                        roles=bind["roles"],
+                        remove_roles=bind["removeRoles"],
+                        **bind_data,
+                    )
+
+                # FIXME: Overriding the prompt in place instead of editing.
+                yield await self.edit_page(
+                    title="New group binds saved.",
+                    description="The binds on this menu were saved to your server. "
+                    "You can edit your binds at any time by running `/bind` again.",
                 )
-            yield await self.edit_page(  # FIXME
-                description="The binds on this menu were saved to your server. You can edit your binds at any time by running `/bind` again."
-            )
-            yield await self.response.send("Your new binds have been saved to your server.")
-            await self.finish()
-            return
+                yield await self.response.send(
+                    "Your new binds have been saved to your server.", ephemeral=True
+                )
+
+                await self.finish()
+
+            case _:
+                # Not spawned from a button press on the generated prompt. Builds a new prompt.
+                current_bind_desc = await get_bind_desc(interaction.guild_id, bind_id=self.custom_id.group_id)
+
+                await self.clear_data(
+                    "discord_role", "group_rank"
+                )  # clear the data so we can re-use the menu
+
+                prompt_fields = [
+                    PromptPageData.Field(
+                        name="Current binds",
+                        value=current_bind_desc or "No binds exist. Create one below!",
+                        inline=True,
+                    ),
+                ]
+
+                if new_binds:
+                    typed_new_binds = json_binds_to_guild_binds(new_binds)
+                    unsaved_binds = "\n".join(
+                        [await bind_description_generator(bind) for bind in typed_new_binds]
+                    )
+
+                    prompt_fields.append(
+                        PromptPageData.Field(
+                            name="Unsaved Binds",
+                            value=unsaved_binds,
+                            inline=True,
+                        )
+                    )
+
+                yield PromptPageData(
+                    title=f"{'[UNSAVED CHANGES] ' if new_binds else ''}New Group Bind",
+                    description="Here are the current binds for your server. Click the button below to make a new bind.",
+                    fields=prompt_fields,
+                    components=[
+                        PromptPageData.Component(
+                            type="button",
+                            label="Create a new bind",
+                            component_id="new_bind",
+                            is_disabled=False if len(new_binds) <= 5 else True,
+                        ),
+                        PromptPageData.Component(
+                            type="button",
+                            label="Publish",
+                            component_id="publish",
+                            is_disabled=len(new_binds) == 0,
+                            style=hikari.ButtonStyle.SUCCESS,
+                        ),
+                    ],
+                )
 
     @Prompt.page(
         PromptPageData(
@@ -148,7 +186,8 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
         yield PromptPageData(
             title="Bind Group Rank",
-            description="Please select a group rank and corresponding Discord role. No existing Discord role? No problem, just click `Create new role`.",
+            description="Please select a group rank and corresponding Discord role. "
+            "No existing Discord role? No problem, just click `Create new role`.",
             components=[
                 PromptPageData.Component(
                     type="select_menu",
@@ -215,15 +254,14 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             existing_pending_binds = current_data.get("pending_binds", [])
             existing_pending_binds.append(
                 {
-                    "type": "group",
-                    "bind_id": group_id,
-                    "bind_data": {
-                        "group_rank": group_rank,
-                        "roles": [discord_role],
-                        "remove_roles": [],
-                        roleset_db_string: group_rank,
+                    "roles": [discord_role],
+                    "removeRoles": [],
+                    "bind": {
+                        "type": "group",
+                        "id": group_id,
+                        roleset_db_string: int(group_rank),
                     },
-                }
+                },
             )
 
             await self.save_stateful_data(pending_binds=existing_pending_binds)
