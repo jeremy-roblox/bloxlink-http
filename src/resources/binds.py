@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
-from attrs import define
 from typing import Literal
 
 import hikari
+from attrs import define
 
 import resources.restriction as restriction
 import resources.roblox.users as users
@@ -50,10 +50,9 @@ class GuildBind:
 
     entity: RobloxEntity = None
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         self.id = self.bind.get("id")
         self.type = self.bind.get("type")
-
         self.entity = create_entity(self.type, self.id)
 
 
@@ -78,14 +77,14 @@ class GroupBind(GuildBind):
     everyone: bool = None
     guest: bool = None
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         self.min = self.bind.get("min", None)
         self.max = self.bind.get("max", None)
         self.roleset = self.bind.get("roleset", None)
         self.everyone = self.bind.get("everyone", None)
         self.guest = self.bind.get("guest", None)
 
-        return super().__post_init__()
+        return super().__attrs_post_init__()
 
     @property
     def subtype(self) -> str:
@@ -133,7 +132,11 @@ async def get_binds(guild_id: int | str, bind_id: int | str = None) -> list[Guil
 
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
 
-    return guild_data.binds if not bind_id else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
+    return (
+        guild_data.binds
+        if not bind_id
+        else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
+    )
 
 
 async def get_bind_desc(
@@ -157,12 +160,12 @@ async def get_bind_desc(
     guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
     guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
-    bind_strings = [await bind_description_generator(bind) for bind in guild_binds]
+    bind_strings = [await bind_description_generator(bind) for bind in guild_binds[:5]]
+    output = "\n".join(bind_strings)
 
-    output = "\n".join(bind_strings[:5])
-    if len(bind_strings) > 5:
+    if len(guild_binds) > 5:
         output += (
-            f"\n_... and {len(bind_strings) - 5} more. "
+            f"\n_... and {len(guild_binds) - 5} more. "
             f"Click [here](https://www.blox.link/dashboard/guilds/{guild_id}/binds) to view the rest!_"
         )
     return output
@@ -596,12 +599,8 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
 
     id_filter_str = str(id_filter).lower() if id_filter else None
 
-    print(id_filter)
-
     if id_filter:
-        id_filter = (
-            None if id_filter_str == "none" or id_filter_str == "view binds" else str(id_filter)
-        )
+        id_filter = None if id_filter_str == "none" or id_filter_str == "view binds" else str(id_filter)
 
     for bind in bind_list:
         bind_data = bind.get("bind")
@@ -623,7 +622,7 @@ def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: 
         binds.append(classed_bind)
 
     bind_list = list(binds)
-    print(bind_list)
+
     if id_filter is not None:
         bind_list.sort(key=lambda e: e.bind["id"])
     return bind_list

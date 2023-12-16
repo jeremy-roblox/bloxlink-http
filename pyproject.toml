@@ -6,7 +6,7 @@ authors = ["Bloxlink <oss@blox.link>"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
-hikari = { version = "2.0.0.dev118", extras = ["server", "speedups"] }
+hikari = {extras = ["server", "speedups"], version = "^2.0.0.dev122"}
 hikari-yuyo = { version = "1.14.2", extras = ["asgi"] }
 motor = "2.3"
 hiredis = "^2.2.3"
