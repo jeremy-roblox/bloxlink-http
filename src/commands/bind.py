@@ -163,6 +163,10 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                             value="range",
                         ),
                         PromptPageData.Component.Option(
+                            name="User MUST be a member of this group",
+                            value="in_group",
+                        ),
+                        PromptPageData.Component.Option(
                             name="User must NOT be a member of this group",
                             value="not_in_group",
                         ),
@@ -179,6 +183,8 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                 yield await self.go_to(self.bind_rank_and_role)
             case "range":
                 yield await self.go_to(self.bind_range)
+            case "in_group" | "not_in_group":
+                yield await self.go_to(self.bind_role)
 
     @Prompt.programmatic_page()
     async def bind_rank_and_role(
@@ -369,6 +375,80 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             yield await self.go_to(self.current_binds)
 
         if fired_component_id in ("group_rank", "discord_role"):
+            await self.ack()
+
+    @Prompt.programmatic_page()
+    async def bind_role(self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        yield await self.response.defer()
+
+        current_data = await self.current_data()
+        user_choice = current_data["criteria_select"]["values"][0]
+        bind_flag = "guest" if user_choice == "not_in_group" else "everyone"
+
+        desc_stem = "users not in the group" if bind_flag == "guest" else "group members"
+
+        yield PromptPageData(
+            title="Bind Discord Role",
+            description=f"Please select a Discord role to give to {desc_stem}. "
+            "No existing Discord role? No problem, just click `Create new role`.",
+            components=[
+                PromptPageData.Component(
+                    type="role_select_menu",
+                    placeholder="Choose a Discord role",
+                    min_values=0,
+                    max_values=1,
+                    component_id="discord_role",
+                ),
+                PromptPageData.Component(
+                    type="button",
+                    label="Create new role",
+                    component_id="new_role",
+                    is_disabled=False,
+                ),
+            ],
+        )
+
+        if fired_component_id == "new_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": True,
+                },
+                new_role={"label": "Use existing role", "component_id": "new_role-existing_role"},
+            )
+        elif fired_component_id == "new_role-existing_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": False,
+                },
+                new_role={"label": "Create new role", "component_id": "new_role"},
+            )
+
+        group_id = self.custom_id.group_id
+        discord_role = current_data["discord_role"]["values"][0] if current_data.get("discord_role") else None
+
+        # TODO: Handle "create new role" logic. Can't exit the prompt with that set currently.
+        if discord_role:
+            existing_pending_binds = current_data.get("pending_binds", [])
+            existing_pending_binds.append(
+                {
+                    "roles": [discord_role],
+                    "removeRoles": [],
+                    "bind": {
+                        "type": "group",
+                        "id": group_id,
+                        bind_flag: True,
+                    },
+                },
+            )
+
+            await self.save_stateful_data(pending_binds=existing_pending_binds)
+            await self.response.send(
+                "Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.",
+                ephemeral=True,
+            )
+            yield await self.go_to(self.current_binds)
+
+        if fired_component_id == "discord_role":
             await self.ack()
 
 
