@@ -97,10 +97,13 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                 ]
 
                 if new_binds:
+                    # print(new_binds)
                     typed_new_binds = json_binds_to_guild_binds(new_binds)
+                    # print(typed_new_binds)
                     unsaved_binds = "\n".join(
                         [await bind_description_generator(bind) for bind in typed_new_binds]
                     )
+                    # print(unsaved_binds)
 
                     prompt_fields.append(
                         PromptPageData.Field(
@@ -174,6 +177,8 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         match interaction.values[0]:
             case "exact_match" | "gte" | "lte":
                 yield await self.go_to(self.bind_rank_and_role)
+            case "range":
+                yield await self.go_to(self.bind_range)
 
     @Prompt.programmatic_page()
     async def bind_rank_and_role(
@@ -261,6 +266,100 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                         "type": "group",
                         "id": group_id,
                         roleset_db_string: int(group_rank),
+                    },
+                },
+            )
+
+            await self.save_stateful_data(pending_binds=existing_pending_binds)
+            await self.response.send(
+                "Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.",
+                ephemeral=True,
+            )
+            yield await self.go_to(self.current_binds)
+
+        if fired_component_id in ("group_rank", "discord_role"):
+            await self.ack()
+
+    @Prompt.programmatic_page()
+    async def bind_range(self, _interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        yield await self.response.defer()
+
+        group_id = self.custom_id.group_id
+        roblox_group = await get_group(group_id)
+
+        yield PromptPageData(
+            title="Bind Group Rank",
+            description="Please select two group ranks and a corresponding Discord role to give. "
+            "No existing Discord role? No problem, just click `Create new role`.",
+            components=[
+                PromptPageData.Component(
+                    type="select_menu",
+                    placeholder="Choose your group ranks",
+                    min_values=2,
+                    max_values=2,
+                    component_id="group_rank",
+                    options=[
+                        PromptPageData.Component.Option(
+                            name=roleset_name,
+                            value=roleset_id,
+                        )
+                        for roleset_id, roleset_name in roblox_group.rolesets.items()
+                        if roleset_id != 0
+                    ],
+                ),
+                PromptPageData.Component(
+                    type="role_select_menu",
+                    placeholder="Choose a Discord role",
+                    min_values=1,
+                    max_values=1,
+                    component_id="discord_role",
+                ),
+                PromptPageData.Component(
+                    type="button",
+                    label="Create new role",
+                    component_id="new_role",
+                    is_disabled=False,
+                ),
+            ],
+        )
+
+        if fired_component_id == "new_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": True,
+                },
+                new_role={"label": "Use existing role", "component_id": "new_role-existing_role"},
+            )
+        elif fired_component_id == "new_role-existing_role":
+            await self.edit_component(
+                discord_role={
+                    "is_disabled": False,
+                },
+                new_role={"label": "Create new role", "component_id": "new_role"},
+            )
+
+        current_data = await self.current_data()
+
+        discord_roles = current_data["discord_role"]["values"] if current_data.get("discord_role") else None
+        group_ranks = current_data["group_rank"]["values"] if current_data.get("group_rank") else None
+
+        if discord_roles and group_ranks:
+            existing_pending_binds = current_data.get("pending_binds", [])
+
+            # Check in case the second value is larger than the first (yes this can happen 🙃).
+            group_ranks = [int(x) for x in group_ranks]
+            if group_ranks[0] > group_ranks[1]:
+                group_ranks.insert(0, group_ranks.pop(1))
+
+            existing_pending_binds.append(
+                {
+                    "roles": discord_roles,
+                    "removeRoles": [],
+                    "bind": {
+                        "type": "group",
+                        "id": group_id,
+                        "min": int(group_ranks[0]),
+                        "max": int(group_ranks[1]),
                     },
                 },
             )
