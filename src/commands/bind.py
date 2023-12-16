@@ -192,10 +192,6 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         current_data = await self.current_data()
         user_choice = current_data["criteria_select"]["values"][0]
 
-        # Remove the guest roleset if they are not making an exact match type.
-        if user_choice != "exact_match":
-            del roblox_group.rolesets[0]
-
         yield PromptPageData(
             title="Bind Group Rank",
             description="Please select a group rank and corresponding Discord role. "
@@ -213,6 +209,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                             value=roleset_id,
                         )
                         for roleset_id, roleset_name in roblox_group.rolesets.items()
+                        if roleset_id != 0
                     ],
                 ),
                 PromptPageData.Component(
