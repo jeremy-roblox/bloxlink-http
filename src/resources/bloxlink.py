@@ -7,17 +7,17 @@ import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
 from typing import Callable, Coroutine, Optional
-from attrs import define
 
 import hikari
 import redis.asyncio as redis  # pylint: disable=import-error
 import yuyo
+from attrs import define
 from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger()
 
 from resources.redis import RedisMessageCollector, redis
-from resources.secrets import (MONGO_URL)
+from resources.secrets import MONGO_URL
 from resources.utils import default_field
 
 instance: "Bloxlink" = None
@@ -61,6 +61,10 @@ class GuildData:
     nicknameTemplate: str = "{smart-name}"
 
     premium: dict = None
+
+    # Old bind fields.
+    roleBinds: dict = None
+    groupIDs: dict = None
 
 
 class Bloxlink(yuyo.AsgiBot):

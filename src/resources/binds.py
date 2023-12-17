@@ -119,18 +119,61 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     )
 
 
-async def get_binds(guild_id: int | str, bind_id: int | str = None) -> list[GuildData.binds]:
+async def get_binds(
+    guild_id: int | str, bind_id: int | str = None, include_old: bool = True
+) -> list[GuildData.binds]:
     """Get the current guild binds.
+
+    Old binds will be included by default, but will not be saved in the database in the
+    new format unless the OVERRIDE flag is set to True. While it is False, old formatted binds will
+    be left as is.
 
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
+        include_old (bool, optional): Should binds in the old format be included? Defaults to True.
 
     Returns:
         int: The number of bindings this guild has created.
     """
 
-    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
+    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds", "groupIDs", "roleBinds")
+
+    OVERRIDE: bool = False
+    old_binds = []
+
+    def parse_old_bind(items: dict, bind_type: Literal["group", "asset", "badge", "gamepass"]):
+        for bind_id, data in items.items():
+            bind_data = {
+                "roles": data.get("roles"),
+                "removeRoles": data.get("removeRoles"),
+                "nickname": data.get("nickname"),
+                "bind": {"type": bind_type, "id": int(bind_id)},
+            }
+            old_binds.append(bind_data)
+
+    if include_old:
+        if guild_data.groupIDs:
+            parse_old_bind(guild_data.groupIDs, "group")
+
+        if guild_data.roleBinds:
+            gamepasses = guild_data.roleBinds.get("gamePasses")
+            if gamepasses:
+                parse_old_bind(gamepasses, "gamepass")
+
+            assets = guild_data.roleBinds.get("assets")
+            if assets:
+                parse_old_bind(assets, "asset")
+
+            badges = guild_data.roleBinds.get("badges")
+            if badges:
+                parse_old_bind(badges, "badge")
+
+            group_ranks = guild_data.roleBinds.get("groupIDs")
+            if group_ranks:
+                parse_old_bind(group_ranks, "group")
+
+        guild_data.binds.extend(old_binds)
 
     return (
         guild_data.binds
