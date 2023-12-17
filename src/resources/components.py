@@ -2,10 +2,44 @@ import hikari
 
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
-from typing import Type, TypeVar
-from attrs import fields
+from typing import Type, TypeVar, Literal
+from attrs import fields, define
+from enum import Enum
 
 T = TypeVar('T')
+
+
+@define(slots=True)
+class Component:
+    type: 'ComponentType'
+    component_id: str
+    label: str = None
+    placeholder: str = None
+    style: Literal[
+        hikari.ButtonStyle.PRIMARY,
+        hikari.ButtonStyle.SECONDARY,
+        hikari.ButtonStyle.SUCCESS,
+        hikari.ButtonStyle.DANGER,
+        hikari.ButtonStyle.LINK,
+    ] = None
+    min_values: int = None
+    max_values: int = None
+    is_disabled: bool = False
+    options: list["Option"] = None
+
+    @define(slots=True)
+    class Option:
+        name: str
+        value: str
+        description: str = None
+        is_default: bool = False
+
+    class ComponentType(Enum):
+        BUTTON = 1
+        ROLE_SELECT_MENU = 2
+        SELECT_MENU = 3
+        TEXT_INPUT = 4
+
 
 async def get_component(message: hikari.Message, custom_id: str):
     """Get a component in a message based on the custom_id"""

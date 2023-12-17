@@ -10,7 +10,7 @@ import hikari
 from resources.exceptions import *
 from resources.response import Response, PromptCustomID, PromptPageData
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
-from resources.component_helper import parse_custom_id
+from resources.components import parse_custom_id
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -272,6 +272,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):
+                        print(2, generator_response)
                         yield generator_response
 
                 return

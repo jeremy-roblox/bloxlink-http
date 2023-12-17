@@ -1,11 +1,11 @@
 import json
 import uuid
-from typing import Callable, Generic, Literal, Type, TypeVar
+from typing import Callable, Generic, Type, TypeVar
 
 import hikari
 from attrs import define, field, fields
 
-import resources.component_helper as component_helper
+import resources.components as Components
 from resources.bloxlink import instance as bloxlink
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
@@ -38,35 +38,9 @@ class PromptCustomID:
 @define(slots=True)
 class PromptPageData:
     description: str
-    components: list["Component"] = field(default=list())
+    components: list[Components.Component] = field(default=list())
     title: str = None
     fields: list["Field"] = field(default=list())
-
-    @define(slots=True)
-    class Component:
-        type: Literal["button", "role_select_menu", "select_menu"]
-        component_id: str
-        label: str = None
-        placeholder: str = None
-        style: Literal[
-            hikari.ButtonStyle.PRIMARY,
-            hikari.ButtonStyle.SECONDARY,
-            hikari.ButtonStyle.SUCCESS,
-            hikari.ButtonStyle.DANGER,
-            hikari.ButtonStyle.LINK,
-        ] = None
-        min_values: int = None
-        max_values: int = None
-        is_disabled: bool = False
-        options: list["Option"] = None
-        # on_submit: Callable = None
-
-        @define(slots=True)
-        class Option:
-            name: str
-            value: str
-            description: str = None
-            is_default: bool = False
 
     @define(slots=True)
     class Field:
@@ -365,12 +339,12 @@ class Prompt(Generic[T]):
             has_button = False
 
             for component in page.details.components:
-                component_custom_id = component_helper.set_custom_id_field(
+                component_custom_id = Components.set_custom_id_field(
                     self._custom_id_format, str(self.custom_id), component_custom_id=component.component_id
                 )
                 print(hash_, "page components", component_custom_id, page.page_number, page.details.title)
 
-                if component.type == "button":
+                if component.type == Components.Component.ComponentType.BUTTON:
                     button_action_row.add_interactive_button(
                         component.style or hikari.ButtonStyle.PRIMARY,
                         component_custom_id,
@@ -378,7 +352,7 @@ class Prompt(Generic[T]):
                         is_disabled=component.is_disabled,
                     )
                     has_button = True
-                elif component.type == "role_select_menu":
+                elif component.type == Components.Component.ComponentType.ROLE_SELECT_MENU:
                     role_action_row = bloxlink.rest.build_message_action_row()
                     role_action_row.add_select_menu(
                         hikari.ComponentType.ROLE_SELECT_MENU,
@@ -389,7 +363,7 @@ class Prompt(Generic[T]):
                         is_disabled=component.is_disabled,
                     )
                     components.append(role_action_row)
-                elif component.type == "select_menu":
+                elif component.type == Components.Component.ComponentType.SELECT_MENU:
                     text_action_row = bloxlink.rest.build_message_action_row()
                     text_menu = text_action_row.add_text_menu(
                         component_custom_id,
@@ -487,7 +461,7 @@ class Prompt(Generic[T]):
     async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
-        self.custom_id = component_helper.parse_custom_id(self._custom_id_format, interaction.custom_id)
+        self.custom_id = Components.parse_custom_id(self._custom_id_format, interaction.custom_id)
         self.current_page_number = self.custom_id.page_number
         self.current_page = self.pages[self.current_page_number]
 
@@ -602,11 +576,11 @@ class Prompt(Generic[T]):
     async def _save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
         """Save the data from the interaction from the current page to Redis."""
 
-        custom_id = component_helper.parse_custom_id(PromptCustomID, interaction.custom_id)
+        custom_id = Components.parse_custom_id(PromptCustomID, interaction.custom_id)
         component_custom_id = custom_id.component_custom_id
 
         data = await self.current_data(raise_exception=False)
-        data[component_custom_id] = component_helper.component_values_to_dict(interaction)
+        data[component_custom_id] = Components.component_values_to_dict(interaction)
 
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",

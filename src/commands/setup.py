@@ -2,6 +2,7 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.response import Prompt, PromptPageData, Response
+from resources.components import Component
 
 
 
@@ -22,14 +23,14 @@ class SetupPrompt(Prompt):
                          ""
             ),
             components=[
-                PromptPageData.Component(
-                    type="button",
+                Component(
+                    type=Component.ComponentType.BUTTON,
                     label="Next",
                     component_id="next",
                     is_disabled=False,
                 ),
-                PromptPageData.Component(
-                    type="button",
+                Component(
+                    type=Component.ComponentType.BUTTON,
                     label="Cancel",
                     component_id="cancel",
                     is_disabled=False,
@@ -52,43 +53,43 @@ class SetupPrompt(Prompt):
                          "You can select a preset template, or choose your own nickname format. You can even set a prefix (text before the nickname) and/or a suffix (text after the nickname)."
             ),
             components=[
-                PromptPageData.Component(
-                    type="select_menu",
+                Component(
+                    type=Component.ComponentType.SELECT_MENU,
                     placeholder="Select a nickname preset...",
                     min_values=0,
                     max_values=1,
                     component_id="preset_nickname_select",
                     options=[
-                        PromptPageData.Component.Option(
+                        Component.Option(
                             name="Name users as: Roblox Display Name (@Roblox Username)",
                             value="{smart-name}",
                         ),
-                        PromptPageData.Component.Option(
+                        Component.Option(
                             name="Name users as: Roblox Username",
                             value="{roblox-name}",
                         ),
-                        PromptPageData.Component.Option(
+                        Component.Option(
                             name="Name users as: Roblox Display Name",
                             value="{display-name}",
                         ),
-                        PromptPageData.Component.Option(
+                        Component.Option(
                             name="Name users as: Discord Username",
                             value="{discord-name}",
                         ),
-                        PromptPageData.Component.Option(
+                        Component.Option(
                             name="Choose my own nickname format...",
                             value="custom",
                         ),
                     ],
                 ),
-                PromptPageData.Component(
-                    type="button",
+                Component(
+                    type=Component.ComponentType.BUTTON,
                     label="Add a nickname prefix (optional)",
                     component_id="nickname_prefix",
                     is_disabled=False,
                 ),
-                PromptPageData.Component(
-                    type="button",
+                Component(
+                    type=Component.ComponentType.BUTTON,
                     label="Add a nickname suffix (optional)",
                     component_id="nickname_suffix",
                     is_disabled=False,
@@ -114,11 +115,7 @@ class SetupPrompt(Prompt):
                     title="Add a nickname prefix",
                     custom_id="nickname_prefix_modal",
                     components=[
-                        hikari.TextInputComponent(
-                            type=hikari.ComponentType.TEXT_INPUT,
-                            custom_id="nickname_prefix_input",
-                            value="test",
-                        )
+
                     ]
                 )
             case "nickname_suffix":
