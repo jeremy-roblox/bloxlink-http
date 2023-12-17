@@ -110,10 +110,10 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     Returns:
         int: The number of bindings this guild has created.
     """
-    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
+    guild_data = await get_binds(guild_id)
 
     return (
-        len(guild_data.binds)
+        len(guild_data)
         if not bind_id
         else sum(1 for b in guild_data.binds if b["bind"].get("id") == int(bind_id)) or 0
     )
