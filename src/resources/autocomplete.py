@@ -1,10 +1,10 @@
 import hikari
 
 import resources.roblox.users as users
+from resources.binds import GuildBind, get_binds
 from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.binds import GuildBind
 from resources.commands import CommandContext
+from resources.exceptions import RobloxAPIError, RobloxNotFound
 
 
 async def bind_category_autocomplete(ctx: CommandContext):
@@ -12,9 +12,8 @@ async def bind_category_autocomplete(ctx: CommandContext):
 
     interaction = ctx.interaction
 
-    guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-    bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
+    guild_data = await get_binds(ctx.guild_id)
+    bind_types = set(bind["bind"]["type"] for bind in guild_data)
 
     yield interaction.build_response(
         [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]

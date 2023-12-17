@@ -157,7 +157,7 @@ async def get_bind_desc(
     Returns:
         str: Sentence representation of the first five binds matching the filters.
     """
-    guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
+    guild_binds = await get_binds(guild_id)
     guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
 
     bind_strings = [await bind_description_generator(bind) for bind in guild_binds[:5]]

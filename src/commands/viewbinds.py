@@ -1,12 +1,12 @@
 import hikari
 
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import join_bind_strings, json_binds_to_guild_binds, GroupBind, GuildBind
+from resources.binds import GroupBind, GuildBind, get_binds, join_bind_strings, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
+from resources.commands import CommandContext
 from resources.components import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.commands import CommandContext
 from resources.pagination import Paginator
 
 MAX_BINDS_PER_PAGE = 5
@@ -28,14 +28,14 @@ async def viewbinds_button(ctx: CommandContext):
 
     guild_id = interaction.guild_id
 
-    guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
+    guild_data = await get_binds(guild_id)
 
     paginator = Paginator(
         guild_id,
         author_id,
         source_cmd_name="viewbinds",
         max_items=MAX_BINDS_PER_PAGE,
-        items=guild_data.binds,
+        items=guild_data,
         page_number=page_number,
         custom_formatter=viewbinds_paginator_formatter,
         extra_custom_ids=f"{category}:{id_filter}",
@@ -95,14 +95,14 @@ class ViewBindsCommand:
         guild_id = ctx.guild_id
         user_id = ctx.user.id
 
-        guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
+        guild_data = await get_binds(guild_id)
 
         paginator = Paginator(
             guild_id,
             user_id,
             source_cmd_name="viewbinds",
             max_items=MAX_BINDS_PER_PAGE,
-            items=guild_data.binds,
+            items=guild_data,
             custom_formatter=viewbinds_paginator_formatter,
             extra_custom_ids=f"{category}:{id_option}",
             item_filter=viewbinds_item_filter(id_option, category),
@@ -275,7 +275,10 @@ def viewbinds_item_filter(id_filter: str | int, category_filter: str):
     """
 
     def wrapper(items):
-        return json_binds_to_guild_binds(items, category=category_filter, id_filter=id_filter)
+        return sorted(
+            json_binds_to_guild_binds(items, category=category_filter, id_filter=id_filter),
+            key=lambda item: item.id,
+        )
 
     return wrapper
 
