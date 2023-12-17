@@ -140,38 +140,29 @@ async def get_binds(
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds", "groupIDs", "roleBinds")
 
     OVERRIDE: bool = False
-    old_binds = []
-
-    def parse_old_bind(items: dict, bind_type: Literal["group", "asset", "badge", "gamepass"]):
-        for bind_id, data in items.items():
-            bind_data = {
-                "roles": data.get("roles"),
-                "removeRoles": data.get("removeRoles"),
-                "nickname": data.get("nickname"),
-                "bind": {"type": bind_type, "id": int(bind_id)},
-            }
-            old_binds.append(bind_data)
 
     if include_old:
+        old_binds = []
+
         if guild_data.groupIDs:
-            parse_old_bind(guild_data.groupIDs, "group")
+            old_binds.extend(convert_old_binds(guild_data.groupIDs, "group"))
 
         if guild_data.roleBinds:
             gamepasses = guild_data.roleBinds.get("gamePasses")
             if gamepasses:
-                parse_old_bind(gamepasses, "gamepass")
+                old_binds.extend(convert_old_binds(gamepasses, "gamepass"))
 
             assets = guild_data.roleBinds.get("assets")
             if assets:
-                parse_old_bind(assets, "asset")
+                old_binds.extend(convert_old_binds(assets, "asset"))
 
             badges = guild_data.roleBinds.get("badges")
             if badges:
-                parse_old_bind(badges, "badge")
+                old_binds.extend(convert_old_binds(badges, "badge"))
 
-            group_ranks = guild_data.roleBinds.get("groupIDs")
+            group_ranks = guild_data.roleBinds.get("groups")
             if group_ranks:
-                parse_old_bind(group_ranks, "group")
+                old_binds.extend(convert_old_binds(group_ranks, "group"))
 
         guild_data.binds.extend(old_binds)
 
@@ -180,6 +171,62 @@ async def get_binds(
         if not bind_id
         else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
     )
+
+
+def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge", "gamepass"]) -> list:
+    """Convert old bindings to the new bind format.
+
+    Args:
+        items (dict): The bindings to convert.
+        bind_type (Literal["group", "asset", "badge", "gamepass"]): Type of bind that is being made.
+
+    Returns:
+        list: The binds in the new format.
+    """
+    output = []
+    for bind_id, data in items.items():
+        bind_data = {
+            "roles": data.get("roles"),
+            "removeRoles": data.get("removeRoles"),
+            "nickname": data.get("nickname"),
+            "bind": {"type": bind_type, "id": int(bind_id)},
+        }
+
+        # group rank bindings
+        if data.get("binds"):
+            for rank_id, sub_data in data["binds"].items():
+                bind_data["roles"] = sub_data.get("roles")
+                bind_data["nickname"] = sub_data.get("nickname")
+                bind_data["removeRoles"] = sub_data.get("removeRoles")
+
+                # Convert to an int if possible beforehand.
+                try:
+                    rank_id = int(rank_id)
+                except ValueError:
+                    pass
+
+                if rank_id == "all":
+                    bind_data["bind"]["everyone"] = True
+                elif rank_id == 0:
+                    bind_data["bind"]["guest"] = True
+                elif rank_id < 0:
+                    bind_data["bind"]["min"] = abs(rank_id)
+                else:
+                    bind_data["bind"]["roleset"] = rank_id
+
+        # group rank ranges
+        if data.get("ranges"):
+            for range_item in data["ranges"]:
+                bind_data["roles"] = range_item.get("roles")
+                bind_data["nickname"] = range_item.get("nickname")
+                bind_data["removeRoles"] = range_item.get("removeRoles")
+
+                bind_data["bind"]["min"] = int(range_item.get("low"))
+                bind_data["bind"]["max"] = int(range_item.get("high"))
+
+        output.append(bind_data)
+
+    return output
 
 
 async def get_bind_desc(
