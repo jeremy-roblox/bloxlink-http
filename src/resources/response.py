@@ -253,6 +253,23 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
+    def send_modal(self, title: str, custom_id: str, components: list = None):
+        """Send a modal response. This needs to be yielded."""
+
+        modal_builder = self.interaction.build_modal_response(title, custom_id)
+
+        modal_action_row = hikari.impl.ModalActionRowBuilder()
+        modal_action_row.add_text_input(
+            "test",
+            "test",
+        )
+        for component in components:
+            pass
+
+        modal_builder.add_component(modal_action_row)
+
+        return modal_builder
+
     async def prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
@@ -269,7 +286,7 @@ class Response:
 
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
-        return await new_prompt.run_page(custom_id_data, hash_=hash_).__anext__()
+        return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True).__anext__()
 
 
 class Prompt(Generic[T]):
@@ -489,7 +506,7 @@ class Prompt(Generic[T]):
             print(hash_, "generator_response entry_point()", generator_response)
             yield generator_response
 
-    async def run_page(self, custom_id_data: dict = None, hash_=None):
+    async def run_page(self, custom_id_data: dict = None, hash_=None, changing_page=False):
         """Run the current page."""
 
         hash_ = hash_ or uuid.uuid4().hex
@@ -538,23 +555,29 @@ class Prompt(Generic[T]):
             current_page.details.title,
         )
 
-        built_page = self.build_page(
-            self.command_name, self.response.user_id, current_page, custom_id_data, hash_
-        )
+        if changing_page:
+            # we only build the page (embed) if we're changing pages
 
-        print(hash_, "run_page() built page", built_page.embed.title)
+            built_page = self.build_page(
+                self.command_name, self.response.user_id, current_page, custom_id_data, hash_
+            )
 
-        if built_page.page_number != self.current_page_number:
-            return
+            print(hash_, "run_page() built page", built_page.embed.title)
 
-        yield await self.response.send_first(
-            embed=built_page.embed, components=built_page.components, edit_original=True
-        )
+            if built_page.page_number != self.current_page_number:
+                return
+
+            yield await self.response.send_first(
+                embed=built_page.embed, components=built_page.components, edit_original=True
+            )
 
         if not current_page.programmatic:
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
                     if generator_response:
+                        # if not changing_page and isinstance(generator_or_coroutine, PromptPageData):
+                        #     continue
+
                         yield generator_response
             else:
                 async_result = await generator_or_coroutine
@@ -627,14 +650,14 @@ class Prompt(Generic[T]):
 
         self.current_page_number -= 1
 
-        return await self.run_page().__anext__()
+        return await self.run_page(changing_page=True).__anext__()
 
     async def next(self, content: str = None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
 
-        return await self.run_page().__anext__()
+        return await self.run_page(changing_page=True).__anext__()
 
     async def go_to(self, page: Callable, **kwargs):
         """Go to a specific page of the prompt."""
@@ -653,7 +676,7 @@ class Prompt(Generic[T]):
             for attr_name, attr_value in kwargs.items():
                 self._pending_embed_changes[attr_name] = attr_value
 
-        return await self.run_page(hash_=hash_).__anext__()
+        return await self.run_page(hash_=hash_, changing_page=True).__anext__()
 
     async def finish(self, *, disable_components=True):
         """Finish the prompt."""
