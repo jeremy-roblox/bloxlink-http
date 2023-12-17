@@ -16,7 +16,7 @@ async def bind_category_autocomplete(ctx: CommandContext):
 
     bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
 
-    return interaction.build_response(
+    yield interaction.build_response(
         [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
     )
 
@@ -59,7 +59,7 @@ async def bind_id_autocomplete(ctx: CommandContext):
             choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
 
     # Due to discord limitations, only return the first 25 choices.
-    return interaction.build_response(choices[:25])
+    yield interaction.build_response(choices[:25])
 
 
 async def roblox_lookup_autocomplete(ctx: CommandContext):
@@ -72,7 +72,8 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
 
     user_input = str(option.value)
     if not user_input:
-        return interaction.build_response([])
+        yield interaction.build_response([])
+        return
 
     user = None
     try:
@@ -86,4 +87,4 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
             hikari.impl.AutocompleteChoiceBuilder(f"{user.username} ({user.id})", str(user.id))
         )
 
-    return interaction.build_response(result_list)
+    yield interaction.build_response(result_list)
