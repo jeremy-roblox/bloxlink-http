@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from typing import Literal
 
 import hikari
@@ -241,6 +242,110 @@ def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge",
                 output.append(bind_data)
 
     return output
+
+
+def convert_new_binds(items: list) -> dict:
+    """Convert binds of the new format (as a dict) to the old bind format.
+
+    This does not include the names of groups/other bind types.
+
+    Args:
+        items (list): The list of new bindings to convert.
+
+    Returns:
+        dict: Bindings in their old format.
+    """
+    role_binds = {
+        "gamePasses": defaultdict(dict),
+        "assets": defaultdict(dict),
+        "badges": defaultdict(dict),
+        "groups": defaultdict(dict),
+    }
+    entire_groups = {}
+
+    for bind in items:
+        sub_data = bind["bind"]
+        bind_type = sub_data["type"]
+        bind_id = str(sub_data["id"])
+
+        if bind_type in ("asset", "badge", "gamepass"):
+            if bind_type == "gamepass":
+                bind_type = "gamePasses"
+            else:
+                bind_type += "s"
+
+            role_binds[bind_type][bind_id] = {
+                # Display name is/was not converted, so it is lost.
+                "roles": bind.get("roles", []),
+                "removeRoles": bind.get("removeRoles", []),
+                "nickname": bind.get("nickname"),
+            }
+
+        elif bind_type == "group":
+            # No specific roles to give = entire group bind
+            if not bind["roles"]:
+                entire_groups[bind_id] = {
+                    # Group name is/was not converted, so it is lost.
+                    "removeRoles": bind.get("removeRoles"),
+                    "nickname": bind.get("nickname"),
+                }
+
+                # Add removeRoles to role_binds entry because (for what I see) it shows up there too?
+                if bind.get("removeRoles"):
+                    group_data: dict = role_binds["groups"][bind_id]
+                    group_data["removeRoles"] = bind["removeRoles"]
+                continue
+
+            roleset = sub_data.get("roleset")
+            min_rank = sub_data.get("min")
+            max_rank = sub_data.get("max")
+            guest = sub_data.get("guest")
+            everyone = sub_data.get("everyone")
+
+            group_data: dict = role_binds["groups"][bind_id]
+            rank_bindings: dict = group_data.get("binds", {})
+            range_bindings: list = group_data.get("ranges", [])
+
+            if roleset is not None:
+                rank_bindings[str(roleset)] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif everyone:
+                rank_bindings["all"] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif guest:
+                rank_bindings["0"] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif (min_rank and max_rank) or (max_rank):
+                min_rank = min_rank or 1
+                range_bindings.append(
+                    {
+                        "roles": bind.get("roles", []),
+                        "nickname": bind.get("nickname"),
+                        "removeRoles": bind.get("removeRoles", []),
+                        "low": min_rank,
+                        "high": max_rank,
+                    }
+                )
+            elif min_rank:
+                rank_bindings[str(-abs(min_rank))] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+
+            group_data["binds"] = rank_bindings
+            group_data["ranges"] = range_bindings
+
+    return {"roleBinds": role_binds, "groupIDs": entire_groups}
 
 
 async def get_bind_desc(
