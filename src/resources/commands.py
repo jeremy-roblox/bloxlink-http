@@ -131,6 +131,8 @@ async def handle_interaction(interaction: hikari.Interaction):
         correct_handler = handle_component
     elif isinstance(interaction, hikari.AutocompleteInteraction):
         correct_handler = handle_autocomplete
+    elif isinstance(interaction, hikari.ModalInteraction):
+        correct_handler = handle_modal
     else:
         raise NotImplementedError()
 
@@ -235,6 +237,11 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 
             else:
                 await generator_or_coroutine
+
+async def handle_modal(interaction: hikari.ModalInteraction):
+    """Handle a modal interaction."""
+
+    pass
 
 
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):

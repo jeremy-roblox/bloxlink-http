@@ -102,22 +102,20 @@ class SetupPrompt(Prompt):
             case "preset_nickname_select":
                 yield await self.next()
             case "nickname_prefix":
-                action_row = bloxlink.rest.build_message_action_row()
-                action_row.add_component(
-                    hikari.TextInputComponent(
-                        type=hikari.ComponentType.TEXT_INPUT,
-                        custom_id="nickname_prefix_input",
-                        value="test"
-                    )
-                )
-
                 yield self.response.send_modal(
                     title="Add a nickname prefix",
                     custom_id="nickname_prefix_modal",
                     components=[
-
+                        Component(
+                            type=Component.ComponentType.TEXT_INPUT,
+                            style=hikari.TextInputStyle.SHORT,
+                            placeholder="This will be shown FIRST in the nickname.",
+                            custom_id="nickname_prefix_input",
+                            value="Type your nickname prefix..."
+                        )
                     ]
                 )
+
             case "nickname_suffix":
                 yield await self.next()
 

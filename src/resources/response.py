@@ -227,18 +227,22 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    def send_modal(self, title: str, custom_id: str, components: list = None):
+    def send_modal(self, title: str, custom_id: str, components: list[Components.Component] = None):
         """Send a modal response. This needs to be yielded."""
 
         modal_builder = self.interaction.build_modal_response(title, custom_id)
-
         modal_action_row = hikari.impl.ModalActionRowBuilder()
-        modal_action_row.add_text_input(
-            "test",
-            "test",
-        )
+
         for component in components:
-            pass
+            modal_action_row.add_text_input(
+                component.custom_id,
+                component.value,
+                placeholder=component.placeholder or "Enter a value...",
+                min_length=component.min_length or 1,
+                max_length=component.max_length or 2000,
+                required=component.required or False,
+                style=component.style or hikari.TextInputStyle.SHORT,
+            )
 
         modal_builder.add_component(modal_action_row)
 

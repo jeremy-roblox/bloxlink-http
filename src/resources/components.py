@@ -12,19 +12,26 @@ T = TypeVar('T')
 @define(slots=True)
 class Component:
     type: 'ComponentType'
-    component_id: str
+    component_id: str = None
+    custom_id: str = None
     label: str = None
     placeholder: str = None
+    value: str = None
     style: Literal[
         hikari.ButtonStyle.PRIMARY,
         hikari.ButtonStyle.SECONDARY,
         hikari.ButtonStyle.SUCCESS,
         hikari.ButtonStyle.DANGER,
         hikari.ButtonStyle.LINK,
+        hikari.TextInputStyle.SHORT,
+        hikari.TextInputStyle.PARAGRAPH,
     ] = None
     min_values: int = None
     max_values: int = None
+    min_length: int = None
+    max_length: int = None
     is_disabled: bool = False
+    required: bool = False
     options: list["Option"] = None
 
     @define(slots=True)
