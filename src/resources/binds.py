@@ -23,6 +23,9 @@ any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
 
 
+ValidBindType = Literal["group", "asset", "badge", "gamepass"]
+
+
 @define(slots=True)
 class GuildBind:
     """Represents a binding from the database.
@@ -35,7 +38,7 @@ class GuildBind:
         removeRole (list): The IDs of roles that should be removed when this bind is given.
 
         id (int, optional): The ID of the entity for this binding. Defaults to None.
-        type (Literal[group, asset, gamepass, badge]): The type of binding this is representing.
+        type (ValidBindType): The type of binding this is representing.
         bind (dict): The raw data that the database stores for this binding.
 
         entity (RobloxEntity, optional): The entity that this binding represents. Defaults to None.
@@ -46,7 +49,7 @@ class GuildBind:
     removeRoles: list = default_field(list())
 
     id: int = None
-    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
+    type: ValidBindType = ValidBindType
     bind: dict = default_field({"type": "", "id": None})
 
     entity: RobloxEntity = None
@@ -121,21 +124,30 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
 
 
 async def get_binds(
-    guild_id: int | str, bind_id: int | str = None, include_old: bool = True
-) -> list[GuildData.binds]:
+    guild_id: int | str,
+    bind_id: int | str = None,
+    category: ValidBindType | None = None,
+    include_old: bool = True,
+    return_dict: bool = False,
+) -> list[GuildBind] | list[GuildData.binds]:
     """Get the current guild binds.
 
     Old binds will be included by default, but will not be saved in the database in the
     new format unless the OVERRIDE flag is set to True. While it is False, old formatted binds will
     be left as is.
 
+    OVERRIDE(ing) can only successfully be flagged if include_old is True.
+
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
+        category (ValidBindType | None, optional): Category to filter by.
+            Currently only works if return_dict is false.
         include_old (bool, optional): Should binds in the old format be included? Defaults to True.
+        return_dict (bool, optional): Return data in list[dict] format.
 
     Returns:
-        int: The number of bindings this guild has created.
+        list[GuildBind]: Typed variants of the binds for the given guild ID.
     """
 
     guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds", "groupIDs", "roleBinds")
@@ -144,7 +156,6 @@ async def get_binds(
 
     if include_old:
         old_binds = []
-
         if guild_data.groupIDs:
             old_binds.extend(convert_old_binds(guild_data.groupIDs, "group"))
 
@@ -174,12 +185,12 @@ async def get_binds(
     )
 
 
-def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge", "gamepass"]) -> list:
+def convert_old_binds(items: dict, bind_type: ValidBindType) -> list:
     """Convert old bindings to the new bind format.
 
     Args:
         items (dict): The bindings to convert.
-        bind_type (Literal["group", "asset", "badge", "gamepass"]): Type of bind that is being made.
+        bind_type (ValidBindType): Type of bind that is being made.
 
     Returns:
         list: The binds in the new format.
@@ -351,7 +362,7 @@ def convert_new_binds(items: list) -> dict:
 async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
-    bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
+    bind_type: ValidBindType = None,
 ) -> str:
     """Get a string-based representation of all bindings (matching the bind_id and bind_type).
 
@@ -360,7 +371,7 @@ async def get_bind_desc(
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): The entity ID to filter binds from. Defaults to None.
-        bind_type (Literal[group, asset, badge, gamepass], optional): The type of bind to filter the response by.
+        bind_type (ValidBindType, optional): The type of bind to filter the response by.
             Defaults to None.
 
     Returns:
@@ -382,7 +393,7 @@ async def get_bind_desc(
 
 async def create_bind(
     guild_id: int | str,
-    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_type: ValidBindType,
     bind_id: int,
     *,
     roles: list[str] = None,
@@ -397,7 +408,7 @@ async def create_bind(
 
     Args:
         guild_id (int | str): The ID of the guild.
-        bind_type (Literal[group, asset, badge, gamepass]): The type of bind being created.
+        bind_type (ValidBindType): The type of bind being created.
         bind_id (int): The ID of the entity this bind is for.
         roles (list[str], optional): Role IDs to be given to users for this bind. Defaults to None.
         remove_roles (list[str], optional): Role IDs to be removed from users for this bind. Defaults to None.
@@ -491,7 +502,7 @@ async def create_bind(
 
 async def delete_bind(
     guild_id: int | str,
-    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_type: ValidBindType,
     bind_id: int,
     **bind_data,
 ):
@@ -503,7 +514,7 @@ async def delete_bind(
 
     Args:
         guild_id (int | str): The ID of the guild.
-        bind_type (Literal[group, asset, badge, gamepass]): The type of binding that is being removed.
+        bind_type (ValidBindType): The type of binding that is being removed.
         bind_id (int): The ID of the entity that this bind is for.
     """
     subquery = {
@@ -789,12 +800,12 @@ async def apply_binds(
     return EmbedPrompt(embed, action_rows=[])
 
 
-def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None) -> list:
+def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:
     """Convert a bind from a dict/json representation to a GuildBind or GroupBind object.
 
     Args:
         bind_list (list): List of bindings to convert
-        category (str, optional): Category to filter the binds by. Defaults to None.
+        category (ValidBindType, optional): Category to filter the binds by. Defaults to None.
         id_filter (str, optional): ID to filter the binds by. Defaults to None.
             Applied after the category if both are given.
 
