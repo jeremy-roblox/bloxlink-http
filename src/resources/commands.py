@@ -125,16 +125,15 @@ async def handle_interaction(interaction: hikari.Interaction):
     correct_handler: Callable = None
     response = Response(interaction)
 
-    if isinstance(interaction, hikari.CommandInteraction):
-        correct_handler = handle_command
-    elif isinstance(interaction, hikari.ComponentInteraction):
-        correct_handler = handle_component
-    elif isinstance(interaction, hikari.AutocompleteInteraction):
-        correct_handler = handle_autocomplete
-    elif isinstance(interaction, hikari.ModalInteraction):
-        correct_handler = handle_modal
-    else:
-        raise NotImplementedError()
+    match interaction:
+        case hikari.CommandInteraction():
+            correct_handler = handle_command
+        case hikari.ComponentInteraction():
+            correct_handler = handle_component
+        case hikari.AutocompleteInteraction():
+            correct_handler = handle_autocomplete
+        case hikari.ModalInteraction():
+            correct_handler = handle_modal
 
     try:
         async for command_response in correct_handler(interaction, response=response):
@@ -241,13 +240,13 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 async def handle_modal(interaction: hikari.ModalInteraction):
     """Handle a modal interaction."""
 
-    pass
+    raise NotImplementedError()
 
 
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):
     """Handle a component interaction."""
+
     custom_id = interaction.custom_id
-    print(1, response.responded)
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
@@ -274,8 +273,6 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                 new_prompt.insert_pages(command_prompt)
 
                 await new_prompt._save_data_from_interaction(interaction)
-
-                # yield await new_prompt.entry_point(interaction)
 
                 async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):
