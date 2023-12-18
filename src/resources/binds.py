@@ -116,11 +116,7 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     """
     guild_data = await get_binds(guild_id)
 
-    return (
-        len(guild_data)
-        if not bind_id
-        else sum(1 for b in guild_data.binds if b["bind"].get("id") == int(bind_id)) or 0
-    )
+    return len(guild_data) if not bind_id else sum(1 for b in guild_data if b.id == int(bind_id)) or 0
 
 
 async def get_binds(
@@ -177,6 +173,9 @@ async def get_binds(
                 old_binds.extend(convert_old_binds(group_ranks, "group"))
 
         guild_data.binds.extend(old_binds)
+
+    if not return_dict:
+        return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
     return (
         guild_data.binds
@@ -377,8 +376,7 @@ async def get_bind_desc(
     Returns:
         str: Sentence representation of the first five binds matching the filters.
     """
-    guild_binds = await get_binds(guild_id)
-    guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
+    guild_binds = await get_binds(guild_id, category=bind_type, bind_id=bind_id)
 
     bind_strings = [await bind_description_generator(bind) for bind in guild_binds[:5]]
     output = "\n".join(bind_strings)

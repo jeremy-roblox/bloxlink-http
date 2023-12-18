@@ -13,7 +13,7 @@ async def bind_category_autocomplete(ctx: CommandContext):
     interaction = ctx.interaction
 
     guild_data = await get_binds(ctx.guild_id)
-    bind_types = set(bind["bind"]["type"] for bind in guild_data)
+    bind_types = set(bind.type for bind in guild_data)
 
     yield interaction.build_response(
         [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
@@ -38,19 +38,12 @@ async def bind_id_autocomplete(ctx: CommandContext):
 
     # Only show more options if the category option has been set by the user.
     if category_option:
-        guild_data = await get_binds(interaction.guild_id)
+        guild_data = await get_binds(interaction.guild_id, category=category_option.value)
 
-        # Conversion to GuildBind is because it's easier to get the typing for filtering.
         if id_option:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data]
-                if str(x.id).startswith(id_option) and x.type == category_option.value
-            )
+            filtered_binds = set(bind.id for bind in guild_data if str(bind.id).startswith(id_option))
         else:
-            filtered_binds = set(
-                x.id for x in [GuildBind(**bind) for bind in guild_data] if x.type == category_option.value
-            )
+            filtered_binds = set(bind.id for bind in guild_data)
 
         for bind in filtered_binds:
             choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
