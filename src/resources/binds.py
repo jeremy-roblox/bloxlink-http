@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Literal
 
 import hikari
-from attrs import define
+from attrs import asdict, define
 
 import resources.restriction as restriction
 import resources.roblox.users as users
@@ -255,9 +255,11 @@ def convert_old_binds(items: dict, bind_type: ValidBindType) -> list:
 
 
 def convert_new_binds(items: list) -> dict:
-    """Convert binds of the new format (as a dict) to the old bind format.
+    """Convert binds of the new format to the old bind format.
 
     This does not include the names of groups/other bind types.
+
+    GuildBind and GroupBind types are supported, along with the dict representation.
 
     Args:
         items (list): The list of new bindings to convert.
@@ -274,6 +276,9 @@ def convert_new_binds(items: list) -> dict:
     entire_groups = {}
 
     for bind in items:
+        if isinstance(bind, GuildBind):
+            bind = asdict(bind)
+
         sub_data = bind["bind"]
         bind_type = sub_data["type"]
         bind_id = str(sub_data["id"])
