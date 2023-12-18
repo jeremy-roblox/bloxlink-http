@@ -184,17 +184,26 @@ def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge",
         list: The binds in the new format.
     """
     output = []
+
     for bind_id, data in items.items():
-        bind_data = {
-            "roles": data.get("roles"),
-            "removeRoles": data.get("removeRoles"),
-            "nickname": data.get("nickname"),
-            "bind": {"type": bind_type, "id": int(bind_id)},
-        }
+        group_rank_binding = data.get("binds") or data.get("ranges")
+
+        if bind_type != "group" or not group_rank_binding:
+            bind_data = {
+                "roles": data.get("roles"),
+                "removeRoles": data.get("removeRoles"),
+                "nickname": data.get("nickname"),
+                "bind": {"type": bind_type, "id": int(bind_id)},
+            }
+            output.append(bind_data)
+            continue
 
         # group rank bindings
         if data.get("binds"):
             for rank_id, sub_data in data["binds"].items():
+                bind_data = {}
+
+                bind_data["bind"] = {"type": bind_type, "id": int(bind_id)}
                 bind_data["roles"] = sub_data.get("roles")
                 bind_data["nickname"] = sub_data.get("nickname")
                 bind_data["removeRoles"] = sub_data.get("removeRoles")
@@ -214,9 +223,14 @@ def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge",
                 else:
                     bind_data["bind"]["roleset"] = rank_id
 
+                output.append(bind_data)
+
         # group rank ranges
         if data.get("ranges"):
             for range_item in data["ranges"]:
+                bind_data = {}
+
+                bind_data["bind"] = {"type": bind_type, "id": int(bind_id)}
                 bind_data["roles"] = range_item.get("roles")
                 bind_data["nickname"] = range_item.get("nickname")
                 bind_data["removeRoles"] = range_item.get("removeRoles")
@@ -224,7 +238,7 @@ def convert_old_binds(items: dict, bind_type: Literal["group", "asset", "badge",
                 bind_data["bind"]["min"] = int(range_item.get("low"))
                 bind_data["bind"]["max"] = int(range_item.get("high"))
 
-        output.append(bind_data)
+                output.append(bind_data)
 
     return output
 
