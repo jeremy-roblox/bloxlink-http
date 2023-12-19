@@ -33,6 +33,7 @@ logging.basicConfig(level=logging.INFO)
 bot.interaction_server.set_listener(hikari.CommandInteraction, handle_interaction)
 bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_interaction)
 bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_interaction)
+bot.interaction_server.set_listener(hikari.ModalInteraction, handle_interaction)
 
 # IMPORTANT NOTE: blacksheep expects a trailing /
 # in the URL that is given to discord because this is a mount.

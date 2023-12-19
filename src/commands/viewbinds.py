@@ -3,7 +3,7 @@ import hikari
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.binds import join_bind_strings, json_binds_to_guild_binds, GroupBind, GuildBind
 from resources.bloxlink import instance as bloxlink
-from resources.component_helper import component_author_validation, get_custom_id_data
+from resources.components import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.commands import CommandContext
@@ -111,7 +111,7 @@ class ViewBindsCommand:
         embed = await paginator.embed
         components = await paginator.components
 
-        await ctx.response.send(embed=embed, components=components)
+        await ctx.response.send(embed=embed, components=components, build_components=False)
 
 
 async def viewbinds_paginator_formatter(page_number: int, items: list, _guild_id: str | int, max_pages: int):

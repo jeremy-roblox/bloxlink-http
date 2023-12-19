@@ -2,10 +2,203 @@ import hikari
 
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
-from typing import Type, TypeVar
-from attrs import fields
+from typing import Type, TypeVar, Literal
+from attrs import fields, define
+from enum import Enum
 
 T = TypeVar('T')
+
+
+@define(slots=True, kw_only=True)
+class Component:
+    type: Literal[
+        hikari.ComponentType.BUTTON,
+        hikari.ComponentType.TEXT_SELECT_MENU,
+        hikari.ComponentType.ROLE_SELECT_MENU,
+        hikari.ComponentType.TEXT_INPUT,
+    ] = None
+    custom_id: str = None
+    component_id: str = None # used for prompts
+
+    def convert_to_hikari(self):
+        match self.type:
+            case self.ComponentType.BUTTON:
+                return hikari.ButtonComponent(
+                    custom_id=self.custom_id,
+                    label=self.label,
+                    # emoji=self.emoji,
+                    style=self.style,
+                    is_disabled=self.is_disabled,
+                    url=self.url,
+                )
+            case self.ComponentType.ROLE_SELECT_MENU:
+                return hikari.SelectMenuComponent(
+                    custom_id=self.custom_id,
+                    placeholder=self.placeholder,
+                    min_values=self.min_values,
+                    max_values=self.max_values,
+                    is_disabled=self.is_disabled,
+                )
+            case self.ComponentType.SELECT_MENU:
+                return hikari.SelectMenuComponent(
+                    custom_id=self.custom_id,
+                    placeholder=self.placeholder,
+                    min_values=self.min_values,
+                    max_values=self.max_values,
+                    is_disabled=self.is_disabled,
+                )
+            case self.ComponentType.TEXT_INPUT:
+                return hikari.TextInputComponent(
+                    custom_id=self.custom_id,
+                    placeholder=self.placeholder,
+                    min_length=self.min_length,
+                    max_length=self.max_length,
+                    required=self.required,
+                    style=self.style,
+                )
+
+def build_action_rows(components: list[Component]):
+    action_rows: list[hikari.impl.MessageActionRowBuilder()] = []
+
+    button_action_row = bloxlink.rest.build_message_action_row()
+    has_button = False
+
+    for component in components:
+        match component.type:
+            case hikari.ComponentType.BUTTON:
+                has_button = True
+
+                if component.style == Button.ButtonStyle.LINK:
+                    button_action_row.add_link_button(
+                        component.url,
+                        label=component.label,
+                        # if not component.emoji
+                        # else hikari.undefined.UNDEFINED,
+                        # emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
+                        is_disabled=component.is_disabled,
+                    )
+                else:
+                    button_action_row.add_interactive_button(
+                        component.style,
+                        component.custom_id,
+                        label=component.label,
+                        # if not component.emoji
+                        # else hikari.undefined.UNDEFINED,
+                        # emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
+                        is_disabled=component.is_disabled,
+                    )
+
+            case hikari.ComponentType.ROLE_SELECT_MENU:
+                role_action_row = bloxlink.rest.build_message_action_row()
+                role_action_row.add_select_menu(
+                    hikari.ComponentType.ROLE_SELECT_MENU,
+                    component.custom_id,
+                    placeholder=component.placeholder,
+                    min_values=component.min_values,
+                    max_values=component.max_values,
+                    is_disabled=component.is_disabled,
+                )
+                action_rows.append(role_action_row)
+
+            case hikari.ComponentType.TEXT_SELECT_MENU:
+                text_action_row = bloxlink.rest.build_message_action_row()
+                text_menu = text_action_row.add_text_menu(
+                    component.custom_id,
+                    placeholder=component.placeholder,
+                    min_values=component.min_values,
+                    max_values=component.max_values,
+                    is_disabled=component.is_disabled,
+                )
+                for option in component.options:
+                    text_menu.add_option(
+                        option.label,
+                        option.value,
+                        description=option.description,
+                        is_default=option.is_default,
+                    )
+
+                action_rows.append(text_action_row)
+
+            case hikari.ComponentType.TEXT_INPUT:
+                button_action_row.add_text_input(
+                    component.custom_id,
+                    component.value,
+                    placeholder=component.placeholder or "Enter a value...",
+                    min_length=component.min_length or 1,
+                    max_length=component.max_length or 2000,
+                    required=component.required or False,
+                    style=component.style or TextInput.TextInputStyle.SHORT,
+                )
+
+    # buttons show at the bottom
+    if has_button:
+        action_rows.append(button_action_row)
+
+    return action_rows
+
+@define(slots=True, kw_only=True)
+class Button(Component):
+    class ButtonStyle(Enum):
+        PRIMARY = 1
+        SECONDARY = 2
+        SUCCESS = 3
+        DANGER = 4
+        LINK = 5
+
+    label: str
+    style: ButtonStyle = ButtonStyle.PRIMARY
+    is_disabled: bool = False
+    emoji: hikari.Emoji = None
+    url: str = None
+    type: hikari.ComponentType.BUTTON = hikari.ComponentType.BUTTON
+
+    def __attrs_post_init__(self):
+        if self.url:
+            self.style = Button.ButtonStyle.LINK
+
+@define(slots=True, kw_only=True)
+class SelectMenu(Component):
+    placeholder: str = "Select an option..."
+    min_values: int = 1
+    max_values: int = None
+    min_length: int = 1
+    max_length: int = None
+    is_disabled: bool = False
+
+@define(slots=True, kw_only=True)
+class RoleSelectMenu(SelectMenu):
+    placeholder: str = "Select a role..."
+
+    type: hikari.ComponentType.ROLE_SELECT_MENU = hikari.ComponentType.ROLE_SELECT_MENU
+
+@define(slots=True, kw_only=True)
+class TextSelectMenu(SelectMenu):
+    options: list['Option']
+    type: hikari.ComponentType.TEXT_SELECT_MENU = hikari.ComponentType.TEXT_SELECT_MENU
+
+    @define(slots=True, kw_only=True)
+    class Option:
+        label: str
+        value: str
+        description: str = None
+        emoji: hikari.Emoji = None
+        is_default: bool = False
+
+@define(slots=True, kw_only=True)
+class TextInput(Component):
+    class TextInputStyle(Enum):
+        SHORT = 1
+        PARAGRAPH = 2
+
+    placeholder: str = "Enter a value..."
+    value: str = None
+    min_length: int = 1
+    max_length: int = None
+    required: bool = False
+    style: TextInputStyle = TextInputStyle.SHORT
+    type: hikari.ComponentType.TEXT_INPUT = hikari.ComponentType.TEXT_INPUT
+
+
 
 async def get_component(message: hikari.Message, custom_id: str):
     """Get a component in a message based on the custom_id"""
