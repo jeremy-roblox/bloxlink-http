@@ -22,7 +22,7 @@ class Component:
 
     def convert_to_hikari(self):
         match self.type:
-            case self.ComponentType.BUTTON:
+            case hikari.ComponentType.BUTTON:
                 return hikari.ButtonComponent(
                     custom_id=self.custom_id,
                     label=self.label,
@@ -31,7 +31,7 @@ class Component:
                     is_disabled=self.is_disabled,
                     url=self.url,
                 )
-            case self.ComponentType.ROLE_SELECT_MENU:
+            case hikari.ComponentType.ROLE_SELECT_MENU:
                 return hikari.SelectMenuComponent(
                     custom_id=self.custom_id,
                     placeholder=self.placeholder,
@@ -39,15 +39,26 @@ class Component:
                     max_values=self.max_values,
                     is_disabled=self.is_disabled,
                 )
-            case self.ComponentType.SELECT_MENU:
-                return hikari.SelectMenuComponent(
+            case hikari.ComponentType.TEXT_SELECT_MENU:
+                return hikari.TextSelectMenuComponent(
                     custom_id=self.custom_id,
                     placeholder=self.placeholder,
                     min_values=self.min_values,
                     max_values=self.max_values,
                     is_disabled=self.is_disabled,
+                    options=[
+                        hikari.SelectMenuOption(
+                            label=option.label,
+                            value=option.value,
+                            description=option.description,
+                            emoji=option.emoji,
+                            is_default=option.is_default,
+                        )
+                        for option in self.options
+                    ],
+
                 )
-            case self.ComponentType.TEXT_INPUT:
+            case hikari.ComponentType.TEXT_INPUT:
                 return hikari.TextInputComponent(
                     custom_id=self.custom_id,
                     placeholder=self.placeholder,
