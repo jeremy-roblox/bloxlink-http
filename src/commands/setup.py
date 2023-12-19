@@ -2,7 +2,7 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.response import Prompt, PromptPageData, Response
-from resources.components import Component
+from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
 
 
@@ -24,18 +24,16 @@ class SetupPrompt(Prompt):
                          ""
             ),
             components=[
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Next",
                     component_id="next",
                     is_disabled=False,
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Cancel",
                     component_id="cancel",
                     is_disabled=False,
-                    style=hikari.ButtonStyle.SECONDARY
+                    style=Button.ButtonStyle.SECONDARY
                 ),
             ]
         )
@@ -54,43 +52,40 @@ class SetupPrompt(Prompt):
                          "You can select a preset template, or choose your own nickname format. You can even set a prefix (text before the nickname) and/or a suffix (text after the nickname)."
             ),
             components=[
-                Component(
-                    type=Component.ComponentType.SELECT_MENU,
+                TextSelectMenu(
                     placeholder="Select a nickname preset...",
                     min_values=0,
                     max_values=1,
                     component_id="preset_nickname_select",
                     options=[
-                        Component.Option(
-                            name="Name users as: Roblox Display Name (@Roblox Username)",
+                        TextSelectMenu.Option(
+                            label="Name users as: Roblox Display Name (@Roblox Username)",
                             value="{smart-name}",
                         ),
-                        Component.Option(
-                            name="Name users as: Roblox Username",
+                        TextSelectMenu.Option(
+                            label="Name users as: Roblox Username",
                             value="{roblox-name}",
                         ),
-                        Component.Option(
-                            name="Name users as: Roblox Display Name",
+                        TextSelectMenu.Option(
+                            label="Name users as: Roblox Display Name",
                             value="{display-name}",
                         ),
-                        Component.Option(
-                            name="Name users as: Discord Username",
+                        TextSelectMenu.Option(
+                            label="Name users as: Discord Username",
                             value="{discord-name}",
                         ),
-                        Component.Option(
-                            name="Choose my own nickname format...",
+                        TextSelectMenu.Option(
+                            label="Choose my own nickname format...",
                             value="custom",
                         ),
                     ],
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Add a nickname prefix (optional)",
                     component_id="nickname_prefix",
                     is_disabled=False,
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Add a nickname suffix (optional)",
                     component_id="nickname_suffix",
                     is_disabled=False,
@@ -105,7 +100,6 @@ class SetupPrompt(Prompt):
             case "nickname_prefix":
                 modal = build_modal(
                     title="Add a nickname prefix",
-                    custom_id="nickname_prefix_modal",
                     command_name=self.command_name,
                     interaction=interaction,
                     prompt_data = {
@@ -114,9 +108,8 @@ class SetupPrompt(Prompt):
                         "component_id": fired_component_id
                     },
                     components=[
-                        Component(
-                            type=Component.ComponentType.TEXT_INPUT,
-                            style=hikari.TextInputStyle.SHORT,
+                        TextInput(
+                            style=TextInput.TextInputStyle.SHORT,
                             placeholder="This will be shown FIRST in the nickname.",
                             custom_id="nickname_prefix_input",
                             value="Type your nickname prefix...",

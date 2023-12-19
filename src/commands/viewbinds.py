@@ -111,7 +111,7 @@ class ViewBindsCommand:
         embed = await paginator.embed
         components = await paginator.components
 
-        await ctx.response.send(embed=embed, components=components)
+        await ctx.response.send(embed=embed, components=components, build_components=False)
 
 
 async def viewbinds_paginator_formatter(page_number: int, items: list, _guild_id: str | int, max_pages: int):

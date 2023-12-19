@@ -277,15 +277,11 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         # find matching prompt handler
         for command_prompt in command.prompts:
             parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
-            print(parsed_custom_id)
 
             if parsed_custom_id.prompt_name == command_prompt.__name__:
-                print("found modal")
                 new_prompt = command_prompt(command.name, response)
                 new_prompt._custom_id_format = ModalCustomID
                 new_prompt.insert_pages(command_prompt)
-
-                # await new_prompt._save_data_from_interaction(interaction)
 
                 async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):

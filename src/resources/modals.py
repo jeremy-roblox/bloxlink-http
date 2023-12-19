@@ -47,7 +47,7 @@ class Modal:
         return self.data
 
 
-def build_modal(title: str, custom_id: str, components: list[Component], *, interaction: hikari.ComponentInteraction, command_name: str, prompt_data: dict = None):
+def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction, command_name: str, prompt_data: dict = None):
     """Build a modal response. This needs to be separately returned."""
 
     new_custom_id = get_custom_id(

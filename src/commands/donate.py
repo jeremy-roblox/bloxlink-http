@@ -3,6 +3,7 @@ from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
+from resources.components import Button
 
 
 @bloxlink.command()
@@ -20,16 +21,14 @@ class DonateCommand:
             inline=False,
         )
 
-        button_menu = (
-            bloxlink.rest.build_message_action_row()
-            .add_button(
-                hikari.ButtonStyle.LINK,
-                f"https://blox.link/dashboard/guilds/{ctx.guild_id}/premium"
-                if ctx.guild_id
-                else "https://blox.link/",
+        button_menu = [
+            Button(
+                label="Click for Server Premium",
+                url=f"https://blox.link/dashboard/guilds/{ctx.guild_id}/premium"
+                    if ctx.guild_id
+                    else "https://blox.link/",
+                style=Button.ButtonStyle.LINK,
             )
-            .set_label("Click for Server Premium")
-            .add_to_container()
-        )
+        ]
 
         yield await ctx.response.send_first(embed=embed, components=button_menu)

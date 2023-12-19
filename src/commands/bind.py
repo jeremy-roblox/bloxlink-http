@@ -9,7 +9,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.exceptions import RobloxNotFound
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
-from resources.components import Component
+from resources.components import Button, RoleSelectMenu, TextSelectMenu
 
 # bind resource API
 from resources.roblox.assets import get_asset
@@ -127,18 +127,16 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
                     description="Here are the current binds for your server. Click the button below to make a new bind.",
                     fields=prompt_fields,
                     components=[
-                        Component(
-                            type=Component.ComponentType.BUTTON,
+                        Button(
                             label="Create a new bind",
                             component_id="new_bind",
                             is_disabled=False if len(new_binds) <= 5 else True,
                         ),
-                        Component(
-                            type=Component.ComponentType.BUTTON,
+                        Button(
                             label="Publish",
                             component_id="publish",
                             is_disabled=len(new_binds) == 0,
-                            style=hikari.ButtonStyle.SUCCESS,
+                            style=Button.ButtonStyle.SUCCESS,
                         ),
                     ],
                 )
@@ -158,15 +156,13 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
             description=f"Please select a Discord role to give to users who own this {bind_type}. "
             "No existing Discord role? No problem, just click `Create new role`.",
             components=[
-                Component(
-                    type=Component.ComponentType.ROLE_SELECT_MENU,
+                RoleSelectMenu(
                     placeholder="Choose a Discord role",
                     min_values=1,
                     max_values=25,
                     component_id="discord_role",
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Create new role",
                     component_id="new_role",
                     is_disabled=False,
@@ -320,18 +316,16 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     description="Here are the current binds for your server. Click the button below to make a new bind.",
                     fields=prompt_fields,
                     components=[
-                        Component(
-                            type=Component.ComponentType.BUTTON,
+                        Button(
                             label="Create a new bind",
                             component_id="new_bind",
                             is_disabled=False if len(new_binds) <= 5 else True,
                         ),
-                        Component(
-                            type=Component.ComponentType.BUTTON,
+                        Button(
                             label="Publish",
                             component_id="publish",
                             is_disabled=len(new_binds) == 0,
-                            style=hikari.ButtonStyle.SUCCESS,
+                            style=Button.ButtonStyle.SUCCESS,
                         ),
                     ],
                 )
@@ -341,35 +335,34 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             title="Make a Group Bind",
             description="This menu will guide you through the process of binding a group to your server.\nPlease choose the criteria for this bind.",
             components=[
-                Component(
-                    type=Component.ComponentType.SELECT_MENU,
+                TextSelectMenu(
                     placeholder="Select a condition",
                     min_values=0,
                     max_values=1,
                     component_id="criteria_select",
                     options=[
-                        Component.Option(
-                            name="Rank must match exactly...",
+                        TextSelectMenu.Option(
+                            label="Rank must match exactly...",
                             value="exact_match",
                         ),
-                        Component.Option(
-                            name="Rank must be greater than or equal to...",
+                        TextSelectMenu.Option(
+                            label="Rank must be greater than or equal to...",
                             value="gte",
                         ),
-                        Component.Option(
-                            name="Rank must be less than or equal to...",
+                        TextSelectMenu.Option(
+                            label="Rank must be less than or equal to...",
                             value="lte",
                         ),
-                        Component.Option(
-                            name="Rank must be between two rolesets...",
+                        TextSelectMenu.Option(
+                            label="Rank must be between two rolesets...",
                             value="range",
                         ),
-                        Component.Option(
-                            name="User MUST be a member of this group",
+                        TextSelectMenu.Option(
+                            label="User MUST be a member of this group",
                             value="in_group",
                         ),
-                        Component.Option(
-                            name="User must NOT be a member of this group",
+                        TextSelectMenu.Option(
+                            label="User must NOT be a member of this group",
                             value="not_in_group",
                         ),
                     ],
@@ -405,30 +398,27 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             description="Please select a group rank and corresponding Discord role. "
             "No existing Discord role? No problem, just click `Create new role`.",
             components=[
-                Component(
-                    type=Component.ComponentType.SELECT_MENU,
+                TextSelectMenu(
                     placeholder="Choose group rank",
                     min_values=0,
                     max_values=1,
                     component_id="group_rank",
                     options=[
-                        Component.Option(
-                            name=roleset_name,
+                        TextSelectMenu.Option(
+                            label=roleset_name,
                             value=roleset_id,
                         )
                         for roleset_id, roleset_name in roblox_group.rolesets.items()
                         if roleset_id != 0
                     ],
                 ),
-                Component(
-                    type=Component.ComponentType.ROLE_SELECT_MENU,
+                RoleSelectMenu(
                     placeholder="Choose a Discord role",
                     min_values=0,
                     max_values=1,
                     component_id="discord_role",
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Create new role",
                     component_id="new_role",
                     is_disabled=False,
@@ -501,30 +491,27 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             description="Please select two group ranks and a corresponding Discord role to give. "
             "No existing Discord role? No problem, just click `Create new role`.",
             components=[
-                Component(
-                    type=Component.ComponentType.SELECT_MENU,
+                TextSelectMenu(
                     placeholder="Choose your group ranks",
                     min_values=2,
                     max_values=2,
                     component_id="group_rank",
                     options=[
-                        Component.Option(
-                            name=roleset_name,
+                        TextSelectMenu.Option(
+                            label=roleset_name,
                             value=roleset_id,
                         )
                         for roleset_id, roleset_name in roblox_group.rolesets.items()
                         if roleset_id != 0
                     ],
                 ),
-                Component(
-                    type=Component.ComponentType.ROLE_SELECT_MENU,
+                RoleSelectMenu(
                     placeholder="Choose a Discord role",
                     min_values=1,
                     max_values=1,
                     component_id="discord_role",
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Create new role",
                     component_id="new_role",
                     is_disabled=False,
@@ -601,15 +588,13 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             description=f"Please select a Discord role to give to {desc_stem}. "
             "No existing Discord role? No problem, just click `Create new role`.",
             components=[
-                Component(
-                    type=Component.ComponentType.ROLE_SELECT_MENU,
+                RoleSelectMenu(
                     placeholder="Choose a Discord role",
                     min_values=0,
                     max_values=1,
                     component_id="discord_role",
                 ),
-                Component(
-                    type=Component.ComponentType.BUTTON,
+                Button(
                     label="Create new role",
                     component_id="new_role",
                     is_disabled=False,
