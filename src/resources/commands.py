@@ -359,7 +359,10 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
         # find matching prompt handler
         for command_prompt in command.prompts:
-            parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+            try:
+                parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+            except ValueError:
+                continue
 
             if (
                 parsed_custom_id.command_name == command.name
