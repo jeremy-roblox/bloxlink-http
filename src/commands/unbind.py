@@ -3,11 +3,11 @@ import json
 import hikari
 
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import delete_bind, json_binds_to_guild_binds, GroupBind, GuildBind
+from resources.binds import GroupBind, GuildBind, delete_bind, get_binds
 from resources.bloxlink import instance as bloxlink
+from resources.commands import CommandContext
 from resources.components import component_author_validation, get_custom_id_data
 from resources.exceptions import RobloxAPIError
-from resources.commands import CommandContext
 from resources.pagination import Paginator
 
 MAX_BINDS_PER_PAGE = 15
@@ -29,15 +29,14 @@ async def unbind_pagination_button(ctx: CommandContext):
 
     guild_id = interaction.guild_id
 
-    guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
-    items = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_filter)
+    bindings = await get_binds(guild_id, category=category, bind_id=id_filter)
 
     paginator = Paginator(
         guild_id,
         author_id,
         source_cmd_name="unbind",
         max_items=MAX_BINDS_PER_PAGE,
-        items=items,
+        items=bindings,
         page_number=page_number,
         custom_formatter=_embed_formatter,
         component_generation=_component_generator,
@@ -77,15 +76,14 @@ async def unbind_discard_binding(ctx: CommandContext):
 
     # Reset the prompt to page 0.
     guild_id = interaction.guild_id
-    guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
-    items = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_option)
+    bindings = await get_binds(guild_id, category=category, bind_id=id_option)
 
     paginator = Paginator(
         guild_id,
         author_id,
         source_cmd_name="unbind",
         max_items=MAX_BINDS_PER_PAGE,
-        items=items,
+        items=bindings,
         custom_formatter=_embed_formatter,
         component_generation=_component_generator,
         extra_custom_ids=f"{category}:{id_option}",
@@ -166,15 +164,14 @@ class UnbindCommand:
         guild_id = ctx.guild_id
         user_id = ctx.user.id
 
-        guild_data = await bloxlink.fetch_guild_data(guild_id, "binds")
-        items = json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=id_option)
+        bindings = await get_binds(guild_id, category=category, bind_id=id_option)
 
         paginator = Paginator(
             guild_id,
             user_id,
             source_cmd_name="unbind",
             max_items=MAX_BINDS_PER_PAGE,
-            items=items,
+            items=bindings,
             custom_formatter=_embed_formatter,
             component_generation=_component_generator,
             extra_custom_ids=f"{category}:{id_option}",
