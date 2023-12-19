@@ -452,7 +452,7 @@ async def create_bind(
         NotImplementedError: _description_
     """
 
-    guild_binds: list = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
+    guild_binds = [json_serialize_guildbind(bind) for bind in await get_binds(str(guild_id))]
 
     # Check to see if there is a binding in place matching the given input
     existing_binds = []
