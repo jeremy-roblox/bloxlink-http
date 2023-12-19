@@ -123,8 +123,7 @@ async def get_binds(
     guild_id: int | str,
     bind_id: int | str = None,
     category: ValidBindType | None = None,
-    return_dict: bool = False,
-) -> list[GuildBind] | list[GuildData.binds]:
+) -> list[GuildBind]:
     """Get the current guild binds.
 
     Old binds will be included by default, but will not be saved in the database in the
@@ -186,14 +185,7 @@ async def get_binds(
         print("Removing old bindings.")
         await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None)
 
-    if not return_dict:
-        return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
-
-    return (
-        guild_data.binds
-        if not bind_id
-        else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
-    )
+    return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
 
 def convert_old_binds(items: dict, bind_type: ValidBindType) -> list:
