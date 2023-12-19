@@ -104,6 +104,34 @@ class GroupBind(GuildBind):
             return "group_roles"
 
 
+def json_serialize_guildbind(bind: GuildBind) -> dict:
+    """Converts a GuildBind to the database representation of itself as a dict."""
+    base_bind = {
+        "roles": bind.roles,
+        "removeRoles": bind.removeRoles,
+        "nickname": bind.nickname,
+        "bind": {"type": bind.type, "id": bind.id},
+    }
+
+    if isinstance(bind, GroupBind):
+        if bind.roleset is not None:
+            base_bind["bind"]["roleset"] = bind.roleset
+
+        if bind.min is not None:
+            base_bind["bind"]["min"] = bind.min
+
+        if bind.max is not None:
+            base_bind["bind"]["max"] = bind.max
+
+        if bind.guest is not None and bind.guest:
+            base_bind["bind"]["guest"] = bind.guest
+
+        if bind.everyone is not None and bind.everyone:
+            base_bind["bind"]["everyone"] = bind.everyone
+
+    return base_bind
+
+
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     """Count the number of binds that this guild_id has created.
 
