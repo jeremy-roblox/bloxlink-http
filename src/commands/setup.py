@@ -3,6 +3,7 @@ from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.response import Prompt, PromptPageData, Response
 from resources.components import Component
+from resources.modals import build_modal
 
 
 
@@ -102,19 +103,34 @@ class SetupPrompt(Prompt):
             case "preset_nickname_select":
                 yield await self.next()
             case "nickname_prefix":
-                yield self.response.send_modal(
+                modal = build_modal(
                     title="Add a nickname prefix",
                     custom_id="nickname_prefix_modal",
+                    command_name=self.command_name,
+                    interaction=interaction,
+                    prompt_data = {
+                        "page_number": self.current_page_number,
+                        "prompt_name": self.__class__.__name__,
+                        "component_id": fired_component_id
+                    },
                     components=[
                         Component(
                             type=Component.ComponentType.TEXT_INPUT,
                             style=hikari.TextInputStyle.SHORT,
                             placeholder="This will be shown FIRST in the nickname.",
                             custom_id="nickname_prefix_input",
-                            value="Type your nickname prefix..."
+                            value="Type your nickname prefix...",
+                            required=True
                         )
                     ]
                 )
+
+                yield self.response.send_modal(modal)
+
+                if not await modal.submitted():
+                    return
+
+                yield await self.response.send_first(await modal.get_data())
 
             case "nickname_suffix":
                 yield await self.next()

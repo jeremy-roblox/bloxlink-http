@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable
+from typing import Callable
 from attrs import define
+import json
 
 import hikari
 
 from resources.exceptions import *
 from resources.response import Response, PromptCustomID, PromptPageData
+from resources.modals import ModalCustomID
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.components import parse_custom_id
+from resources.redis import redis
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -157,6 +160,8 @@ async def handle_interaction(interaction: hikari.Interaction):
         )
     except Message as ex:
         await response.send(ex.message)
+    except CancelCommand:
+        pass
     except Exception as ex:
         logging.exception(ex)
         await response.send(
@@ -237,10 +242,57 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
             else:
                 await generator_or_coroutine
 
-async def handle_modal(interaction: hikari.ModalInteraction):
+async def handle_modal(interaction: hikari.ModalInteraction, response: Response):
     """Handle a modal interaction."""
 
-    raise NotImplementedError()
+    custom_id = interaction.custom_id
+    action_row = interaction.components[0] # modals can only have one action row
+    user_id = interaction.user.id
+
+    modal_data = {
+        modal_component.custom_id: modal_component.value
+            for modal_component in action_row.components
+    }
+
+    # save data from modal to redis
+    await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
+
+
+    # iterate through commands and find the custom_id mapped function
+    for command in slash_commands.values():
+        # find matching custom_id handler
+        # for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
+        #     if custom_id.startswith(accepted_custom_id):
+        #         generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
+
+        #         if hasattr(generator_or_coroutine, "__anext__"):
+        #             async for generator_response in generator_or_coroutine:
+        #                 yield generator_response
+
+        #         else:
+        #             await generator_or_coroutine
+
+        #         return
+
+        # find matching prompt handler
+        for command_prompt in command.prompts:
+            parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
+            print(parsed_custom_id)
+
+            if parsed_custom_id.prompt_name == command_prompt.__name__:
+                print("found modal")
+                new_prompt = command_prompt(command.name, response)
+                new_prompt._custom_id_format = ModalCustomID
+                new_prompt.insert_pages(command_prompt)
+
+                # await new_prompt._save_data_from_interaction(interaction)
+
+                async for generator_response in new_prompt.entry_point(interaction):
+                    if not isinstance(generator_response, PromptPageData):
+                        print(2, generator_response)
+                        yield generator_response
+
+                return
 
 
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):

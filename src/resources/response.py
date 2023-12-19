@@ -6,6 +6,7 @@ import hikari
 from attrs import define, field, fields
 
 import resources.components as Components
+from resources.modals import Modal, ModalCustomID
 from resources.bloxlink import instance as bloxlink
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
@@ -33,6 +34,20 @@ class PromptCustomID:
     def __str__(self):
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
         return ":".join(field_values)
+
+# @define
+# class ModalCustomID:
+#     """Represents a custom ID for a modal component."""
+
+#     command_name: str
+#     prompt_name: str
+#     user_id: int = field(converter=int)
+#     page_number: int = field(converter=int)
+#     component_custom_id: str
+
+#     def __str__(self):
+#         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
+#         return ":".join(field_values)
 
 
 @define(slots=True)
@@ -139,18 +154,20 @@ class Response:
 
         self.responded = True
 
-        if self.interaction.type == hikari.InteractionType.APPLICATION_COMMAND:
-            response_builder = self.interaction.build_response().set_flags(
-                hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
-            )
-        elif self.interaction.type == hikari.InteractionType.MESSAGE_COMPONENT:
-            response_builder = self.interaction.build_response(
-                hikari.ResponseType.MESSAGE_CREATE
-                if not edit_original
-                else hikari.ResponseType.MESSAGE_UPDATE
-            ).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
-        else:
-            raise NotImplementedError()
+        match self.interaction:
+            case hikari.CommandInteraction() | hikari.ModalInteraction():
+                response_builder = self.interaction.build_response().set_flags(
+                    hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
+                )
+            case hikari.ComponentInteraction():
+                response_builder = self.interaction.build_response(
+                    hikari.ResponseType.MESSAGE_CREATE
+                    if not edit_original
+                    else hikari.ResponseType.MESSAGE_UPDATE
+                ).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+
+            case _:
+                raise NotImplementedError()
 
         if content:
             response_builder.set_content(content)
@@ -227,26 +244,48 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    def send_modal(self, title: str, custom_id: str, components: list[Components.Component] = None):
+    def send_modal(self, modal: Modal):
         """Send a modal response. This needs to be yielded."""
 
-        modal_builder = self.interaction.build_modal_response(title, custom_id)
-        modal_action_row = hikari.impl.ModalActionRowBuilder()
+        # check if the modal was already submitted
+        if isinstance(self.interaction, hikari.ModalInteraction):
+            return
 
-        for component in components:
-            modal_action_row.add_text_input(
-                component.custom_id,
-                component.value,
-                placeholder=component.placeholder or "Enter a value...",
-                min_length=component.min_length or 1,
-                max_length=component.max_length or 2000,
-                required=component.required or False,
-                style=component.style or hikari.TextInputStyle.SHORT,
-            )
+        return modal.builder
 
-        modal_builder.add_component(modal_action_row)
+    # def build_modal(self, title: str, custom_id: str, components: list[Components.Component], *, command_name: str, prompt_data: dict = None):
+    #     """Build a modal response. This needs to be separately returned."""
 
-        return modal_builder
+    #     # check if the modal was already submitted
+    #     if isinstance(self.interaction, hikari.ModalInteraction):
+    #         return
+
+    #     new_custom_id = Components.get_custom_id(
+    #         ModalCustomID,
+    #         command_name=command_name,
+    #         prompt_name=prompt_data["prompt_name"] or "",
+    #         user_id=self.user_id,
+    #         page_number=prompt_data["page_number"],
+    #         component_custom_id=prompt_data["component_id"],
+    #     )
+
+    #     modal_builder = self.interaction.build_modal_response(title, str(new_custom_id))
+    #     modal_action_row = hikari.impl.ModalActionRowBuilder()
+
+    #     for component in components:
+    #         modal_action_row.add_text_input(
+    #             component.custom_id,
+    #             component.value,
+    #             placeholder=component.placeholder or "Enter a value...",
+    #             min_length=component.min_length or 1,
+    #             max_length=component.max_length or 2000,
+    #             required=component.required or False,
+    #             style=component.style or hikari.TextInputStyle.SHORT,
+    #         )
+
+    #     modal_builder.add_component(modal_action_row)
+
+    #     return modal_builder
 
     async def prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
