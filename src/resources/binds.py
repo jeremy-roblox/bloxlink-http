@@ -174,15 +174,12 @@ async def get_binds(
 
         # Save old bindings in the new format if any.
         if old_binds:
-            print("Saving old binds in the new format.")
             guild_data.binds = old_binds
-
-            # Save old bindings as new binds.
-            # Currently not working.
             await bloxlink.update_guild_data(guild_id, binds=guild_data.binds)
 
     if POP_OLD_BINDS:
         print("Removing old bindings.")
+        # Currently not working.
         await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None)
 
     return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
