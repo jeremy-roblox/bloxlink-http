@@ -123,7 +123,6 @@ async def get_binds(
     guild_id: int | str,
     bind_id: int | str = None,
     category: ValidBindType | None = None,
-    include_old: bool = True,
     return_dict: bool = False,
 ) -> list[GuildBind] | list[GuildData.binds]:
     """Get the current guild binds.
@@ -132,26 +131,28 @@ async def get_binds(
     new format unless the OVERRIDE flag is set to True. While it is False, old formatted binds will
     be left as is.
 
-    OVERRIDE(ing) can only successfully be flagged if include_old is True.
-
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
         category (ValidBindType | None, optional): Category to filter by.
             Currently only works if return_dict is false.
-        include_old (bool, optional): Should binds in the old format be included? Defaults to True.
         return_dict (bool, optional): Return data in list[dict] format.
 
     Returns:
         list[GuildBind]: Typed variants of the binds for the given guild ID.
     """
 
-    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds", "groupIDs", "roleBinds")
+    guild_id = str(guild_id)
+    guild_data: GuildData = await bloxlink.fetch_guild_data(guild_id, "binds", "groupIDs", "roleBinds")
 
-    OVERRIDE: bool = False
+    # Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
+    POP_OLD_BINDS: bool = False
 
-    if include_old:
+    # Convert and save old bindings in the new format (only if no new binds exist already).
+    # Should be safe to presume this because the new format should not exist for people yet.
+    if not guild_data.binds:
         old_binds = []
+
         if guild_data.groupIDs:
             old_binds.extend(convert_old_binds(guild_data.groupIDs, "group"))
 
@@ -172,7 +173,18 @@ async def get_binds(
             if group_ranks:
                 old_binds.extend(convert_old_binds(group_ranks, "group"))
 
-        guild_data.binds.extend(old_binds)
+        # Save old bindings in the new format if any.
+        if old_binds:
+            print("Saving old binds in the new format.")
+            guild_data.binds = old_binds
+
+            # Save old bindings as new binds.
+            # Currently not working.
+            await bloxlink.update_guild_data(guild_id, binds=guild_data.binds)
+
+    if POP_OLD_BINDS:
+        print("Removing old bindings.")
+        await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None)
 
     if not return_dict:
         return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
