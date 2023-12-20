@@ -530,7 +530,8 @@ def parse_custom_id(T: Type[T], custom_id: str) -> T:
     parts = custom_id.split(':')
 
     # Create an instance of the attrs dataclass with the custom_id values
-    custom_id_instance = T(*parts[:len(fields(T))])
+    #custom_id_instance = T(*parts[:len(fields(T))])
+    custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))})
 
     # Return the dataclass instance, discarding additional values
     return custom_id_instance

@@ -5,15 +5,16 @@ import asyncio
 from resources.components import Component, get_custom_id
 from resources.redis import redis
 
-@define
+@define(slots=True, kw_only=True)
 class ModalCustomID:
     """Represents a custom ID for a modal component."""
 
     command_name: str
-    prompt_name: str
+    subcommand_name: str = field(default="")
+    prompt_name: str = field(default="")
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)
-    component_custom_id: str
+    component_custom_id: str = field(default="")
 
     def __str__(self):
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
@@ -71,6 +72,7 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
     new_custom_id = get_custom_id(
         ModalCustomID,
         command_name=command_name,
+        subcommand_name=command_data.get("subcommand_name") or "",
         prompt_name=prompt_data.get("prompt_name") or "",
         user_id=interaction.user.id,
         page_number=prompt_data.get("page_number") or 0,

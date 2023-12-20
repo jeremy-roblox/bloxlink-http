@@ -74,7 +74,7 @@ class Command:
             await generator_or_coroutine
 
 
-@define(slots=True)
+@define(slots=True, kw_only=True)
 class CommandContext:
     """Data related to a command that has been run.
 
@@ -92,6 +92,7 @@ class CommandContext:
     """
 
     command_name: str
+    subcommand_name: str
     command_id: int
     guild_id: int
     member: hikari.InteractionMember
@@ -171,7 +172,7 @@ async def handle_interaction(interaction: hikari.Interaction):
             "Please try again in a few minutes."
         )
 
-async def handle_command(interaction: hikari.CommandInteraction, response: Response, command_override: Command = None, command_options: dict = None):
+async def handle_command(interaction: hikari.CommandInteraction, response: Response, *, command_override: Command = None, command_options: dict = None, subcommand_name: str = None):
     """Handle a command interaction."""
 
     command = command_override
@@ -201,7 +202,6 @@ async def handle_command(interaction: hikari.CommandInteraction, response: Respo
             raise NotImplementedError()
     else:
         command_name = command_override.name
-        subcommand_name = None
 
     if not command_override:
         # get options
@@ -216,9 +216,7 @@ async def handle_command(interaction: hikari.CommandInteraction, response: Respo
         if command.defer:
             yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
-    print("command handler", command)
-
-    ctx = build_context(interaction, response=response, command=command, options=command_options)
+    ctx = build_context(interaction, response=response, command=command, options=command_options, subcommand_name=subcommand_name)
 
     async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
         if command_response:
@@ -271,8 +269,8 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         # save data from modal to redis
         await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
 
-
-        # iterate through commands and find the custom_id mapped function
+        # iterate through commands and find where
+        # they called the modal from, and then execute the function again
         for command in slash_commands.values():
             # find matching prompt handler
             for command_prompt in command.prompts:
@@ -288,13 +286,11 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
                     return
 
-            if command.name == parsed_custom_id.command_name:
+            if command.name == parsed_custom_id.command_name and (parsed_custom_id.subcommand_name and parsed_custom_id.subcommand_name in command.subcommands or not parsed_custom_id.subcommand_name):
                 command_options_data = await redis.get(f"modal_command_options:{custom_id}")
                 command_options = json.loads(command_options_data) if command_options_data else {}
 
-                # yield await handle_command(interaction, response, command_override=command, command_options=command_options).__anext__()
-                print("modal handler", command, command.name)
-                generator_or_coroutine = handle_command(interaction, response, command_override=command, command_options=command_options)
+                generator_or_coroutine = handle_command(interaction, response, command_override=command, command_options=command_options, subcommand_name=parsed_custom_id.subcommand_name)
 
                 if hasattr(generator_or_coroutine, "__anext__"):
                     async for generator_response in generator_or_coroutine:
@@ -305,24 +301,8 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
                 return
 
     finally:
-        # clear data from redis
-        print("deleting")
+        # clear modal data from redis so it doesn't get reused if they execute the command again
         await redis.delete(f"modal_data:{custom_id}")
-
-        # find matching custom_id handler
-
-        # if command.name == parsed_custom_id.command_name:
-        #     yield await handle_command(interaction, response, command_override=command).__anext__()
-        #     generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
-
-        #     if hasattr(generator_or_coroutine, "__anext__"):
-        #         async for generator_response in generator_or_coroutine:
-        #             yield generator_response
-
-        #     else:
-        #         await generator_or_coroutine
-
-        #     return
 
 
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):
@@ -358,7 +338,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):
-                        print(2, generator_response)
+                        print(3, generator_response)
                         yield generator_response
 
                 return
@@ -464,6 +444,7 @@ async def sync_commands(bot: hikari.RESTBot):
 
 def build_context(
     interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction,
+    subcommand_name: str = None,
     response: Response = None,
     command: Command = None,
     options=None,
@@ -479,11 +460,11 @@ def build_context(
         CommandContext: The built context.
     """
 
-    print("build_context", command.name)
     return CommandContext(
         command_name=(
             command.name or (interaction.command_name if hasattr(interaction, "command_name") else None)
         ),
+        subcommand_name=subcommand_name,
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
         guild_id=interaction.guild_id,
         member=interaction.member,
