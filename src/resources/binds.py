@@ -59,6 +59,14 @@ class GuildBind:
         self.type = self.bind.get("type")
         self.entity = create_entity(self.type, self.id)
 
+    def to_dict(self) -> dict:
+        return {
+            "roles": self.roles,
+            "removeRoles": self.removeRoles,
+            "nickname": self.nickname,
+            "bind": {"type": self.type, "id": self.id},
+        }
+
 
 class GroupBind(GuildBind):
     """Represents additional attributes that only apply to group binds.
@@ -103,33 +111,25 @@ class GroupBind(GuildBind):
         else:
             return "group_roles"
 
+    def to_dict(self) -> dict:
+        base_dict = super().to_dict()
 
-def json_serialize_guildbind(bind: GuildBind) -> dict:
-    """Converts a GuildBind to the database representation of itself as a dict."""
-    base_bind = {
-        "roles": bind.roles,
-        "removeRoles": bind.removeRoles,
-        "nickname": bind.nickname,
-        "bind": {"type": bind.type, "id": bind.id},
-    }
+        if self.roleset is not None:
+            base_dict["bind"]["roleset"] = self.roleset
 
-    if isinstance(bind, GroupBind):
-        if bind.roleset is not None:
-            base_bind["bind"]["roleset"] = bind.roleset
+        if self.min is not None:
+            base_dict["bind"]["min"] = self.min
 
-        if bind.min is not None:
-            base_bind["bind"]["min"] = bind.min
+        if self.max is not None:
+            base_dict["bind"]["max"] = self.max
 
-        if bind.max is not None:
-            base_bind["bind"]["max"] = bind.max
+        if self.guest is not None and self.guest:
+            base_dict["bind"]["guest"] = self.guest
 
-        if bind.guest is not None and bind.guest:
-            base_bind["bind"]["guest"] = bind.guest
+        if self.everyone is not None and self.everyone:
+            base_dict["bind"]["everyone"] = self.everyone
 
-        if bind.everyone is not None and bind.everyone:
-            base_bind["bind"]["everyone"] = bind.everyone
-
-    return base_bind
+        return base_dict
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
@@ -452,7 +452,7 @@ async def create_bind(
         NotImplementedError: _description_
     """
 
-    guild_binds = [json_serialize_guildbind(bind) for bind in await get_binds(str(guild_id))]
+    guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
 
     # Check to see if there is a binding in place matching the given input
     existing_binds = []
