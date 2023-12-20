@@ -118,7 +118,7 @@ class SetupPrompt(Prompt):
                     ]
                 )
 
-                yield self.response.send_modal(modal)
+                yield await self.response.send_modal(modal)
 
                 if not await modal.submitted():
                     return
@@ -130,7 +130,7 @@ class SetupPrompt(Prompt):
 
 @bloxlink.command(
     category="Administration",
-    # defer=True,
+    defer=True,
     defer_with_ephemeral=False,
     permissions=hikari.Permissions.MANAGE_GUILD,
     dm_enabled=False,
@@ -140,32 +140,4 @@ class SetupCommand:
     """setup Bloxlink for your server"""
 
     async def __main__(self, ctx: CommandContext):
-        print("executing command")
-        # return await ctx.response.prompt(SetupPrompt)
-
-        modal = build_modal(
-            title="Add a nickname prefix",
-            command_name=ctx.command_name,
-            interaction=ctx.interaction,
-            command_data={
-                "options": ctx.options
-            },
-            components=[
-                TextInput(
-                    style=TextInput.TextInputStyle.SHORT,
-                    placeholder="This will be shown FIRST in the nickname.",
-                    custom_id="nickname_prefix_input",
-                    value="Type your nickname prefix...",
-                    required=True
-                )
-            ]
-        )
-
-        yield await ctx.response.send_modal(modal)
-
-        if not await modal.submitted():
-            print("returning")
-            return
-
-        print("sending")
-        yield await ctx.response.send_first(await modal.get_data())
+        return await ctx.response.prompt(SetupPrompt)

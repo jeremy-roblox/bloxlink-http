@@ -44,8 +44,6 @@ class Modal:
         if self.data is not None:
             return self.data
 
-        print(self.custom_id)
-
         modal_data = await redis.get(f"modal_data:{self.custom_id}")
         self.data = json.loads(modal_data) if modal_data else None
 
