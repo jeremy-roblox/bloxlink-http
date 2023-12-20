@@ -288,6 +288,7 @@ class Prompt(Generic[T]):
     ):
         self.pages: list[Page] = []
         self.current_page_number = 0
+        self.current_page: Page = None
         self.response = response
         self.command_name = command_name
         self.prompt_name = prompt_name
@@ -408,11 +409,10 @@ class Prompt(Generic[T]):
     async def populate_programmatic_page(
         self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None
     ):
-        current_page = self.pages[self.current_page_number]
-        print("current_page=", current_page)
+        print("current_page=", self.current_page)
 
-        if current_page.programmatic:
-            generator_or_coroutine = current_page.func(interaction, fired_component_id)
+        if self.current_page.programmatic:
+            generator_or_coroutine = self.current_page.func(interaction, fired_component_id)
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
                     if not generator_response:
@@ -423,7 +423,7 @@ class Prompt(Generic[T]):
             else:
                 page_details: PromptPageData = await generator_or_coroutine
 
-            current_page.details = page_details
+            self.current_page.details = page_details
 
     async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
@@ -452,16 +452,16 @@ class Prompt(Generic[T]):
 
         hash_ = hash_ or uuid.uuid4().hex
 
-        current_page = self.pages[self.current_page_number]
+        self.current_page = self.pages[self.current_page_number]
 
-        print(hash_, "run_page() current page=", self.current_page_number, current_page.details.title)
+        print(hash_, "run_page() current page=", self.current_page_number, self.current_page.details.title)
 
-        generator_or_coroutine = current_page.func(
+        generator_or_coroutine = self.current_page.func(
             self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None
         )
 
         # if this is a programmatic page, we need to run it first
-        if current_page.programmatic:
+        if self.current_page.programmatic:
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
                     if not generator_response:
@@ -474,11 +474,11 @@ class Prompt(Generic[T]):
             else:
                 page_details: PromptPageData = await generator_or_coroutine
 
-            current_page.details = page_details
-            built_page = self.build_page(current_page, custom_id_data, hash_)
+            self.current_page.details = page_details
+            built_page = self.build_page(self.current_page, custom_id_data, hash_)
 
             # this stops the page from being sent if the user has already moved on
-            if current_page.page_number != self.current_page_number or current_page.edited:
+            if self.current_page.page_number != self.current_page_number or self.current_page.edited:
                 return
 
             # prompt() requires below send_first, but entry_point() doesn't since it calls other functions
@@ -491,13 +491,13 @@ class Prompt(Generic[T]):
             hash_,
             "building page run_page(), current page=",
             self.current_page_number,
-            current_page.details.title,
+            self.current_page.details.title,
         )
 
         if changing_page:
             # we only build the page (embed) if we're changing pages
 
-            built_page = self.build_page(current_page, custom_id_data, hash_)
+            built_page = self.build_page(self.current_page, custom_id_data, hash_)
 
             print(hash_, "run_page() built page", built_page.embed.title)
 
@@ -508,7 +508,7 @@ class Prompt(Generic[T]):
                 embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
             )
 
-        if not current_page.programmatic:
+        if not self.current_page.programmatic:
             if hasattr(generator_or_coroutine, "__anext__"):
                 async for generator_response in generator_or_coroutine:
                     if generator_response:
@@ -521,7 +521,7 @@ class Prompt(Generic[T]):
                 if async_result:
                     yield async_result
 
-    async def current_data(self, raise_exception: bool = True):
+    async def current_data(self, *, key_name: str = None, raise_exception: bool = True):
         """Get the data for the current page from Redis."""
 
         redis_data = await bloxlink.redis.get(
@@ -534,7 +534,7 @@ class Prompt(Generic[T]):
 
             return {}
 
-        return json.loads(redis_data)
+        return json.loads(redis_data).get(key_name) if key_name else json.loads(redis_data)
 
     async def _save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
         """Save the data from the interaction from the current page to Redis."""
@@ -618,25 +618,23 @@ class Prompt(Generic[T]):
     async def finish(self, *, disable_components=True):
         """Finish the prompt."""
 
-        current_page = self.pages[self.current_page_number]
-        current_page.edited = True
+        self.current_page.edited = True
 
         await self.clear_data()
         await self.ack()
 
-        if disable_components and current_page.details.components:
+        if disable_components and self.current_page.details.components:
             return await self.edit_page(
                 components={
                     component.component_id: {"is_disabled": True}
-                    for component in current_page.details.components
+                    for component in self.current_page.details.components
                 }
             )
 
     async def ack(self):
         """Acknowledge the interaction. This tells the prompt to not send a response."""
 
-        current_page = self.pages[self.current_page_number]
-        current_page.edited = True
+        self.current_page.edited = True
 
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
@@ -644,12 +642,10 @@ class Prompt(Generic[T]):
         hash_ = uuid.uuid4().hex
         print("edit_component() hash=", hash_)
 
-        current_page = self.pages[self.current_page_number]
-
-        if current_page.programmatic:
+        if self.current_page.programmatic:
             await self.populate_programmatic_page(self.response.interaction)
 
-        for component in current_page.details.components:
+        for component in self.current_page.details.components:
             for component_custom_id, kwargs in component_data.items():
                 if component.component_id == component_custom_id:
                     for attr_name, attr_value in kwargs.items():
@@ -658,9 +654,9 @@ class Prompt(Generic[T]):
                         else:
                             setattr(component, attr_name, attr_value)
 
-        built_page = self.build_page(current_page, hash_=hash_)
+        built_page = self.build_page(self.current_page, hash_=hash_)
 
-        current_page.edited = True
+        self.current_page.edited = True
 
         return await self.response.send_first(
             embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
@@ -672,15 +668,14 @@ class Prompt(Generic[T]):
         hash_ = uuid.uuid4().hex
         print("edit_page() hash=", hash_)
 
-        current_page = self.pages[self.current_page_number]
-        current_page.edited = True
+        self.current_page.edited = True
 
         for attr_name, attr_value in new_page_data.items():
             self._pending_embed_changes[attr_name] = attr_value
 
         if components:
             for component_custom_id, kwargs in components.items():
-                for component in current_page.details.components:
+                for component in self.current_page.details.components:
                     if component.component_id == component_custom_id:
                         for attr_name, attr_value in kwargs.items():
                             if attr_name == "component_id":
@@ -688,7 +683,7 @@ class Prompt(Generic[T]):
                             else:
                                 setattr(component, attr_name, attr_value)
 
-        built_page = self.build_page(current_page, hash_=hash_)
+        built_page = self.build_page(self.current_page, hash_=hash_)
 
         return await self.response.send_first(
             embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
