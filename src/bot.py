@@ -1,6 +1,6 @@
 import logging
-from os import environ as env
-from os import listdir
+import argparse
+from os import environ as env, listdir
 
 import hikari
 import uvicorn
@@ -13,7 +13,7 @@ from resources.secrets import (  # pylint: disable=no-name-in-module
     SERVER_PORT,
 )
 
-# Make sure bot is accessible from modules. We load the bot first before loading most modules.
+# Make sure bot is accessible from most modules. We load the bot first before loading most modules.
 bot = Bloxlink(
     public_key=DISCORD_PUBLIC_KEY,
     token=DISCORD_TOKEN,
@@ -21,34 +21,43 @@ bot = Bloxlink(
     asgi_managed=False,
 )
 
+# Load a few modules
 from resources.commands import handle_interaction, sync_commands
 from resources.constants import MODULES
 from resources.redis import redis
 from web.webserver import webserver
 
+
+# Initialize logging and argument parsing
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-s", "--sync-commands",
+    action="store_true",
+    help="sync commands and bypass the cooldown",
+    required=False,
+    default=False)
+args = parser.parse_args()
 
-bot.interaction_server.set_listener(hikari.CommandInteraction, handle_interaction)
-bot.interaction_server.set_listener(hikari.ComponentInteraction, handle_interaction)
-bot.interaction_server.set_listener(hikari.AutocompleteInteraction, handle_interaction)
-bot.interaction_server.set_listener(hikari.ModalInteraction, handle_interaction)
 
+# Initialize the web server
 # IMPORTANT NOTE: blacksheep expects a trailing /
 # in the URL that is given to discord because this is a mount.
 # Example: "example.org/bot/" works, but "example.org/bot" does not (this results in a 307 reply, which discord doesn't honor).
 webserver.mount("/bot", bot)
 
-
 @webserver.on_start
 async def handle_start(_):
     await bot.start()
 
-    # only sync commands once every hour
-    if not await redis.get("synced_commands"):
+    # only sync commands once every hour unless the --commands flag is passed
+    if args.sync_commands or not await redis.get("synced_commands"):
         await redis.set("synced_commands", "true", ex=3600)
         await sync_commands(bot)
+    else:
+        logger.info("Skipping command sync. Run with --sync-commands or -s to force sync.")
 
 
 @webserver.on_stop
@@ -57,6 +66,11 @@ async def handle_stop(_):
 
 
 if __name__ == "__main__":
+
+    # Register the interaction handler for all interaction types.
+    for interaction_type in (hikari.CommandInteraction, hikari.ComponentInteraction, hikari.AutocompleteInteraction, hikari.ModalInteraction):
+        bot.interaction_server.set_listener(interaction_type, handle_interaction)
+
     for directory in MODULES:
         files = [
             name
