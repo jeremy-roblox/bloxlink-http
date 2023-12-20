@@ -1,18 +1,20 @@
 from attrs import define, field, fields
 import hikari
 import json
+import asyncio
 from resources.components import Component, get_custom_id
 from resources.redis import redis
 
-@define
+@define(slots=True, kw_only=True)
 class ModalCustomID:
     """Represents a custom ID for a modal component."""
 
     command_name: str
-    prompt_name: str
+    subcommand_name: str = field(default="")
+    prompt_name: str = field(default="")
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)
-    component_custom_id: str
+    component_custom_id: str = field(default="")
 
     def __str__(self):
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
@@ -26,6 +28,7 @@ class Modal:
     builder: hikari.impl.InteractionModalBuilder | None
     custom_id: str
     data: dict = None
+    command_options: dict = None
 
     async def submitted(self):
         """Returns whether the modal was submitted."""
@@ -41,22 +44,39 @@ class Modal:
         if self.data is not None:
             return self.data
 
+        print(self.custom_id)
+
         modal_data = await redis.get(f"modal_data:{self.custom_id}")
         self.data = json.loads(modal_data) if modal_data else None
 
         return self.data
 
+    async def clear_data(self):
+        """Clears the data from the modal."""
 
-def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction, command_name: str, prompt_data: dict = None):
+        await redis.delete(f"modal_data:{self.custom_id}")
+        self.data = None
+
+    async def wait(self, timeout: int = 600):
+        """Waits for the modal to be submitted."""
+
+        await asyncio.wait_for(self.submitted(), timeout=timeout)
+
+
+def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction | hikari.CommandInteraction, command_name: str, prompt_data: dict = None, command_data: dict = None) -> Modal:
     """Build a modal response. This needs to be separately returned."""
+
+    prompt_data = prompt_data or {}
+    command_data = command_data or {}
 
     new_custom_id = get_custom_id(
         ModalCustomID,
         command_name=command_name,
-        prompt_name=prompt_data["prompt_name"] or "",
+        subcommand_name=command_data.get("subcommand_name") or "",
+        prompt_name=prompt_data.get("prompt_name") or "",
         user_id=interaction.user.id,
-        page_number=prompt_data["page_number"],
-        component_custom_id=prompt_data["component_id"],
+        page_number=prompt_data.get("page_number") or 0,
+        component_custom_id=prompt_data.get("component_id") or "",
     )
 
     modal_builder: hikari.impl.InteractionModalBuilder = None
@@ -81,4 +101,5 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
     return Modal(
         builder=modal_builder,
         custom_id=new_custom_id,
+        command_options=command_data.get("options")
     )

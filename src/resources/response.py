@@ -241,12 +241,18 @@ class Response:
             hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
         )
 
-    def send_modal(self, modal: Modal):
+    async def send_modal(self, modal: Modal):
         """Send a modal response. This needs to be yielded."""
 
         # check if the modal was already submitted
         if isinstance(self.interaction, hikari.ModalInteraction):
             return
+
+        self.responded = True
+
+        # we save the command options so we can re-execute the command correctly
+        if modal.command_options:
+            await bloxlink.redis.set(f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=3600)
 
         return modal.builder
 
