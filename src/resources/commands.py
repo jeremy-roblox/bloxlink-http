@@ -174,7 +174,7 @@ async def handle_interaction(interaction: hikari.Interaction):
 async def handle_command(interaction: hikari.CommandInteraction, response: Response, command_override: Command = None, command_options: dict = None):
     """Handle a command interaction."""
 
-    command = None
+    command = command_override
     command_options: dict = command_options or {}
 
     if not command_override:
@@ -216,9 +216,11 @@ async def handle_command(interaction: hikari.CommandInteraction, response: Respo
         if command.defer:
             yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
-    ctx = build_context(interaction, response=response, command=command_override or command, options=command_options)
+    print("command handler", command)
 
-    async for command_response in (command_override or command).execute(ctx, subcommand_name=subcommand_name):
+    ctx = build_context(interaction, response=response, command=command, options=command_options)
+
+    async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
         if command_response:
             yield command_response
 
@@ -286,13 +288,12 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
                     return
 
-        # find matching custom_id handler
-
             if command.name == parsed_custom_id.command_name:
                 command_options_data = await redis.get(f"modal_command_options:{custom_id}")
                 command_options = json.loads(command_options_data) if command_options_data else {}
 
                 # yield await handle_command(interaction, response, command_override=command, command_options=command_options).__anext__()
+                print("modal handler", command, command.name)
                 generator_or_coroutine = handle_command(interaction, response, command_override=command, command_options=command_options)
 
                 if hasattr(generator_or_coroutine, "__anext__"):
@@ -477,9 +478,11 @@ def build_context(
     Returns:
         CommandContext: The built context.
     """
+
+    print("build_context", command.name)
     return CommandContext(
         command_name=(
-            command.name or interaction.command_name if hasattr(interaction, "command_name") else None
+            command.name or (interaction.command_name if hasattr(interaction, "command_name") else None)
         ),
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
         guild_id=interaction.guild_id,
