@@ -79,6 +79,8 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
         modal_action_row = hikari.impl.ModalActionRowBuilder()
 
         for component in components:
+            modal_action_row = hikari.impl.ModalActionRowBuilder()
+
             modal_action_row.add_text_input(
                 component.custom_id,
                 component.value,
@@ -89,7 +91,7 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
                 style=component.style or hikari.TextInputStyle.SHORT,
             )
 
-        modal_builder.add_component(modal_action_row)
+            modal_builder.add_component(modal_action_row)
 
     return Modal(
         builder=modal_builder,
