@@ -295,6 +295,7 @@ class Prompt(Generic[T]):
         self._custom_id_format: Type[T] = custom_id_format
         self.custom_id: T = None  # this is set in add_custom_id()
         self._pending_embed_changes = {}
+        self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
 
         response.defer_through_rest = True
@@ -548,11 +549,11 @@ class Prompt(Generic[T]):
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",
             json.dumps(data),
-            ex=5 * 60,
+            ex=3600,
         )
 
     async def save_stateful_data(self, **save_data):
-        """Save the data for the current page to Redis."""
+        """Save custom data for this prompt to Redis."""
 
         data = await self.current_data(raise_exception=False) or {}
         data.update(save_data)
@@ -560,7 +561,7 @@ class Prompt(Generic[T]):
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
             json.dumps(data),
-            ex=5 * 60,
+            ex=3600,
         )
 
     async def clear_data(self, *remove_data_keys: list[str]):
