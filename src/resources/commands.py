@@ -140,7 +140,9 @@ async def handle_interaction(interaction: hikari.Interaction):
 
     try:
         async for command_response in correct_handler(interaction, response=response):
-            yield command_response
+            if command_response:
+                print(1, command_response)
+                yield command_response
 
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!")
@@ -169,47 +171,56 @@ async def handle_interaction(interaction: hikari.Interaction):
             "Please try again in a few minutes."
         )
 
-async def handle_command(interaction: hikari.CommandInteraction, response: Response):
+async def handle_command(interaction: hikari.CommandInteraction, response: Response, command_override: Command = None, command_options: dict = None):
     """Handle a command interaction."""
-    command_name = interaction.command_name
-    command_type = interaction.command_type
 
     command = None
-    subcommand_name: str = None
-    command_options: dict = None
+    command_options: dict = command_options or {}
 
-    # find command
-    if command_type == hikari.CommandType.SLASH:
-        command: Command = slash_commands.get(command_name)
+    if not command_override:
+        command_name = interaction.command_name
+        command_type = interaction.command_type
 
-        if not command:
-            return
+        command = None
+        subcommand_name: str = None
 
-        # subcommand checking
-        subcommand_option: list[hikari.CommandInteractionOption] = list(
-            filter(lambda o: o.type == hikari.OptionType.SUB_COMMAND, interaction.options or [])
-        )
-        subcommand_name = subcommand_option[0].name if subcommand_option else None
+        # find command
+        if command_type == hikari.CommandType.SLASH:
+            command: Command = slash_commands.get(command_name)
 
-    else:
-        raise NotImplementedError()
+            if not command:
+                return
 
-    # get options
-    if interaction.options:
-        for option in interaction.options:
-            if option.name == subcommand_name and option.options:
-                command_options = {o.name: o.value for o in option.options}
-                break
+            # subcommand checking
+            subcommand_option: list[hikari.CommandInteractionOption] = list(
+                filter(lambda o: o.type == hikari.OptionType.SUB_COMMAND, interaction.options or [])
+            )
+            subcommand_name = subcommand_option[0].name if subcommand_option else None
+
         else:
-            command_options = {o.name: o.value for o in interaction.options}
+            raise NotImplementedError()
+    else:
+        command_name = command_override.name
+        subcommand_name = None
 
-    if command.defer:
-        yield await response.defer(ephemeral=command.defer_with_ephemeral)
+    if not command_override:
+        # get options
+        if interaction.options:
+            for option in interaction.options:
+                if option.name == subcommand_name and option.options:
+                    command_options = {o.name: o.value for o in option.options}
+                    break
+            else:
+                command_options = {o.name: o.value for o in interaction.options}
 
-    ctx = build_context(interaction, response=response, command=command, options=command_options)
+        if command.defer:
+            yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
-    async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
-        yield command_response
+    ctx = build_context(interaction, response=response, command=command_override or command, options=command_options)
+
+    async for command_response in (command_override or command).execute(ctx, subcommand_name=subcommand_name):
+        if command_response:
+            yield command_response
 
 
 async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
@@ -245,50 +256,72 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 async def handle_modal(interaction: hikari.ModalInteraction, response: Response):
     """Handle a modal interaction."""
 
-    custom_id = interaction.custom_id
-    action_row = interaction.components[0] # modals can only have one action row
-    user_id = interaction.user.id
+    try:
+        custom_id = interaction.custom_id
+        action_row = interaction.components[0] # modals can only have one action row
+        parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
 
-    modal_data = {
-        modal_component.custom_id: modal_component.value
-            for modal_component in action_row.components
-    }
+        modal_data = {
+            modal_component.custom_id: modal_component.value
+                for modal_component in action_row.components
+        }
 
-    # save data from modal to redis
-    await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
+        # save data from modal to redis
+        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
 
 
-    # iterate through commands and find the custom_id mapped function
-    for command in slash_commands.values():
+        # iterate through commands and find the custom_id mapped function
+        for command in slash_commands.values():
+            # find matching prompt handler
+            for command_prompt in command.prompts:
+                if parsed_custom_id.prompt_name == command_prompt.__name__:
+                    new_prompt = command_prompt(command.name, response)
+                    new_prompt._custom_id_format = ModalCustomID
+                    new_prompt.insert_pages(command_prompt)
+
+                    async for generator_response in new_prompt.entry_point(interaction):
+                        if not isinstance(generator_response, PromptPageData):
+                            print(2, generator_response)
+                            yield generator_response
+
+                    return
+
         # find matching custom_id handler
-        # for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
-        #     if custom_id.startswith(accepted_custom_id):
-        #         generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
 
-        #         if hasattr(generator_or_coroutine, "__anext__"):
-        #             async for generator_response in generator_or_coroutine:
-        #                 yield generator_response
+            if command.name == parsed_custom_id.command_name:
+                command_options_data = await redis.get(f"modal_command_options:{custom_id}")
+                command_options = json.loads(command_options_data) if command_options_data else {}
 
-        #         else:
-        #             await generator_or_coroutine
+                # yield await handle_command(interaction, response, command_override=command, command_options=command_options).__anext__()
+                generator_or_coroutine = handle_command(interaction, response, command_override=command, command_options=command_options)
 
-        #         return
-
-        # find matching prompt handler
-        for command_prompt in command.prompts:
-            parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
-
-            if parsed_custom_id.prompt_name == command_prompt.__name__:
-                new_prompt = command_prompt(command.name, response)
-                new_prompt._custom_id_format = ModalCustomID
-                new_prompt.insert_pages(command_prompt)
-
-                async for generator_response in new_prompt.entry_point(interaction):
-                    if not isinstance(generator_response, PromptPageData):
-                        print(2, generator_response)
+                if hasattr(generator_or_coroutine, "__anext__"):
+                    async for generator_response in generator_or_coroutine:
                         yield generator_response
+                else:
+                    await generator_or_coroutine
 
                 return
+
+    finally:
+        # clear data from redis
+        print("deleting")
+        await redis.delete(f"modal_data:{custom_id}")
+
+        # find matching custom_id handler
+
+        # if command.name == parsed_custom_id.command_name:
+        #     yield await handle_command(interaction, response, command_override=command).__anext__()
+        #     generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
+
+        #     if hasattr(generator_or_coroutine, "__anext__"):
+        #         async for generator_response in generator_or_coroutine:
+        #             yield generator_response
+
+        #     else:
+        #         await generator_or_coroutine
+
+        #     return
 
 
 async def handle_component(interaction: hikari.ComponentInteraction, response: Response):
