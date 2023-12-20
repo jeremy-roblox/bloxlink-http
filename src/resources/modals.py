@@ -57,11 +57,6 @@ class Modal:
         await redis.delete(f"modal_data:{self.custom_id}")
         self.data = None
 
-    async def wait(self, timeout: int = 600):
-        """Waits for the modal to be submitted."""
-
-        await asyncio.wait_for(self.submitted(), timeout=timeout)
-
 
 def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction | hikari.CommandInteraction, command_name: str, prompt_data: dict = None, command_data: dict = None) -> Modal:
     """Build a modal response. This needs to be separately returned."""
