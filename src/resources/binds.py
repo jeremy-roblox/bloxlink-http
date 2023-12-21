@@ -815,7 +815,7 @@ async def apply_binds(
         if remove_roles:
             embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
 
-        if not (add_roles and remove_roles):
+        if not add_roles and not remove_roles:
             embed.add_field(
                 name="Roles",
                 value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
@@ -830,7 +830,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return EmbedPrompt(embed, action_rows=[])
+    return EmbedPrompt(embed)
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:
