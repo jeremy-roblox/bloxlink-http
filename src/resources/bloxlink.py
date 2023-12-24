@@ -199,16 +199,26 @@ class Bloxlink(yuyo.AsgiBot):
         # update redis cache
         redis_aspects = dict(aspects)
 
+        unset_aspects = {}
+        set_aspects = {}
+        for key, val in aspects.items():
+            if val is None:
+                unset_aspects[key] = ""
+            else:
+                set_aspects[key] = val
+
         # we don't save lists and dicts to redis
         for aspect_name, aspect_value in dict(aspects).items():
-            if isinstance(aspect_value, (dict, list)):
+            if isinstance(aspect_value, (dict, list)) or aspect_value is None:
                 redis_aspects.pop(aspect_name)
 
         if redis_aspects:
             await self.redis.hmset(f"{domain}:{item_id}", redis_aspects)
 
         # update database
-        await self.mongo.bloxlink[domain].update_one({"_id": item_id}, {"$set": aspects}, upsert=True)
+        await self.mongo.bloxlink[domain].update_one(
+            {"_id": item_id}, {"$set": set_aspects, "$unset": unset_aspects}, upsert=True
+        )
 
     async def fetch_user_data(self, user: hikari.User | hikari.Member | str, *aspects) -> UserData:
         """

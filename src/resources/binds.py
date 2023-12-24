@@ -206,10 +206,7 @@ async def get_binds(
             await bloxlink.update_guild_data(guild_id, binds=guild_data.binds)
 
     if POP_OLD_BINDS and (guild_data.groupIDs or guild_data.roleBinds):
-        # TODO: Update redis cache? Invalidate old guild data entry?
-        await bloxlink.mongo.bloxlink["guilds"].update_one(
-            {"_id": guild_id}, {"$unset": {"groupIDs": "", "roleBinds": ""}}
-        )
+        await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None)
 
     return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
