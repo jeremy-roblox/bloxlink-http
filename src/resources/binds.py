@@ -339,10 +339,6 @@ async def convert_v4_binds_to_v3(items: list) -> dict:
                     "nickname": bind.get("nickname"),
                 }
 
-                if bind.get("removeRoles"):
-                    group_data: dict = role_binds["groups"][bind_id]
-                    group_data["removeRoles"] = bind["removeRoles"]
-
                 continue
 
             roleset = sub_data.get("roleset")
