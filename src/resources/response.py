@@ -6,10 +6,16 @@ import hikari
 from attrs import define, field, fields
 
 import resources.components as Components
-from resources.modals import Modal
 from resources.bloxlink import instance as bloxlink
+from resources.modals import Modal
 
 from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
+
+
+@define()
+class AutocompleteOption:
+    name: str
+    value: str
 
 
 @define(slots=True)
@@ -252,10 +258,17 @@ class Response:
 
         # we save the command options so we can re-execute the command correctly
         if modal.command_options:
-            await bloxlink.redis.set(f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=3600)
+            await bloxlink.redis.set(
+                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=3600
+            )
 
         return modal.builder
 
+    def send_autocomplete(self, items: list[AutocompleteOption]):
+        """Send an autocomplete response to Discord. Limited to 25 items."""
+        return self.interaction.build_response(
+            [hikari.impl.AutocompleteChoiceBuilder(c.name.title(), c.value) for c in items[:25]]
+        )
 
     async def prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
@@ -507,7 +520,10 @@ class Prompt(Generic[T]):
                 return
 
             yield await self.response.send_first(
-                embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
+                embed=built_page.embed,
+                components=built_page.action_rows,
+                edit_original=True,
+                build_components=False,
             )
 
         if not self.current_page.programmatic:
@@ -661,7 +677,10 @@ class Prompt(Generic[T]):
         self.current_page.edited = True
 
         return await self.response.send_first(
-            embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
+            embed=built_page.embed,
+            components=built_page.action_rows,
+            edit_original=True,
+            build_components=False,
         )
 
     async def edit_page(self, components=None, **new_page_data):
@@ -688,5 +707,8 @@ class Prompt(Generic[T]):
         built_page = self.build_page(self.current_page, hash_=hash_)
 
         return await self.response.send_first(
-            embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
+            embed=built_page.embed,
+            components=built_page.action_rows,
+            edit_original=True,
+            build_components=False,
         )
