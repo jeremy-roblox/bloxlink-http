@@ -25,6 +25,9 @@ bracket_search = re.compile(r"\[(.*)\]")
 
 ValidBindType = Literal["group", "asset", "badge", "gamepass"]
 
+# Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
+POP_OLD_BINDS: bool = False
+
 
 @define(slots=True)
 class GuildBind:
@@ -171,9 +174,6 @@ async def get_binds(
 
     guild_id = str(guild_id)
     guild_data: GuildData = await bloxlink.fetch_guild_data(guild_id, "binds", "groupIDs", "roleBinds")
-
-    # Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
-    POP_OLD_BINDS: bool = False
 
     # Convert and save old bindings in the new format (only if no new binds exist already).
     # Should be safe to presume this because the new format should not exist for people yet.
