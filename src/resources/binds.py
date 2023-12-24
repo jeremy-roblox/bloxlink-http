@@ -8,6 +8,7 @@ import hikari
 from attrs import asdict, define
 
 import resources.restriction as restriction
+import resources.roblox.roblox_entity as roblox_entity
 import resources.roblox.users as users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
@@ -281,7 +282,7 @@ def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
     return output
 
 
-def convert_v4_binds_to_v3(items: list) -> dict:
+async def convert_v4_binds_to_v3(items: list) -> dict:
     """Convert binds of the new format to the old bind format.
 
     This does not include the names of groups/other bind types.
@@ -310,6 +311,12 @@ def convert_v4_binds_to_v3(items: list) -> dict:
         bind_type = sub_data["type"]
         bind_id = str(sub_data["id"])
 
+        bind_entity = roblox_entity.create_entity(bind_type, bind_id)
+        try:
+            await bind_entity.sync()
+        except RobloxNotFound:
+            pass
+
         if bind_type in ("asset", "badge", "gamepass"):
             if bind_type == "gamepass":
                 bind_type = "gamePasses"
@@ -317,7 +324,7 @@ def convert_v4_binds_to_v3(items: list) -> dict:
                 bind_type += "s"
 
             role_binds[bind_type][bind_id] = {
-                # Display name is/was not converted, so it is lost.
+                "displayName": bind_entity.name,
                 "roles": bind.get("roles", []),
                 "removeRoles": bind.get("removeRoles", []),
                 "nickname": bind.get("nickname"),
@@ -327,12 +334,11 @@ def convert_v4_binds_to_v3(items: list) -> dict:
             # No specific roles to give = entire group bind
             if not bind["roles"]:
                 entire_groups[bind_id] = {
-                    # Group name is/was not converted, so it is lost.
+                    "groupName": bind_entity.name,
                     "removeRoles": bind.get("removeRoles"),
                     "nickname": bind.get("nickname"),
                 }
 
-                # Add removeRoles to role_binds entry because (for what I see) it shows up there too?
                 if bind.get("removeRoles"):
                     group_data: dict = role_binds["groups"][bind_id]
                     group_data["removeRoles"] = bind["removeRoles"]
@@ -345,6 +351,9 @@ def convert_v4_binds_to_v3(items: list) -> dict:
             everyone = sub_data.get("everyone")
 
             group_data: dict = role_binds["groups"][bind_id]
+            if not group_data.get("groupName"):
+                group_data["groupName"] = bind_entity.name
+
             rank_bindings: dict = group_data.get("binds", {})
             range_bindings: list = group_data.get("ranges", [])
 
