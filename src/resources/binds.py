@@ -181,24 +181,24 @@ async def get_binds(
         old_binds = []
 
         if guild_data.groupIDs:
-            old_binds.extend(convert_old_binds(guild_data.groupIDs, "group"))
+            old_binds.extend(convert_v3_binds_to_v4(guild_data.groupIDs, "group"))
 
         if guild_data.roleBinds:
             gamepasses = guild_data.roleBinds.get("gamePasses")
             if gamepasses:
-                old_binds.extend(convert_old_binds(gamepasses, "gamepass"))
+                old_binds.extend(convert_v3_binds_to_v4(gamepasses, "gamepass"))
 
             assets = guild_data.roleBinds.get("assets")
             if assets:
-                old_binds.extend(convert_old_binds(assets, "asset"))
+                old_binds.extend(convert_v3_binds_to_v4(assets, "asset"))
 
             badges = guild_data.roleBinds.get("badges")
             if badges:
-                old_binds.extend(convert_old_binds(badges, "badge"))
+                old_binds.extend(convert_v3_binds_to_v4(badges, "badge"))
 
             group_ranks = guild_data.roleBinds.get("groups")
             if group_ranks:
-                old_binds.extend(convert_old_binds(group_ranks, "group"))
+                old_binds.extend(convert_v3_binds_to_v4(group_ranks, "group"))
 
         # Save old bindings in the new format if any.
         if old_binds:
@@ -211,7 +211,7 @@ async def get_binds(
     return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
 
-def convert_old_binds(items: dict, bind_type: ValidBindType) -> list:
+def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
     """Convert old bindings to the new bind format.
 
     Args:
@@ -281,7 +281,7 @@ def convert_old_binds(items: dict, bind_type: ValidBindType) -> list:
     return output
 
 
-def convert_new_binds(items: list) -> dict:
+def convert_v4_binds_to_v3(items: list) -> dict:
     """Convert binds of the new format to the old bind format.
 
     This does not include the names of groups/other bind types.
