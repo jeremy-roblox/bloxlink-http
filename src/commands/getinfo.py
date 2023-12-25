@@ -35,4 +35,4 @@ class GetInfoCommand:
 
         info_embed = await users.format_embed(roblox_account, target_user)
 
-        await ctx.response.send(embed=info_embed)
+        return await ctx.response.send_first(embed=info_embed)
