@@ -552,7 +552,7 @@ class Prompt(Generic[T]):
             ex=3600,
         )
 
-    async def save_stateful_data(self, **save_data):
+    async def save_stateful_data(self, ex: int = 3600, **save_data):
         """Save custom data for this prompt to Redis."""
 
         data = await self.current_data(raise_exception=False) or {}
@@ -561,7 +561,7 @@ class Prompt(Generic[T]):
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
             json.dumps(data),
-            ex=3600,
+            ex=ex,
         )
 
     async def clear_data(self, *remove_data_keys: list[str]):
