@@ -6,9 +6,6 @@ from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
 
 
-
-
-
 class SetupPrompt(Prompt):
     def __init__(self, interaction: hikari.CommandInteraction, response: Response):
         super().__init__(
@@ -105,13 +102,17 @@ class SetupPrompt(Prompt):
         )
     )
     async def nickname_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
-        existing_nickname_template = (await bloxlink.fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
+        guild_nickname = (await bloxlink.fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
+
+        setup_nickname = await self.current_data(key_name="nicknameTemplate", raise_exception=False) or guild_nickname
+        setup_nickname_prefix = await self.current_data(key_name="nicknameTemplate_prefix", raise_exception=False) or ""
+        setup_nickname_suffix = await self.current_data(key_name="nicknameTemplate_suffix", raise_exception=False) or ""
 
         match fired_component_id:
             case "preset_nickname_select":
-                nickname = (await self.current_data(key_name="preset_nickname_select")).get("values")[0]
+                select_nickname = (await self.current_data(key_name="preset_nickname_select")).get("values")[0]
 
-                if nickname == "custom":
+                if select_nickname == "custom":
                     modal = build_modal(
                         title="Add a Custom Nickname",
                         command_name=self.command_name,
@@ -137,21 +138,26 @@ class SetupPrompt(Prompt):
                     if not await modal.submitted():
                         return
 
-                    yield await self.response.send_first(await modal.get_data())
+                    setup_nickname = await modal.get_data("nickname_prefix_input")
+                    print(select_nickname)
+                else:
+                    setup_nickname = select_nickname
 
-                yield await self.response.send_first(
-                    f"Updated the nickname template to {nickname}!\n"
-                    "You may also add a nickname prefix and/or suffix.\n"
-                    "After, press the **Submit** button to continue to the next page.",
-                    ephemeral=True
-                )
+                await self.save_stateful_data(nicknameTemplate=setup_nickname)
 
-                await self.edit_page(
+                yield await self.edit_page(
                     components={
                         "submit": {
                             "is_disabled": False,
                         },
                     }
+                )
+
+                yield await self.response.send(
+                    f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
+                    "You may also add a nickname prefix and/or suffix.\n"
+                    "After, press the **Submit** button to continue to the next page.",
+                    ephemeral=True
                 )
 
             case "nickname_prefix_suffix":
@@ -188,14 +194,16 @@ class SetupPrompt(Prompt):
                     return
 
                 modal_data = await modal.get_data()
-                nickname_prefix = modal_data.get("nickname_prefix_input") or ""
-                nickname_suffix = modal_data.get("nickname_suffix_input") or ""
-                new_nickname_template = f"{nickname_prefix}{existing_nickname_template}{nickname_suffix}"
+                print(modal_data)
+                setup_nickname_prefix = modal_data.get("nickname_prefix_input") or ""
+                setup_nickname_suffix = modal_data.get("nickname_suffix_input") or ""
+                new_nickname_template = f"{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}"
+                await self.save_stateful_data(nicknameTemplate_prefix=setup_nickname_prefix, nicknameTemplate_suffix=setup_nickname_suffix)
 
                 yield await self.response.send_first(
                     "Added the nickname prefix and/or suffix!\n\n"
-                    f"Prefix: {nickname_prefix}\n"
-                    f"Suffix: {nickname_suffix}\n"
+                    f"Prefix: {setup_nickname_prefix}\n"
+                    f"Suffix: {setup_nickname_suffix}\n"
                     f"New template: {new_nickname_template}",
                     ephemeral=True
                 )
