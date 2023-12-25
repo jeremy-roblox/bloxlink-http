@@ -329,7 +329,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                         yield generator_response
 
                 else:
-                    await generator_or_coroutine
+                    yield await generator_or_coroutine
 
                 return
 
@@ -469,7 +469,7 @@ def build_context(
 
     return CommandContext(
         command_name=(
-            command.name or (interaction.command_name if hasattr(interaction, "command_name") else None)
+            (command and command.name) or (interaction.command_name if hasattr(interaction, "command_name") else None)
         ),
         subcommand_name=subcommand_name,
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,

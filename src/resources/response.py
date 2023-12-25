@@ -273,7 +273,7 @@ class Response:
 
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
-        return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True).__anext__()
+        return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
 
 
 class Prompt(Generic[T]):
@@ -448,7 +448,7 @@ class Prompt(Generic[T]):
             print(hash_, "generator_response entry_point()", generator_response)
             yield generator_response
 
-    async def run_page(self, custom_id_data: dict = None, hash_=None, changing_page=False):
+    async def run_page(self, custom_id_data: dict = None, hash_=None, changing_page=False, initial_prompt=False):
         """Run the current page."""
 
         hash_ = hash_ or uuid.uuid4().hex
@@ -483,10 +483,11 @@ class Prompt(Generic[T]):
                 return
 
             # prompt() requires below send_first, but entry_point() doesn't since it calls other functions
-            yield await self.response.send_first(
-                embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
-            )
-            return
+            if initial_prompt:
+                yield await self.response.send_first(
+                    embed=built_page.embed, components=built_page.action_rows, edit_original=True, build_components=False
+                )
+                return
 
         print(
             hash_,
