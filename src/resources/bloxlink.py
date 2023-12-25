@@ -58,6 +58,8 @@ class GuildData:
     disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
     groupLock: dict = None
 
+    nicknameTemplate: str = "{smart-name}"
+
     premium: dict = None
 
 

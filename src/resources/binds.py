@@ -577,7 +577,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return EmbedPrompt(embed, components=[])
+    return EmbedPrompt(embed, action_rows=[])
 
 
 def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None) -> list:

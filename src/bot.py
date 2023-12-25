@@ -6,7 +6,7 @@ import hikari
 import uvicorn
 
 from resources.bloxlink import Bloxlink
-from resources.secrets import (  # pylint: disable=no-name-in-module
+from resources.secrets import ( # pylint: disable=no-name-in-module
     DISCORD_PUBLIC_KEY,
     DISCORD_TOKEN,
     SERVER_HOST,
@@ -52,7 +52,7 @@ webserver.mount("/bot", bot)
 async def handle_start(_):
     await bot.start()
 
-    # only sync commands once every hour unless the --commands flag is passed
+    # only sync commands once every hour unless the --sync-commands flag is passed
     if args.sync_commands or not await redis.get("synced_commands"):
         await redis.set("synced_commands", "true", ex=3600)
         await sync_commands(bot)
@@ -66,7 +66,6 @@ async def handle_stop(_):
 
 
 if __name__ == "__main__":
-
     # Register the interaction handler for all interaction types.
     for interaction_type in (hikari.CommandInteraction, hikari.ComponentInteraction, hikari.AutocompleteInteraction, hikari.ModalInteraction):
         bot.interaction_server.set_listener(interaction_type, handle_interaction)

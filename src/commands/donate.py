@@ -31,4 +31,4 @@ class DonateCommand:
             )
         ]
 
-        yield await ctx.response.send_first(embed=embed, components=button_menu)
+        return await ctx.response.send_first(embed=embed, components=button_menu)

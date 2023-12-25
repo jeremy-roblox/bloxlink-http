@@ -38,16 +38,28 @@ class Modal:
 
         return self.data is not None
 
-    async def get_data(self):
+    async def get_data(self, *keys: tuple[str]):
         """Returns the data from the modal."""
 
+        modal_data = {}
+
         if self.data is not None:
-            return self.data
+            modal_data = self.data
+        else:
+            modal_data = await redis.get(f"modal_data:{self.custom_id}")
 
-        print(self.custom_id)
+            if modal_data is None:
+                return None
 
-        modal_data = await redis.get(f"modal_data:{self.custom_id}")
-        self.data = json.loads(modal_data) if modal_data else None
+            modal_data = json.loads(modal_data) if modal_data else {}
+
+        self.data = modal_data
+
+        if keys:
+            if len(keys) == 1:
+                return modal_data.get(keys[0])
+
+            return {key: modal_data.get(key) for key in keys}
 
         return self.data
 
@@ -56,11 +68,6 @@ class Modal:
 
         await redis.delete(f"modal_data:{self.custom_id}")
         self.data = None
-
-    async def wait(self, timeout: int = 600):
-        """Waits for the modal to be submitted."""
-
-        await asyncio.wait_for(self.submitted(), timeout=timeout)
 
 
 def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction | hikari.CommandInteraction, command_name: str, prompt_data: dict = None, command_data: dict = None) -> Modal:
@@ -86,6 +93,8 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
         modal_action_row = hikari.impl.ModalActionRowBuilder()
 
         for component in components:
+            modal_action_row = hikari.impl.ModalActionRowBuilder()
+
             modal_action_row.add_text_input(
                 component.custom_id,
                 component.value,
@@ -96,7 +105,7 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
                 style=component.style or hikari.TextInputStyle.SHORT,
             )
 
-        modal_builder.add_component(modal_action_row)
+            modal_builder.add_component(modal_action_row)
 
     return Modal(
         builder=modal_builder,

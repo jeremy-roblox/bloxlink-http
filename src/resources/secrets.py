@@ -24,5 +24,7 @@ VALID_SECRETS = (
     "ROBLOX_INFO_SERVER"
 )
 
+__all__ = VALID_SECRETS
+
 for secret in VALID_SECRETS:
     globals()[secret] = env.get(secret) or getattr(config, secret, "")

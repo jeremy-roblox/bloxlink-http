@@ -71,7 +71,7 @@ class Command:
                 yield generator_response
 
         else:
-            await generator_or_coroutine
+            yield await generator_or_coroutine
 
 
 @define(slots=True, kw_only=True)
@@ -140,10 +140,17 @@ async def handle_interaction(interaction: hikari.Interaction):
             correct_handler = handle_modal
 
     try:
+        returned_already = False # we allow the command to keep executing but we will only return one response to Hikari
+
         async for command_response in correct_handler(interaction, response=response):
             if command_response:
-                print(1, command_response)
-                yield command_response
+                if not returned_already:
+                    returned_already = True
+                    yield command_response
+                else:
+                    logging.error(f"Interaction {interaction.type} attempted to send multiple responses! This is probably a bug.",
+                                  exc_info=True,
+                                  stack_info=True)
 
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!")
@@ -322,7 +329,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                         yield generator_response
 
                 else:
-                    await generator_or_coroutine
+                    yield await generator_or_coroutine
 
                 return
 
@@ -462,7 +469,7 @@ def build_context(
 
     return CommandContext(
         command_name=(
-            command.name or (interaction.command_name if hasattr(interaction, "command_name") else None)
+            (command and command.name) or (interaction.command_name if hasattr(interaction, "command_name") else None)
         ),
         subcommand_name=subcommand_name,
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,

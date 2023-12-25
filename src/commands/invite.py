@@ -19,4 +19,4 @@ class InviteCommand:
         button_row.add_link_button("https://blox.link/invite", label="Invite Bloxlink")
         button_row.add_link_button("https://blox.link/support", label="Need help?", emoji="❔")
 
-        yield await ctx.response.send_first(embed=embed, components=[button_row])
+        return await ctx.response.send_first(embed=embed, components=[button_row])

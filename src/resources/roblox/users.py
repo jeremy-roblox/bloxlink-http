@@ -223,7 +223,7 @@ async def get_user_account(
     """
 
     user_id = str(user.id) if isinstance(user, hikari.User) else str(user)
-    bloxlink_user: UserData = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
+    bloxlink_user = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
 
     if guild_id:
         guild_account = (bloxlink_user.robloxAccounts or {}).get(str(guild_id))
