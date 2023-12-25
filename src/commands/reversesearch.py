@@ -59,4 +59,4 @@ class ReverseSearchCommand:
         )
         embed.set_thumbnail(account.avatar)
 
-        await ctx.response.send(embed=embed)
+        return await ctx.response.send_first(embed=embed)

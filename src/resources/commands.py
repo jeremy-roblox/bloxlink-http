@@ -71,7 +71,7 @@ class Command:
                 yield generator_response
 
         else:
-            await generator_or_coroutine
+            yield await generator_or_coroutine
 
 
 @define(slots=True, kw_only=True)
