@@ -140,10 +140,17 @@ async def handle_interaction(interaction: hikari.Interaction):
             correct_handler = handle_modal
 
     try:
+        returned_already = False # we allow the command to keep executing but we will only return one response to Hikari
+
         async for command_response in correct_handler(interaction, response=response):
             if command_response:
-                print(1, command_response)
-                yield command_response
+                if not returned_already:
+                    returned_already = True
+                    yield command_response
+                else:
+                    logging.error(f"Interaction {interaction.type} attempted to send multiple responses! This is probably a bug.",
+                                  exc_info=True,
+                                  stack_info=True)
 
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!")
