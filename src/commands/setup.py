@@ -139,7 +139,6 @@ class SetupPrompt(Prompt):
                         return
 
                     setup_nickname = await modal.get_data("nickname_prefix_input")
-                    print(select_nickname)
                 else:
                     setup_nickname = select_nickname
 
@@ -194,10 +193,11 @@ class SetupPrompt(Prompt):
                     return
 
                 modal_data = await modal.get_data()
-                print(modal_data)
+
                 setup_nickname_prefix = modal_data.get("nickname_prefix_input") or ""
                 setup_nickname_suffix = modal_data.get("nickname_suffix_input") or ""
                 new_nickname_template = f"{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}"
+
                 await self.save_stateful_data(nicknameTemplate_prefix=setup_nickname_prefix, nicknameTemplate_suffix=setup_nickname_suffix)
 
                 yield await self.response.send_first(
@@ -219,11 +219,17 @@ class SetupPrompt(Prompt):
             description=(
                 "Do you want to change the name of your **Verified role**? "
                 "This is the role that Bloxlink will give to users when they verify.\n\n"
+                # TODO: SHOW THE CURRENT NAME OF THE VERIFIED ROLE
             ),
             components=[
                 Button(
+                    label="Change the name",
+                    component_id="verified_role_change_name",
+                    is_disabled=False,
+                ),
+                Button(
                     label="Leave as default",
-                    component_id="nickname_prefix_suffix",
+                    component_id="verified_role_default",
                     is_disabled=False,
                 ),
                 Button(
