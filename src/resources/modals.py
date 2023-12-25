@@ -38,14 +38,28 @@ class Modal:
 
         return self.data is not None
 
-    async def get_data(self):
+    async def get_data(self, *keys: tuple[str]):
         """Returns the data from the modal."""
 
-        if self.data is not None:
-            return self.data
+        modal_data = {}
 
-        modal_data = await redis.get(f"modal_data:{self.custom_id}")
-        self.data = json.loads(modal_data) if modal_data else None
+        if self.data is not None:
+            modal_data = self.data
+        else:
+            modal_data = await redis.get(f"modal_data:{self.custom_id}")
+
+            if modal_data is None:
+                return None
+
+            modal_data = json.loads(modal_data) if modal_data else {}
+
+        self.data = modal_data
+
+        if keys:
+            if len(keys) == 1:
+                return modal_data.get(keys[0])
+
+            return {key: modal_data.get(key) for key in keys}
 
         return self.data
 
