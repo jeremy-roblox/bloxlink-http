@@ -258,12 +258,12 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
     try:
         custom_id = interaction.custom_id
-        action_row = interaction.components[0] # modals can only have one action row
+        components = [c for a in interaction.components for c in a.components]
         parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
 
         modal_data = {
             modal_component.custom_id: modal_component.value
-                for modal_component in action_row.components
+                for modal_component in components
         }
 
         # save data from modal to redis
