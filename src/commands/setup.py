@@ -326,7 +326,6 @@ class SetupPrompt(Prompt):
 
 @bloxlink.command(
     category="Administration",
-    defer=True,
     defer_with_ephemeral=False,
     permissions=hikari.Permissions.MANAGE_GUILD,
     dm_enabled=False,
