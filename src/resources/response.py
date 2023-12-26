@@ -156,13 +156,15 @@ class Response:
             case hikari.CommandInteraction() | hikari.ModalInteraction():
                 response_builder = self.interaction.build_response().set_flags(
                     hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
-                )
+                ).set_mentions_everyone(False).set_role_mentions(False)
             case hikari.ComponentInteraction():
                 response_builder = self.interaction.build_response(
                     hikari.ResponseType.MESSAGE_CREATE
                     if not edit_original
                     else hikari.ResponseType.MESSAGE_UPDATE
-                ).set_flags(hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None)
+                ).set_flags(
+                    hikari.messages.MessageFlag.EPHEMERAL if ephemeral else None
+                ).set_mentions_everyone(False).set_role_mentions(False)
 
             case _:
                 raise NotImplementedError()
@@ -218,11 +220,21 @@ class Response:
             components = Components.build_action_rows(components)
 
         if channel:
-            return await channel.send(content, embed=embed, components=components, **kwargs)
+            return await channel.send(content,
+                                      embed=embed,
+                                      components=components,
+                                      mentions_everyone=False,
+                                      role_mentions=False,
+                                      **kwargs)
 
         if channel_id:
             return await (await bloxlink.rest.fetch_channel(channel_id)).send(
-                content, embed=embed, components=components, **kwargs
+                content,
+                embed=embed,
+                components=components,
+                mentions_everyone=False,
+                role_mentions=False,
+                **kwargs
             )
 
         if ephemeral:
@@ -239,12 +251,23 @@ class Response:
             )
 
         if self.responded:
-            return await self.interaction.execute(content, embed=embed, components=components, **kwargs)
+            return await self.interaction.execute(content,
+                                                  embed=embed,
+                                                  components=components,
+                                                  mentions_everyone=False,
+                                                  role_mentions=False,
+                                                  **kwargs)
 
         self.responded = True
 
         return await self.interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_CREATE, content, embed=embed, components=components, **kwargs
+            hikari.ResponseType.MESSAGE_CREATE,
+            content,
+            embed=embed,
+            components=components,
+            mentions_everyone=False,
+            role_mentions=False,
+            **kwargs
         )
 
     async def send_modal(self, modal: Modal):
