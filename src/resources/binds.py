@@ -159,7 +159,7 @@ async def get_binds(
     """Get the current guild binds.
 
     Old binds will be included by default, but will not be saved in the database in the
-    new format unless the OVERRIDE flag is set to True. While it is False, old formatted binds will
+    new format unless the POP_OLD_BINDS flag is set to True. While it is False, old formatted binds will
     be left as is.
 
     Args:
