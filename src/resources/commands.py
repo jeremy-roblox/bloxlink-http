@@ -498,9 +498,7 @@ def build_context(
     """
 
     return CommandContext(
-        command_name=(
-            (command and command.name) or (interaction.command_name if hasattr(interaction, "command_name") else None)
-        ),
+        command_name=(command and command.name) or getattr(interaction, "command_name", None),
         subcommand_name=subcommand_name,
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
         guild_id=interaction.guild_id,
