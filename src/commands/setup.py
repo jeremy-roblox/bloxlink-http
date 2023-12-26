@@ -23,12 +23,12 @@ class SetupPrompt(Prompt):
             components=[
                 Button(
                     label="Next",
-                    component_id="next",
+                    component_id="intro_next",
                     is_disabled=False,
                 ),
                 Button(
                     label="Cancel",
-                    component_id="cancel",
+                    component_id="intro_cancel",
                     is_disabled=False,
                     style=Button.ButtonStyle.SECONDARY
                 ),
@@ -37,9 +37,9 @@ class SetupPrompt(Prompt):
     )
     async def intro_page(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
         match fired_component_id:
-            case "next":
+            case "intro_next":
                 return await self.next()
-            case "cancel":
+            case "intro_cancel":
                 return await self.finish()
 
     @Prompt.page(
@@ -88,13 +88,13 @@ class SetupPrompt(Prompt):
                 ),
                 Button(
                     label="Skip, leave unchanged",
-                    component_id="skip",
+                    component_id="nickname_skip",
                     is_disabled=False,
                     style=Button.ButtonStyle.SECONDARY
                 ),
                 Button(
                     label="Submit",
-                    component_id="submit",
+                    component_id="nickname_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
                 )
@@ -146,13 +146,13 @@ class SetupPrompt(Prompt):
 
                 yield await self.edit_page(
                     components={
-                        "submit": {
+                        "nickname_submit": {
                             "is_disabled": False,
                         },
                     }
                 )
 
-                yield await self.response.send(
+                await self.response.send(
                     f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
                     "You may also add a nickname prefix and/or suffix.\n"
                     "After, press the **Submit** button to continue to the next page.",
@@ -208,11 +208,13 @@ class SetupPrompt(Prompt):
                     ephemeral=True
                 )
 
-            case "skip" | "submit":
+            case "nickname_skip" | "nickname_submit":
                 yield await self.next()
 
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+
+        print(fired_component_id)
 
         yield PromptPageData(
             title="Setup Bloxlink",
@@ -234,7 +236,7 @@ class SetupPrompt(Prompt):
                 ),
                 Button(
                     label="Submit",
-                    component_id="submit",
+                    component_id="verified_role_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
                 )
@@ -274,16 +276,16 @@ class SetupPrompt(Prompt):
 
                 yield await self.edit_page(
                     components={
-                        "submit": {
+                        "verified_role_submit": {
                             "is_disabled": False,
                         },
                     }
                 )
 
-                yield await self.response.send_first(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
+                await self.response.send(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
 
-            case "verified_role_default" | "submit":
-                yield await self.next()
+            case "verified_role_default" | "verified_role_submit":
+                pass
 
 
 
