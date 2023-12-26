@@ -1,16 +1,17 @@
 import logging
-from attrs import define
 from typing import Literal
 
 import hikari
+from attrs import define
 
 import resources.roblox.users as users
-from resources.bloxlink import instance as bloxlink, UserData
+from resources.bloxlink import UserData
+from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR
 from resources.exceptions import UserNotVerified
-from resources.utils import default_field
 from resources.response import EmbedPrompt
 from resources.roblox.groups import RobloxGroup
+from resources.utils import default_field
 
 
 @define
@@ -93,7 +94,7 @@ class Restriction:
         embed.color = RED_COLOR
         embed.description = description
 
-        return EmbedPrompt(embed=embed, components=[])
+        return EmbedPrompt(embed=embed)
 
     async def moderate(self, user_id: int, guild: hikari.Guild):
         """DM, Kick, or Ban a user based on the determined restriction.
