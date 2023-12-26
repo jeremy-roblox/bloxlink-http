@@ -55,7 +55,7 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
 
     user_input = str(option.value)
     if not user_input:
-        yield interaction.build_response([])
+        yield ctx.response.send_autocomplete([])
         return
 
     user = None
