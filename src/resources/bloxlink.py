@@ -65,6 +65,7 @@ class GuildData:
     # Old bind fields.
     roleBinds: dict = None
     groupIDs: dict = None
+    converted_binds: bool = False
 
 
 class Bloxlink(yuyo.AsgiBot):
