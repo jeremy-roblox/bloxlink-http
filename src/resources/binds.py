@@ -577,6 +577,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
+    mention_roles=True,
 ) -> EmbedPrompt:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
@@ -589,6 +590,7 @@ async def apply_binds(
             or may not be their primary account, could be a guild-specific link. Defaults to None.
         moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
             ban evasion, alt detection) apply to this user. Defaults to False.
+        mention_roles (bool, optional): Should roles be mentioned in the reply embed. Defaults to True.
 
     Raises:
         Message: Raised if there was an issue getting a server's bindings.
@@ -819,10 +821,16 @@ async def apply_binds(
         )
 
         if add_roles:
-            embed.add_field(name="Added Roles", value=",".join([r.mention for r in add_roles]))
+            embed.add_field(
+                name="Added Roles",
+                value=", ".join([r.mention if mention_roles else r.name for r in add_roles]),
+            )
 
         if remove_roles:
-            embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
+            embed.add_field(
+                name="Removed Roles",
+                value=",".join([r.mention if mention_roles else r.name for r in remove_roles]),
+            )
 
         if not add_roles and not remove_roles:
             embed.add_field(
