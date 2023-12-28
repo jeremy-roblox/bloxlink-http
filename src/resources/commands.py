@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Callable
-from attrs import define
-import json
 
 import hikari
+from attrs import define
 
-from resources.exceptions import *
-from resources.response import Response, PromptCustomID, PromptPageData
-from resources.modals import ModalCustomID
-from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.components import parse_custom_id
+from resources.exceptions import *
+from resources.modals import ModalCustomID
 from resources.redis import redis
+from resources.response import PromptCustomID, PromptPageData, Response
+from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -179,7 +179,15 @@ async def handle_interaction(interaction: hikari.Interaction):
             "Please try again in a few minutes."
         )
 
-async def handle_command(interaction: hikari.CommandInteraction, response: Response, *, command_override: Command = None, command_options: dict = None, subcommand_name: str = None):
+
+async def handle_command(
+    interaction: hikari.CommandInteraction,
+    response: Response,
+    *,
+    command_override: Command = None,
+    command_options: dict = None,
+    subcommand_name: str = None,
+):
     """Handle a command interaction."""
 
     command = command_override
@@ -223,14 +231,20 @@ async def handle_command(interaction: hikari.CommandInteraction, response: Respo
         if command.defer:
             yield await response.defer(ephemeral=command.defer_with_ephemeral)
 
-    ctx = build_context(interaction, response=response, command=command, options=command_options, subcommand_name=subcommand_name)
+    ctx = build_context(
+        interaction,
+        response=response,
+        command=command,
+        options=command_options,
+        subcommand_name=subcommand_name,
+    )
 
     async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
         if command_response:
             yield command_response
 
 
-async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
+async def handle_autocomplete(interaction: hikari.AutocompleteInteraction, response: Response):
     """Handle an autocomplete interaction."""
     # Iterate through commands and find the autocomplete function that corresponds to the slash cmd option name.
     for command in slash_commands.values():
@@ -250,7 +264,6 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
                 logging.error(f'Command {command.name} has no auto-complete handler "{command_option.name}"!')
                 return
 
-            response = Response(interaction)
             generator_or_coroutine = autocomplete_fn(build_context(interaction, response=response))
 
             if hasattr(generator_or_coroutine, "__anext__"):
@@ -259,6 +272,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction):
 
             else:
                 await generator_or_coroutine
+
 
 async def handle_modal(interaction: hikari.ModalInteraction, response: Response):
     """Handle a modal interaction."""
@@ -293,11 +307,21 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
                     return
 
-            if command.name == parsed_custom_id.command_name and (parsed_custom_id.subcommand_name and parsed_custom_id.subcommand_name in command.subcommands or not parsed_custom_id.subcommand_name):
+            if command.name == parsed_custom_id.command_name and (
+                parsed_custom_id.subcommand_name
+                and parsed_custom_id.subcommand_name in command.subcommands
+                or not parsed_custom_id.subcommand_name
+            ):
                 command_options_data = await redis.get(f"modal_command_options:{custom_id}")
                 command_options = json.loads(command_options_data) if command_options_data else {}
 
-                generator_or_coroutine = handle_command(interaction, response, command_override=command, command_options=command_options, subcommand_name=parsed_custom_id.subcommand_name)
+                generator_or_coroutine = handle_command(
+                    interaction,
+                    response,
+                    command_override=command,
+                    command_options=command_options,
+                    subcommand_name=parsed_custom_id.subcommand_name,
+                )
 
                 if hasattr(generator_or_coroutine, "__anext__"):
                     async for generator_response in generator_or_coroutine:
@@ -335,9 +359,15 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
         # find matching prompt handler
         for command_prompt in command.prompts:
-            parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+            try:
+                parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+            except ValueError:
+                continue
 
-            if parsed_custom_id.command_name == command.name and parsed_custom_id.prompt_name == command_prompt.__name__:
+            if (
+                parsed_custom_id.command_name == command.name
+                and parsed_custom_id.prompt_name == command_prompt.__name__
+            ):
                 new_prompt = command_prompt(command.name, response)
                 new_prompt.insert_pages(command_prompt)
 
@@ -468,9 +498,7 @@ def build_context(
     """
 
     return CommandContext(
-        command_name=(
-            (command and command.name) or (interaction.command_name if hasattr(interaction, "command_name") else None)
-        ),
+        command_name=(command and command.name) or getattr(interaction, "command_name", None),
         subcommand_name=subcommand_name,
         command_id=interaction.command_id if hasattr(interaction, "command_id") else None,
         guild_id=interaction.guild_id,

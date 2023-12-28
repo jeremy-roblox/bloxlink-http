@@ -1,24 +1,17 @@
-import hikari
-
+import resources.binds as binds
 import resources.roblox.users as users
-from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.binds import GuildBind
 from resources.commands import CommandContext
+from resources.exceptions import RobloxAPIError, RobloxNotFound
+from resources.response import AutocompleteOption
 
 
 async def bind_category_autocomplete(ctx: CommandContext):
     """Autocomplete for a bind category input based upon the binds the user has."""
 
-    interaction = ctx.interaction
+    guild_data = await binds.get_binds(ctx.guild_id)
+    bind_types = set(bind.type for bind in guild_data)
 
-    guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
-
-    bind_types = set(bind["bind"]["type"] for bind in guild_data.binds)
-
-    return interaction.build_response(
-        [hikari.impl.AutocompleteChoiceBuilder(c.title(), c) for c in bind_types]
-    )
+    yield ctx.response.send_autocomplete([AutocompleteOption(x, x) for x in bind_types])
 
 
 async def bind_id_autocomplete(ctx: CommandContext):
@@ -29,7 +22,7 @@ async def bind_id_autocomplete(ctx: CommandContext):
 
     choices = [
         # base option
-        hikari.impl.AutocompleteChoiceBuilder("View all your bindings", "View binds")
+        AutocompleteOption("View all your bindings", "View binds")
     ]
 
     options = {o.name.lower(): o for o in interaction.options}
@@ -39,27 +32,17 @@ async def bind_id_autocomplete(ctx: CommandContext):
 
     # Only show more options if the category option has been set by the user.
     if category_option:
-        guild_data = await bloxlink.fetch_guild_data(interaction.guild_id, "binds")
+        guild_data = await binds.get_binds(interaction.guild_id, category=category_option.value)
 
-        # Conversion to GuildBind is because it's easier to get the typing for filtering.
         if id_option:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if str(x.id).startswith(id_option) and x.type == category_option.value
-            )
+            filtered_binds = set(bind.id for bind in guild_data if str(bind.id).startswith(id_option))
         else:
-            filtered_binds = set(
-                x.id
-                for x in [GuildBind(**bind) for bind in guild_data.binds]
-                if x.type == category_option.value
-            )
+            filtered_binds = set(bind.id for bind in guild_data)
 
         for bind in filtered_binds:
-            choices.append(hikari.impl.AutocompleteChoiceBuilder(str(bind), str(bind)))
+            choices.append(AutocompleteOption(str(bind), str(bind)))
 
-    # Due to discord limitations, only return the first 25 choices.
-    return interaction.build_response(choices[:25])
+    yield ctx.response.send_autocomplete(choices)
 
 
 async def roblox_lookup_autocomplete(ctx: CommandContext):
@@ -72,7 +55,8 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
 
     user_input = str(option.value)
     if not user_input:
-        return interaction.build_response([])
+        yield ctx.response.send_autocomplete([])
+        return
 
     user = None
     try:
@@ -82,8 +66,6 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
 
     result_list = []
     if user is not None:
-        result_list.append(
-            hikari.impl.AutocompleteChoiceBuilder(f"{user.username} ({user.id})", str(user.id))
-        )
+        result_list.append(AutocompleteOption(f"{user.username} ({user.id})", str(user.id)))
 
-    return interaction.build_response(result_list)
+    yield ctx.response.send_autocomplete(result_list)

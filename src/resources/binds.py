@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from typing import Literal
 
 import hikari
-from attrs import define
+from attrs import asdict, define
 
 import resources.restriction as restriction
+import resources.roblox.roblox_entity as roblox_entity
 import resources.roblox.users as users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
@@ -22,6 +24,12 @@ any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
 
 
+ValidBindType = Literal["group", "asset", "badge", "gamepass"]
+
+# Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
+POP_OLD_BINDS: bool = False
+
+
 @define(slots=True)
 class GuildBind:
     """Represents a binding from the database.
@@ -34,7 +42,7 @@ class GuildBind:
         removeRole (list): The IDs of roles that should be removed when this bind is given.
 
         id (int, optional): The ID of the entity for this binding. Defaults to None.
-        type (Literal[group, asset, gamepass, badge]): The type of binding this is representing.
+        type (ValidBindType): The type of binding this is representing.
         bind (dict): The raw data that the database stores for this binding.
 
         entity (RobloxEntity, optional): The entity that this binding represents. Defaults to None.
@@ -45,7 +53,7 @@ class GuildBind:
     removeRoles: list = default_field(list())
 
     id: int = None
-    type: Literal["group", "asset", "gamepass", "badge"] = Literal["group", "asset", "gamepass", "badge"]
+    type: ValidBindType = ValidBindType
     bind: dict = default_field({"type": "", "id": None})
 
     entity: RobloxEntity = None
@@ -54,6 +62,14 @@ class GuildBind:
         self.id = self.bind.get("id")
         self.type = self.bind.get("type")
         self.entity = create_entity(self.type, self.id)
+
+    def to_dict(self) -> dict:
+        return {
+            "roles": self.roles,
+            "removeRoles": self.removeRoles,
+            "nickname": self.nickname,
+            "bind": {"type": self.type, "id": self.id},
+        }
 
 
 class GroupBind(GuildBind):
@@ -99,6 +115,26 @@ class GroupBind(GuildBind):
         else:
             return "group_roles"
 
+    def to_dict(self) -> dict:
+        base_dict = super().to_dict()
+
+        if self.roleset is not None:
+            base_dict["bind"]["roleset"] = self.roleset
+
+        if self.min is not None:
+            base_dict["bind"]["min"] = self.min
+
+        if self.max is not None:
+            base_dict["bind"]["max"] = self.max
+
+        if self.guest is not None and self.guest:
+            base_dict["bind"]["guest"] = self.guest
+
+        if self.everyone is not None and self.everyone:
+            base_dict["bind"]["everyone"] = self.everyone
+
+        return base_dict
+
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     """Count the number of binds that this guild_id has created.
@@ -110,39 +146,265 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     Returns:
         int: The number of bindings this guild has created.
     """
-    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
+    guild_data = await get_binds(guild_id)
 
-    return (
-        len(guild_data.binds)
-        if not bind_id
-        else sum(1 for b in guild_data.binds if b["bind"].get("id") == int(bind_id)) or 0
-    )
+    return len(guild_data) if not bind_id else sum(1 for b in guild_data if b.id == int(bind_id)) or 0
 
 
-async def get_binds(guild_id: int | str, bind_id: int | str = None) -> list[GuildData.binds]:
+async def get_binds(
+    guild_id: int | str,
+    bind_id: int | str = None,
+    category: ValidBindType | None = None,
+) -> list[GuildBind]:
     """Get the current guild binds.
+
+    Old binds will be included by default, but will not be saved in the database in the
+    new format unless the POP_OLD_BINDS flag is set to True. While it is False, old formatted binds will
+    be left as is.
 
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
+        category (ValidBindType | None, optional): Category to filter by.
+            Currently only works if return_dict is false.
+        return_dict (bool, optional): Return data in list[dict] format.
 
     Returns:
-        int: The number of bindings this guild has created.
+        list[GuildBind]: Typed variants of the binds for the given guild ID.
     """
 
-    guild_data: GuildData = await bloxlink.fetch_guild_data(str(guild_id), "binds")
-
-    return (
-        guild_data.binds
-        if not bind_id
-        else [b for b in guild_data.binds if b["bind"].get("id") == int(bind_id)]
+    guild_id = str(guild_id)
+    guild_data: GuildData = await bloxlink.fetch_guild_data(
+        guild_id, "binds", "groupIDs", "roleBinds", "converted_binds"
     )
+
+    # Convert and save old bindings in the new format
+    if not guild_data.converted_binds and (
+        guild_data.groupIDs is not None or guild_data.roleBinds is not None
+    ):
+        old_binds = []
+
+        if guild_data.groupIDs:
+            old_binds.extend(convert_v3_binds_to_v4(guild_data.groupIDs, "group"))
+
+        if guild_data.roleBinds:
+            gamepasses = guild_data.roleBinds.get("gamePasses")
+            if gamepasses:
+                old_binds.extend(convert_v3_binds_to_v4(gamepasses, "gamepass"))
+
+            assets = guild_data.roleBinds.get("assets")
+            if assets:
+                old_binds.extend(convert_v3_binds_to_v4(assets, "asset"))
+
+            badges = guild_data.roleBinds.get("badges")
+            if badges:
+                old_binds.extend(convert_v3_binds_to_v4(badges, "badge"))
+
+            group_ranks = guild_data.roleBinds.get("groups")
+            if group_ranks:
+                old_binds.extend(convert_v3_binds_to_v4(group_ranks, "group"))
+
+        if old_binds:
+            # Prevent duplicates from being made. Can't use sets because dicts aren't hashable
+            guild_data.binds.extend(bind for bind in old_binds if bind not in guild_data.binds)
+
+            await bloxlink.update_guild_data(guild_id, binds=guild_data.binds, converted_binds=True)
+            guild_data.converted_binds = True
+
+    if POP_OLD_BINDS and guild_data.converted_binds:
+        await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None, converted_binds=None)
+
+    return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
+
+
+def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
+    """Convert old bindings to the new bind format.
+
+    Args:
+        items (dict): The bindings to convert.
+        bind_type (ValidBindType): Type of bind that is being made.
+
+    Returns:
+        list: The binds in the new format.
+    """
+    output = []
+
+    for bind_id, data in items.items():
+        group_rank_binding = data.get("binds") or data.get("ranges")
+
+        if bind_type != "group" or not group_rank_binding:
+            bind_data = {
+                "roles": data.get("roles"),
+                "removeRoles": data.get("removeRoles"),
+                "nickname": data.get("nickname"),
+                "bind": {"type": bind_type, "id": int(bind_id)},
+            }
+            output.append(bind_data)
+            continue
+
+        # group rank bindings
+        if data.get("binds"):
+            for rank_id, sub_data in data["binds"].items():
+                bind_data = {}
+
+                bind_data["bind"] = {"type": bind_type, "id": int(bind_id)}
+                bind_data["roles"] = sub_data.get("roles")
+                bind_data["nickname"] = sub_data.get("nickname")
+                bind_data["removeRoles"] = sub_data.get("removeRoles")
+
+                # Convert to an int if possible beforehand.
+                try:
+                    rank_id = int(rank_id)
+                except ValueError:
+                    pass
+
+                if rank_id == "all":
+                    bind_data["bind"]["everyone"] = True
+                elif rank_id == 0:
+                    bind_data["bind"]["guest"] = True
+                elif rank_id < 0:
+                    bind_data["bind"]["min"] = abs(rank_id)
+                else:
+                    bind_data["bind"]["roleset"] = rank_id
+
+                output.append(bind_data)
+
+        # group rank ranges
+        if data.get("ranges"):
+            for range_item in data["ranges"]:
+                bind_data = {}
+
+                bind_data["bind"] = {"type": bind_type, "id": int(bind_id)}
+                bind_data["roles"] = range_item.get("roles")
+                bind_data["nickname"] = range_item.get("nickname")
+                bind_data["removeRoles"] = range_item.get("removeRoles")
+
+                bind_data["bind"]["min"] = int(range_item.get("low"))
+                bind_data["bind"]["max"] = int(range_item.get("high"))
+
+                output.append(bind_data)
+
+    return output
+
+
+async def convert_v4_binds_to_v3(items: list) -> dict:
+    """Convert binds of the new format to the old bind format.
+
+    This does not include the names of groups/other bind types.
+
+    GuildBind and GroupBind types are supported, along with the dict representation.
+
+    Args:
+        items (list): The list of new bindings to convert.
+
+    Returns:
+        dict: Bindings in their old format.
+    """
+    role_binds = {
+        "gamePasses": defaultdict(dict),
+        "assets": defaultdict(dict),
+        "badges": defaultdict(dict),
+        "groups": defaultdict(dict),
+    }
+    entire_groups = {}
+
+    for bind in items:
+        if isinstance(bind, GuildBind):
+            bind = asdict(bind)
+
+        sub_data = bind["bind"]
+        bind_type = sub_data["type"]
+        bind_id = str(sub_data["id"])
+
+        bind_entity = roblox_entity.create_entity(bind_type, bind_id)
+        try:
+            await bind_entity.sync()
+        except RobloxNotFound:
+            pass
+
+        if bind_type in ("asset", "badge", "gamepass"):
+            if bind_type == "gamepass":
+                bind_type = "gamePasses"
+            else:
+                bind_type += "s"
+
+            role_binds[bind_type][bind_id] = {
+                "displayName": bind_entity.name,
+                "roles": bind.get("roles", []),
+                "removeRoles": bind.get("removeRoles", []),
+                "nickname": bind.get("nickname"),
+            }
+
+        elif bind_type == "group":
+            # No specific roles to give = entire group bind
+            if not bind["roles"]:
+                entire_groups[bind_id] = {
+                    "groupName": bind_entity.name,
+                    "removeRoles": bind.get("removeRoles"),
+                    "nickname": bind.get("nickname"),
+                }
+
+                continue
+
+            roleset = sub_data.get("roleset")
+            min_rank = sub_data.get("min")
+            max_rank = sub_data.get("max")
+            guest = sub_data.get("guest")
+            everyone = sub_data.get("everyone")
+
+            group_data: dict = role_binds["groups"][bind_id]
+            if not group_data.get("groupName"):
+                group_data["groupName"] = bind_entity.name
+
+            rank_bindings: dict = group_data.get("binds", {})
+            range_bindings: list = group_data.get("ranges", [])
+
+            if roleset is not None:
+                rank_bindings[str(roleset)] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif everyone:
+                rank_bindings["all"] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif guest:
+                rank_bindings["0"] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+            elif (min_rank and max_rank) or (max_rank):
+                min_rank = min_rank or 1
+                range_bindings.append(
+                    {
+                        "roles": bind.get("roles", []),
+                        "nickname": bind.get("nickname"),
+                        "removeRoles": bind.get("removeRoles", []),
+                        "low": min_rank,
+                        "high": max_rank,
+                    }
+                )
+            elif min_rank:
+                rank_bindings[str(-abs(min_rank))] = {
+                    "roles": bind.get("roles", []),
+                    "nickname": bind.get("nickname"),
+                    "removeRoles": bind.get("removeRoles", []),
+                }
+
+            group_data["binds"] = rank_bindings
+            group_data["ranges"] = range_bindings
+
+    return {"roleBinds": role_binds, "groupIDs": entire_groups}
 
 
 async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
-    bind_type: Literal["group", "asset", "badge", "gamepass"] = None,
+    bind_type: ValidBindType = None,
 ) -> str:
     """Get a string-based representation of all bindings (matching the bind_id and bind_type).
 
@@ -151,14 +413,13 @@ async def get_bind_desc(
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): The entity ID to filter binds from. Defaults to None.
-        bind_type (Literal[group, asset, badge, gamepass], optional): The type of bind to filter the response by.
+        bind_type (ValidBindType, optional): The type of bind to filter the response by.
             Defaults to None.
 
     Returns:
         str: Sentence representation of the first five binds matching the filters.
     """
-    guild_binds = (await bloxlink.fetch_guild_data(guild_id, "binds")).binds
-    guild_binds = json_binds_to_guild_binds(guild_binds, category=bind_type, id_filter=bind_id)
+    guild_binds = await get_binds(guild_id, category=bind_type, bind_id=bind_id)
 
     bind_strings = [await bind_description_generator(bind) for bind in guild_binds[:5]]
     output = "\n".join(bind_strings)
@@ -173,7 +434,7 @@ async def get_bind_desc(
 
 async def create_bind(
     guild_id: int | str,
-    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_type: ValidBindType,
     bind_id: int,
     *,
     roles: list[str] = None,
@@ -188,7 +449,7 @@ async def create_bind(
 
     Args:
         guild_id (int | str): The ID of the guild.
-        bind_type (Literal[group, asset, badge, gamepass]): The type of bind being created.
+        bind_type (ValidBindType): The type of bind being created.
         bind_id (int): The ID of the entity this bind is for.
         roles (list[str], optional): Role IDs to be given to users for this bind. Defaults to None.
         remove_roles (list[str], optional): Role IDs to be removed from users for this bind. Defaults to None.
@@ -200,7 +461,7 @@ async def create_bind(
         NotImplementedError: _description_
     """
 
-    guild_binds: list = (await bloxlink.fetch_guild_data(str(guild_id), "binds")).binds
+    guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
 
     # Check to see if there is a binding in place matching the given input
     existing_binds = []
@@ -282,7 +543,7 @@ async def create_bind(
 
 async def delete_bind(
     guild_id: int | str,
-    bind_type: Literal["group", "asset", "badge", "gamepass"],
+    bind_type: ValidBindType,
     bind_id: int,
     **bind_data,
 ):
@@ -294,7 +555,7 @@ async def delete_bind(
 
     Args:
         guild_id (int | str): The ID of the guild.
-        bind_type (Literal[group, asset, badge, gamepass]): The type of binding that is being removed.
+        bind_type (ValidBindType): The type of binding that is being removed.
         bind_id (int): The ID of the entity that this bind is for.
     """
     subquery = {
@@ -562,7 +823,7 @@ async def apply_binds(
         if remove_roles:
             embed.add_field(name="Removed Roles", value=",".join([r.mention for r in remove_roles]))
 
-        if not (add_roles and remove_roles):
+        if not add_roles and not remove_roles:
             embed.add_field(
                 name="Roles",
                 value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
@@ -577,15 +838,15 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return EmbedPrompt(embed, action_rows=[])
+    return EmbedPrompt(embed)
 
 
-def json_binds_to_guild_binds(bind_list: list, category: str = None, id_filter: str = None) -> list:
+def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:
     """Convert a bind from a dict/json representation to a GuildBind or GroupBind object.
 
     Args:
         bind_list (list): List of bindings to convert
-        category (str, optional): Category to filter the binds by. Defaults to None.
+        category (ValidBindType, optional): Category to filter the binds by. Defaults to None.
         id_filter (str, optional): ID to filter the binds by. Defaults to None.
             Applied after the category if both are given.
 
