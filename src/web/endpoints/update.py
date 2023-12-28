@@ -93,6 +93,13 @@ class Update(APIController):
         user_data: FromJSON[MinimalMember],
         _request: Request,
     ):
+        """Endpoint to handle guild member join events from the gateway.
+
+        Args:
+            guild_id (str): The guild ID the user joined.
+            user_id (str): The ID of the user.
+            user_data (FromJSON[MinimalMember]): Additional user data from the gateway.
+        """
         user_data: MinimalMember = user_data.value
         guild_data: GuildData = await bloxlink.fetch_guild_data(
             guild_id, "autoRoles", "autoVerification", "highTrafficServer"
