@@ -54,9 +54,12 @@ class GuildData:
     unverifiedRole: str = None
 
     ageLimit: int = None
+    autoRoles: bool = None
+    autoVerification: bool = None
     disallowAlts: bool = None
     disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
     groupLock: dict = None
+    highTrafficServer: bool = None
 
     nicknameTemplate: str = "{smart-name}"
 
