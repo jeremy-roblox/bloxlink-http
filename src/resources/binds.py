@@ -811,9 +811,10 @@ async def apply_binds(
         embed = hikari.Embed(
             title="Member Updated",
         )
+
         embed.set_author(
             name=username,
-            icon=avatar_url,
+            icon=avatar_url or None,
             url=roblox_account.profile_link if roblox_account else None,
         )
 
