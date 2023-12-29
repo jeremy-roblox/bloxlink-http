@@ -155,18 +155,23 @@ async def get_binds(
     guild_id: int | str,
     bind_id: int | str = None,
     category: ValidBindType | None = None,
-) -> list[GuildBind]:
+    include_old: bool = True,
+    return_dict: bool = False,
+) -> list[GuildBind] | list[GuildData.binds]:
     """Get the current guild binds.
 
     Old binds will be included by default, but will not be saved in the database in the
     new format unless the POP_OLD_BINDS flag is set to True. While it is False, old formatted binds will
     be left as is.
 
+    OVERRIDE(ing) can only successfully be flagged if include_old is True.
+
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
         category (ValidBindType | None, optional): Category to filter by.
             Currently only works if return_dict is false.
+        include_old (bool, optional): Should binds in the old format be included? Defaults to True.
         return_dict (bool, optional): Return data in list[dict] format.
 
     Returns:
@@ -183,7 +188,6 @@ async def get_binds(
         guild_data.groupIDs is not None or guild_data.roleBinds is not None
     ):
         old_binds = []
-
         if guild_data.groupIDs:
             old_binds.extend(convert_v3_binds_to_v4(guild_data.groupIDs, "group"))
 

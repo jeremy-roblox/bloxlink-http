@@ -14,6 +14,7 @@ class ModalCustomID:
     prompt_name: str = field(default="")
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)
+    prompt_message_id: int = field(converter=int, default=0)
     component_custom_id: str = field(default="")
 
     def __str__(self):
@@ -83,6 +84,7 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
         prompt_name=prompt_data.get("prompt_name") or "",
         user_id=interaction.user.id,
         page_number=prompt_data.get("page_number") or 0,
+        prompt_message_id=prompt_data.get("prompt_message_id") or 0,
         component_custom_id=prompt_data.get("component_id") or "",
     )
 

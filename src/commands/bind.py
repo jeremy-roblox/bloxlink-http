@@ -25,11 +25,9 @@ class GenericBindPromptCustomID(PromptCustomID):
 
 
 class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
-    def __init__(self, interaction: hikari.CommandInteraction, response: Response):
+    def __init__(self, *args, **kwargs):
         super().__init__(
-            interaction,
-            response,
-            self.__class__.__name__,
+            *args, **kwargs,
             custom_id_format=GenericBindPromptCustomID,
             start_with_fresh_data=False,
         )
@@ -218,11 +216,9 @@ class GroupPromptCustomID(PromptCustomID):
 
 
 class GroupPrompt(Prompt[GroupPromptCustomID]):
-    def __init__(self, interaction: hikari.CommandInteraction, response: Response):
+    def __init__(self, *args, **kwargs):
         super().__init__(
-            interaction,
-            response,
-            self.__class__.__name__,
+            *args, **kwargs,
             custom_id_format=GroupPromptCustomID,
             start_with_fresh_data=False,
         )
@@ -694,7 +690,7 @@ class BindCommand:
             )
 
         if bind_mode == "specific_roles":
-            await ctx.response.prompt(
+            await ctx.response.send_prompt(
                 GroupPrompt,
                 custom_id_data={
                     "group_id": group_id,

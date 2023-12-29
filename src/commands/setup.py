@@ -7,12 +7,8 @@ from resources.modals import build_modal
 
 
 class SetupPrompt(Prompt):
-    def __init__(self, interaction: hikari.CommandInteraction, response: Response):
-        super().__init__(
-            interaction,
-            response,
-            self.__class__.__name__
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @Prompt.page(
         PromptPageData(
@@ -23,12 +19,12 @@ class SetupPrompt(Prompt):
             components=[
                 Button(
                     label="Next",
-                    component_id="next",
+                    component_id="intro_next",
                     is_disabled=False,
                 ),
                 Button(
                     label="Cancel",
-                    component_id="cancel",
+                    component_id="intro_cancel",
                     is_disabled=False,
                     style=Button.ButtonStyle.SECONDARY
                 ),
@@ -37,9 +33,9 @@ class SetupPrompt(Prompt):
     )
     async def intro_page(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
         match fired_component_id:
-            case "next":
+            case "intro_next":
                 return await self.next()
-            case "cancel":
+            case "intro_cancel":
                 return await self.finish()
 
     @Prompt.page(
@@ -88,13 +84,13 @@ class SetupPrompt(Prompt):
                 ),
                 Button(
                     label="Skip, leave unchanged",
-                    component_id="skip",
+                    component_id="nickname_skip",
                     is_disabled=False,
                     style=Button.ButtonStyle.SECONDARY
                 ),
                 Button(
                     label="Submit",
-                    component_id="submit",
+                    component_id="nickname_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
                 )
@@ -120,7 +116,8 @@ class SetupPrompt(Prompt):
                         prompt_data = {
                             "page_number": self.current_page_number,
                             "prompt_name": self.__class__.__name__,
-                            "component_id": fired_component_id
+                            "component_id": fired_component_id,
+                            "prompt_message_id": self.custom_id.prompt_message_id
                         },
                         components=[
                             TextInput(
@@ -144,15 +141,15 @@ class SetupPrompt(Prompt):
 
                 await self.save_stateful_data(nicknameTemplate=setup_nickname)
 
-                yield await self.edit_page(
+                await self.edit_page(
                     components={
-                        "submit": {
+                        "nickname_submit": {
                             "is_disabled": False,
                         },
                     }
                 )
 
-                yield await self.response.send(
+                await self.response.send(
                     f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
                     "You may also add a nickname prefix and/or suffix.\n"
                     "After, press the **Submit** button to continue to the next page.",
@@ -167,7 +164,8 @@ class SetupPrompt(Prompt):
                     prompt_data = {
                         "page_number": self.current_page_number,
                         "prompt_name": self.__class__.__name__,
-                        "component_id": fired_component_id
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
                     },
                     components=[
                         TextInput(
@@ -208,11 +206,13 @@ class SetupPrompt(Prompt):
                     ephemeral=True
                 )
 
-            case "skip" | "submit":
+            case "nickname_skip" | "nickname_submit":
                 yield await self.next()
 
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+
+        print(fired_component_id, self.custom_id)
 
         yield PromptPageData(
             title="Setup Bloxlink",
@@ -228,78 +228,38 @@ class SetupPrompt(Prompt):
                     is_disabled=False,
                 ),
                 Button(
-                    label="Leave as default",
+                    label="Leave as default (skip)",
                     component_id="verified_role_default",
                     is_disabled=False,
                 ),
                 Button(
                     label="Submit",
-                    component_id="submit",
+                    component_id="verified_role_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
                 )
             ],
         )
-        existing_nickname_template = (await bloxlink.fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
 
         match fired_component_id:
-            case "preset_nickname_select":
-                nickname = (await self.current_data(key_name="preset_nickname_select")).get("values")[0]
-
-                if nickname == "custom":
-                    modal = build_modal(
-                        title="Add a Custom Nickname",
-                        command_name=self.command_name,
-                        interaction=interaction,
-                        prompt_data = {
-                            "page_number": self.current_page_number,
-                            "prompt_name": self.__class__.__name__,
-                            "component_id": fired_component_id
-                        },
-                        components=[
-                            TextInput(
-                                style=TextInput.TextInputStyle.SHORT,
-                                placeholder="{smart-name}",
-                                custom_id="nickname_prefix_input",
-                                value="Type your nickname template...",
-                                required=True
-                            ),
-                        ]
-                    )
-
-                    yield await self.response.send_modal(modal)
-
-                    if not await modal.submitted():
-                        return
-
-                    yield await self.response.send_first(await modal.get_data())
-
-                yield await self.next()
-
-            case "nickname_prefix_suffix":
+            case "verified_role_change_name":
                 modal = build_modal(
-                    title="Add a Nickname Prefix and/or Suffix",
+                    title="Change Verified Role Name",
                     command_name=self.command_name,
                     interaction=interaction,
                     prompt_data = {
                         "page_number": self.current_page_number,
                         "prompt_name": self.__class__.__name__,
-                        "component_id": fired_component_id
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
                     },
                     components=[
                         TextInput(
                             style=TextInput.TextInputStyle.SHORT,
-                            placeholder="Type your nickname prefix...",
-                            custom_id="nickname_prefix_input",
-                            value="This will be shown FIRST in the nickname",
-                            required=False
-                        ),
-                        TextInput(
-                            style=TextInput.TextInputStyle.SHORT,
-                            placeholder="Type your nickname suffix...",
-                            custom_id="nickname_suffix_input",
-                            value="This will be shown LAST in the nickname",
-                            required=False
+                            placeholder="Verified",
+                            custom_id="verified_role_new_name",
+                            value="Type your new verified role name...",
+                            required=True
                         ),
                     ]
                 )
@@ -309,18 +269,22 @@ class SetupPrompt(Prompt):
                 if not await modal.submitted():
                     return
 
-                modal_data = await modal.get_data()
-                nickname_prefix = modal_data.get("nickname_prefix_input") or ""
-                nickname_suffix = modal_data.get("nickname_suffix_input") or ""
-                new_nickname_template = f"{nickname_prefix}{existing_nickname_template}{nickname_suffix}"
+                new_verified_role_name = await modal.get_data("verified_role_new_name")
 
-                yield await self.response.send_first(
-                    "Added the nickname prefix and/or suffix!\n\n"
-                    f"Prefix: {nickname_prefix}\n"
-                    f"Suffix: {nickname_suffix}\n"
-                    f"New template: {new_nickname_template}",
-                    ephemeral=True
+                await self.save_stateful_data(verifiedRoleName=new_verified_role_name)
+
+                await self.edit_page(
+                    components={
+                        "verified_role_submit": {
+                            "is_disabled": False,
+                        },
+                    }
                 )
+
+                await self.response.send(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
+
+            case "verified_role_default" | "verified_role_submit":
+                pass
 
 
 
@@ -335,4 +299,4 @@ class SetupCommand:
     """setup Bloxlink for your server"""
 
     async def __main__(self, ctx: CommandContext):
-        return await ctx.response.prompt(SetupPrompt)
+        return await ctx.response.send_prompt(SetupPrompt)
