@@ -565,7 +565,7 @@ def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
 
-    # Create an instance of the attrs dataclass with the existing field values
+    # Create an instance of the attrs dataclass with the default field values
     custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))})
 
     # Update specified fields with the provided keyword arguments

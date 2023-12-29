@@ -42,6 +42,9 @@ class PromptCustomID:
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
         return ":".join(field_values)
 
+    def to_dict(self):
+        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
+
 
 @define(slots=True)
 class PromptPageData:
@@ -300,15 +303,13 @@ class Response:
         if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
             raise NotImplementedError("Can only call prompt() from a slash command.")
 
-        new_prompt = prompt(
-            command_name=self.interaction.command_name,
+        new_prompt = await prompt.new_prompt(
+            prompt_instance=prompt,
+            interaction=self.interaction,
             response=self,
-            custom_id_data=custom_id_data
+            command_name=self.interaction.command_name,
+            custom_id_data=custom_id_data,
         )
-        new_prompt.insert_pages(prompt)
-
-        if new_prompt.start_with_fresh_data:
-            await new_prompt.clear_data()
 
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
@@ -337,16 +338,45 @@ class Prompt(Generic[T]):
         self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
 
-        self.custom_id: T = self._custom_id_format(
-            command_name=self.command_name,
-            prompt_name=self.prompt_name,
-            page_number=0,
-            user_id=self.response.user_id,
-            prompt_message_id=0,
-            **(custom_id_data or {}),
+        response.defer_through_rest = True
+
+    @staticmethod
+    async def new_prompt(
+        prompt_instance: Type['Prompt'],
+        interaction: hikari.ComponentInteraction | hikari.CommandInteraction,
+        command_name: str,
+        response: Response,
+        custom_id_format: Type[T] = PromptCustomID,
+        custom_id_data: dict = None,
+    ):
+        """Return a new initialized Prompt"""
+
+        prompt_instance = prompt_instance or Prompt
+
+        prompt = prompt_instance(
+            command_name=command_name,
+            response=response,
         )
 
-        response.defer_through_rest = True
+        prompt.insert_pages(prompt_instance)
+
+        if isinstance(interaction, hikari.ComponentInteraction):
+            await prompt._save_data_from_interaction(interaction)
+
+        elif isinstance(interaction, hikari.CommandInteraction):
+            if prompt.start_with_fresh_data:
+                await prompt.clear_data()
+
+            prompt.custom_id: T = prompt._custom_id_format(
+                command_name=command_name,
+                prompt_name=prompt.prompt_name,
+                page_number=0,
+                user_id=response.user_id,
+                prompt_message_id=0,
+                **(custom_id_data or {}),
+            )
+
+        return prompt
 
     @staticmethod
     def page(page_details: PromptPageData):
@@ -368,12 +398,6 @@ class Prompt(Generic[T]):
 
         return wrapper
 
-    # async def sync_custom_id(self):
-    #     """Sync the custom ID to this message."""
-
-    #     # await self.build_page()
-    #     # await self.response.interaction.edit_message(self.custom_id.prompt_message_id, embed=self.current_page.embed, components=self.current_page.components)
-
     async def build_page(self, page: Page, custom_id_data: dict = None, hash_=None):
         """Build an EmbedPrompt from a prompt and page."""
 
@@ -386,10 +410,6 @@ class Prompt(Generic[T]):
         # the message will only exist if this is a component interaction
         if isinstance(self.response.interaction, hikari.ComponentInteraction) and not self.custom_id.prompt_message_id:
             self.custom_id.prompt_message_id = self.response.interaction.message.id
-
-        # if not self.custom_id:
-        #     # this is only fired when response.prompt() is called
-        #     self.add_custom_id(page.page_number, "none", custom_id_data)
 
         self.custom_id.page_number = page.page_number
 
