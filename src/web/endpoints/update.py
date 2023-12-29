@@ -1,13 +1,17 @@
 import logging
-from attrs import define
 
+from attrs import define
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
+from hikari import ForbiddenError
 
 import resources.binds as binds
 import resources.roblox.users as users
+from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message
+from resources.utils import default_field
+
 from ..decorators import authenticate
 
 
@@ -31,24 +35,44 @@ class UpdateBody:
     is_done: bool = False
 
 
+@define
+class MinimalMember:
+    id: str
+    name: str
+    discriminator: int = None
+    avatar_url: str = None
+    is_bot: bool = None
+    created_at: str = None
+
+    activity: str = None
+    nickname: str = None
+    guild_id: str = None
+    guild_avatar: str = None
+    permissions: int = None
+    joined_at: str = None
+    roles: list = default_field([])
+    is_owner: bool = None
+
+
 class Update(APIController):
     """Results in a path of <URL>/api/update/..."""
 
     @get("/users")
     @authenticate()
-    async def get_user(self, request: Request):
+    async def get_users(self, _request: Request):
         """Endpoint to get a user, just for testing availability currently."""
         return ok("GET request to this route was valid.")
 
     @post("/users")
     @authenticate()
-    async def post_user(self, content: FromJSON[UpdateBody]):
+    async def post_users(self, content: FromJSON[UpdateBody], _request: Request):
         """Endpoint to receive /verifyall user chunks from the gateway.
 
         Args:
             content (FromJSON[UpdateBody]): Request data from the gateway.
                 See UpdateBody for expected JSON variables.
         """
+
         content: UpdateBody = content.value
 
         # Update users, send response only when this is done (or there is an issue?)
@@ -59,6 +83,57 @@ class Update(APIController):
         # Either the gateway should TTL after some time frame, or we should reply with a 202 (accepted) as soon
         # as the request is received, with a way to check the status (like nonces?)
         return ok(f"OK. Received {content}")
+
+    @post("/join/{guild_id}/{user_id}")
+    @authenticate()
+    async def update_on_join(
+        self,
+        guild_id: str,
+        user_id: str,
+        user_data: FromJSON[MinimalMember],
+        _request: Request,
+    ):
+        """Endpoint to handle guild member join events from the gateway.
+
+        Args:
+            guild_id (str): The guild ID the user joined.
+            user_id (str): The ID of the user.
+            user_data (FromJSON[MinimalMember]): Additional user data from the gateway.
+        """
+        user_data: MinimalMember = user_data.value
+        guild_data: GuildData = await bloxlink.fetch_guild_data(
+            guild_id, "autoRoles", "autoVerification", "highTrafficServer"
+        )
+
+        if guild_data.highTrafficServer:
+            return ok("High traffic server is enabled, user was not updated.")
+
+        if guild_data.autoVerification or guild_data.autoRoles:
+            # print(user_data)
+            roblox_account = await users.get_user_account(user_id, guild_id=guild_id, raise_errors=False)
+            bot_response = await binds.apply_binds(
+                {
+                    "id": user_id,
+                    "role_ids": user_data.roles,
+                    "username": user_data.name,
+                    "nickname": user_data.nickname,
+                    "avatar_url": user_data.avatar_url,
+                },
+                guild_id,
+                roblox_account,
+                moderate_user=True,
+                mention_roles=False,
+            )
+
+            try:
+                dm_channel = await bloxlink.rest.create_dm_channel(user_id)
+                await dm_channel.send(embed=bot_response.embed, components=bot_response.action_rows)
+            except ForbiddenError:
+                pass
+
+            return ok("User was updated in the server.")
+
+        return ok("Server does not have auto-update features enabled.")
 
 
 async def _update_users(content: UpdateBody):
