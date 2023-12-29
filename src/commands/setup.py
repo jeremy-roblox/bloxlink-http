@@ -7,12 +7,8 @@ from resources.modals import build_modal
 
 
 class SetupPrompt(Prompt):
-    def __init__(self, interaction: hikari.CommandInteraction, response: Response):
-        super().__init__(
-            interaction,
-            response,
-            self.__class__.__name__
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @Prompt.page(
         PromptPageData(
@@ -120,7 +116,8 @@ class SetupPrompt(Prompt):
                         prompt_data = {
                             "page_number": self.current_page_number,
                             "prompt_name": self.__class__.__name__,
-                            "component_id": fired_component_id
+                            "component_id": fired_component_id,
+                            "prompt_message_id": self.custom_id.prompt_message_id
                         },
                         components=[
                             TextInput(
@@ -144,7 +141,7 @@ class SetupPrompt(Prompt):
 
                 await self.save_stateful_data(nicknameTemplate=setup_nickname)
 
-                yield await self.edit_page(
+                await self.edit_page(
                     components={
                         "nickname_submit": {
                             "is_disabled": False,
@@ -167,7 +164,8 @@ class SetupPrompt(Prompt):
                     prompt_data = {
                         "page_number": self.current_page_number,
                         "prompt_name": self.__class__.__name__,
-                        "component_id": fired_component_id
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
                     },
                     components=[
                         TextInput(
@@ -214,7 +212,7 @@ class SetupPrompt(Prompt):
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
 
-        print(fired_component_id)
+        print(fired_component_id, self.custom_id)
 
         yield PromptPageData(
             title="Setup Bloxlink",
@@ -252,7 +250,8 @@ class SetupPrompt(Prompt):
                     prompt_data = {
                         "page_number": self.current_page_number,
                         "prompt_name": self.__class__.__name__,
-                        "component_id": fired_component_id
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
                     },
                     components=[
                         TextInput(
@@ -274,7 +273,7 @@ class SetupPrompt(Prompt):
 
                 await self.save_stateful_data(verifiedRoleName=new_verified_role_name)
 
-                yield await self.edit_page(
+                await self.edit_page(
                     components={
                         "verified_role_submit": {
                             "is_disabled": False,
@@ -300,4 +299,4 @@ class SetupCommand:
     """setup Bloxlink for your server"""
 
     async def __main__(self, ctx: CommandContext):
-        return await ctx.response.prompt(SetupPrompt)
+        return await ctx.response.send_prompt(SetupPrompt)

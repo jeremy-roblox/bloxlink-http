@@ -27,7 +27,7 @@ class EmbedPrompt:
     page_number: int = 0
 
 
-@define
+@define(slots=True, kw_only=True)
 class PromptCustomID:
     """Represents a custom ID for a prompt component."""
 
@@ -35,7 +35,8 @@ class PromptCustomID:
     prompt_name: str
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)
-    component_custom_id: str
+    component_custom_id: str = None
+    prompt_message_id: int = field(converter=int)
 
     def __str__(self):
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
@@ -78,7 +79,7 @@ class Response:
         deferred (bool): Is this response a deferred response. Default is False.
     """
 
-    def __init__(self, interaction: hikari.CommandInteraction):
+    def __init__(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction | hikari.ModalInteraction):
         self.interaction = interaction
         self.user_id = interaction.user.id
         self.responded = False
@@ -293,22 +294,25 @@ class Response:
             [hikari.impl.AutocompleteChoiceBuilder(c.name.title(), c.value) for c in items[:25]]
         )
 
-    async def prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
+    async def send_prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
         if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
             raise NotImplementedError("Can only call prompt() from a slash command.")
 
-        new_prompt = prompt(self.interaction.command_name, self)
+        new_prompt = prompt(
+            command_name=self.interaction.command_name,
+            response=self,
+            custom_id_data=custom_id_data
+        )
         new_prompt.insert_pages(prompt)
 
         if new_prompt.start_with_fresh_data:
             await new_prompt.clear_data()
 
-        new_prompt.add_custom_id(0, "none", custom_id_data)
-
         hash_ = uuid.uuid4().hex
         print("prompt() hash=", hash_)
+
         return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
 
 
@@ -317,22 +321,30 @@ class Prompt(Generic[T]):
         self,
         command_name: str,
         response: Response,
-        prompt_name: str,
         *,
         custom_id_format: Type[T] = PromptCustomID,
         start_with_fresh_data: bool = True,
+        custom_id_data: dict = None,
     ):
         self.pages: list[Page] = []
         self.current_page_number = 0
         self.current_page: Page = None
         self.response = response
         self.command_name = command_name
-        self.prompt_name = prompt_name
+        self.prompt_name = self.__class__.__name__
         self._custom_id_format: Type[T] = custom_id_format
-        self.custom_id: T = None  # this is set in add_custom_id()
         self._pending_embed_changes = {}
         self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
+
+        self.custom_id: T = self._custom_id_format(
+            command_name=self.command_name,
+            prompt_name=self.prompt_name,
+            page_number=0,
+            user_id=self.response.user_id,
+            prompt_message_id=0,
+            **(custom_id_data or {}),
+        )
 
         response.defer_through_rest = True
 
@@ -356,19 +368,13 @@ class Prompt(Generic[T]):
 
         return wrapper
 
-    def add_custom_id(self, page_number: int, component_custom_id: str = "none", custom_id_data: dict = None):
-        """Generate and save the custom ID."""
+    # async def sync_custom_id(self):
+    #     """Sync the custom ID to this message."""
 
-        self.custom_id: T = self._custom_id_format(
-            command_name=self.command_name,
-            prompt_name=self.__class__.__name__,
-            page_number=page_number,
-            component_custom_id=component_custom_id,
-            user_id=self.response.user_id,
-            **(custom_id_data or {}),
-        )
+    #     # await self.build_page()
+    #     # await self.response.interaction.edit_message(self.custom_id.prompt_message_id, embed=self.current_page.embed, components=self.current_page.components)
 
-    def build_page(self, page: Page, custom_id_data: dict = None, hash_=None):
+    async def build_page(self, page: Page, custom_id_data: dict = None, hash_=None):
         """Build an EmbedPrompt from a prompt and page."""
 
         action_rows: list[Components.Component] = []
@@ -377,16 +383,23 @@ class Prompt(Generic[T]):
             title=page.details.title or "Prompt",
         )
 
-        if not self.custom_id:
-            # this is only fired when response.prompt() is called
-            self.add_custom_id(page.page_number, "none", custom_id_data)
+        # the message will only exist if this is a component interaction
+        if isinstance(self.response.interaction, hikari.ComponentInteraction) and not self.custom_id.prompt_message_id:
+            self.custom_id.prompt_message_id = self.response.interaction.message.id
+
+        # if not self.custom_id:
+        #     # this is only fired when response.prompt() is called
+        #     self.add_custom_id(page.page_number, "none", custom_id_data)
 
         self.custom_id.page_number = page.page_number
 
         if page.details.components:
             for component in page.details.components:
                 component_custom_id = Components.set_custom_id_field(
-                    self._custom_id_format, str(self.custom_id), component_custom_id=component.component_id
+                    self._custom_id_format,
+                    str(self.custom_id),
+                    component_custom_id=component.component_id,
+                    prompt_message_id=self.custom_id.prompt_message_id,
                 )
                 component.custom_id = component_custom_id
 
@@ -512,7 +525,7 @@ class Prompt(Generic[T]):
                 page_details: PromptPageData = await generator_or_coroutine
 
             self.current_page.details = page_details
-            built_page = self.build_page(self.current_page, custom_id_data, hash_)
+            built_page = await self.build_page(self.current_page, custom_id_data, hash_)
 
             # this stops the page from being sent if the user has already moved on
             if self.current_page.page_number != self.current_page_number or self.current_page.edited:
@@ -535,7 +548,7 @@ class Prompt(Generic[T]):
         if changing_page:
             # we only build the page (embed) if we're changing pages
 
-            built_page = self.build_page(self.current_page, custom_id_data, hash_)
+            built_page = await self.build_page(self.current_page, custom_id_data, hash_)
 
             print(hash_, "run_page() built page", built_page.embed.title)
 
@@ -695,7 +708,7 @@ class Prompt(Generic[T]):
                         else:
                             setattr(component, attr_name, attr_value)
 
-        built_page = self.build_page(self.current_page, hash_=hash_)
+        built_page = await self.build_page(self.current_page, hash_=hash_)
 
         self.current_page.edited = True
 
@@ -714,6 +727,9 @@ class Prompt(Generic[T]):
 
         self.current_page.edited = True
 
+        if self.current_page.programmatic:
+            await self.populate_programmatic_page(self.response.interaction)
+
         for attr_name, attr_value in new_page_data.items():
             self._pending_embed_changes[attr_name] = attr_value
 
@@ -727,11 +743,11 @@ class Prompt(Generic[T]):
                             else:
                                 setattr(component, attr_name, attr_value)
 
-        built_page = self.build_page(self.current_page, hash_=hash_)
+        built_page = await self.build_page(self.current_page, hash_=hash_)
 
-        return await self.response.send_first(
+        await bloxlink.rest.edit_message(
+            self.response.interaction.channel_id,
+            self.custom_id.prompt_message_id,
             embed=built_page.embed,
             components=built_page.action_rows,
-            edit_original=True,
-            build_components=False,
         )
