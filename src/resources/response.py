@@ -732,11 +732,11 @@ class Prompt(Generic[T]):
 
         self.current_page.edited = True
 
-        return await self.response.send_first(
+        await bloxlink.rest.edit_message(
+            self.response.interaction.channel_id,
+            self.custom_id.prompt_message_id,
             embed=built_page.embed,
             components=built_page.action_rows,
-            edit_original=True,
-            build_components=False,
         )
 
     async def edit_page(self, components=None, **new_page_data):
