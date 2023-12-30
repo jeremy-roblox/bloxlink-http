@@ -8,7 +8,7 @@ from resources.binds import bind_description_generator, create_bind, get_bind_de
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
 from resources.exceptions import RobloxNotFound
-from resources.response import Prompt, PromptCustomID, PromptPageData, Response
+from resources.response import Prompt, PromptCustomID, PromptPageData
 from resources.components import Button, RoleSelectMenu, TextSelectMenu
 
 # bind resource API

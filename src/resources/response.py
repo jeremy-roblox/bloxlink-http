@@ -325,7 +325,6 @@ class Prompt(Generic[T]):
         *,
         custom_id_format: Type[T] = PromptCustomID,
         start_with_fresh_data: bool = True,
-        custom_id_data: dict = None,
     ):
         self.pages: list[Page] = []
         self.current_page_number = 0
@@ -338,6 +337,8 @@ class Prompt(Generic[T]):
         self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
 
+        self.custom_id: T = None # this is set in prompt.new_prompt()
+
         response.defer_through_rest = True
 
     @staticmethod
@@ -346,7 +347,6 @@ class Prompt(Generic[T]):
         interaction: hikari.ComponentInteraction | hikari.CommandInteraction,
         command_name: str,
         response: Response,
-        custom_id_format: Type[T] = PromptCustomID,
         custom_id_data: dict = None,
     ):
         """Return a new initialized Prompt"""
@@ -360,21 +360,22 @@ class Prompt(Generic[T]):
 
         prompt.insert_pages(prompt_instance)
 
-        if isinstance(interaction, hikari.ComponentInteraction):
-            await prompt._save_data_from_interaction(interaction)
+        match interaction:
+            case hikari.ComponentInteraction():
+                await prompt._save_data_from_interaction(interaction)
 
-        elif isinstance(interaction, hikari.CommandInteraction):
-            if prompt.start_with_fresh_data:
-                await prompt.clear_data()
+            case hikari.CommandInteraction():
+                if prompt.start_with_fresh_data:
+                    await prompt.clear_data()
 
-            prompt.custom_id: T = prompt._custom_id_format(
-                command_name=command_name,
-                prompt_name=prompt.prompt_name,
-                page_number=0,
-                user_id=response.user_id,
-                prompt_message_id=0,
-                **(custom_id_data or {}),
-            )
+                prompt.custom_id: T = prompt._custom_id_format(
+                    command_name=command_name,
+                    prompt_name=prompt.prompt_name,
+                    page_number=0,
+                    user_id=response.user_id,
+                    prompt_message_id=0,
+                    **(custom_id_data or {}),
+                )
 
         return prompt
 
