@@ -1,9 +1,12 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
+from resources.binds import create_bind
+from resources.roblox.groups import get_group
 from resources.commands import CommandContext
-from resources.response import Prompt, PromptPageData, Response
+from resources.response import Prompt, PromptPageData
 from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
+from resources.exceptions import RobloxNotFound
 
 
 class SetupPrompt(Prompt):
@@ -89,7 +92,7 @@ class SetupPrompt(Prompt):
                     style=Button.ButtonStyle.SECONDARY
                 ),
                 Button(
-                    label="Submit",
+                    label="Next",
                     component_id="nickname_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
@@ -152,7 +155,7 @@ class SetupPrompt(Prompt):
                 await self.response.send(
                     f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
                     "You may also add a nickname prefix and/or suffix.\n"
-                    "After, press the **Submit** button to continue to the next page.",
+                    "Press the **Next** button to continue to the next page.",
                     ephemeral=True
                 )
 
@@ -212,8 +215,6 @@ class SetupPrompt(Prompt):
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
 
-        print(fired_component_id, self.custom_id)
-
         yield PromptPageData(
             title="Setup Bloxlink",
             description=(
@@ -223,17 +224,23 @@ class SetupPrompt(Prompt):
             ),
             components=[
                 Button(
+                    label="Leave as default (Verified)",
+                    component_id="verified_role_default",
+                    is_disabled=False,
+                ),
+                Button(
                     label="Change the name",
                     component_id="verified_role_change_name",
                     is_disabled=False,
                 ),
                 Button(
-                    label="Leave as default (skip)",
-                    component_id="verified_role_default",
+                    label="Disable the Verified role",
+                    component_id="verified_role_disable",
                     is_disabled=False,
+                    style=Button.ButtonStyle.DANGER
                 ),
                 Button(
-                    label="Submit",
+                    label="Next",
                     component_id="verified_role_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
@@ -283,8 +290,100 @@ class SetupPrompt(Prompt):
 
                 await self.response.send(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
 
+            case "verified_role_disable":
+                await self.save_stateful_data(verifiedRoleName=None)
+
+                yield await self.response.send_first(f"Disabled the verified role! Members will not get a Verified role when joining the server.", ephemeral=True)
+
+                await self.next()
+
             case "verified_role_default" | "verified_role_submit":
-                pass
+                yield await self.next()
+
+    @Prompt.page(
+        PromptPageData(
+            title="Setup Bloxlink",
+            description=("Would you like to link a **Roblox group** to your server? This will create Discord roles that match "
+                         "your Roblox group and assign it to server members.\n\n**Important:** if you require more advanced "
+                         "group management, you can use the `/bind` command to link specific Roblox groups to specific Discord roles."
+            ),
+            components=[
+                Button(
+                    label="Link a group",
+                    component_id="group_link",
+                    is_disabled=False,
+                ),
+                Button(
+                    label="Skip, leave unchanged",
+                    component_id="group_skip",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SECONDARY
+                ),
+                Button(
+                    label="Next",
+                    component_id="group_submit",
+                    is_disabled=True,
+                    style=Button.ButtonStyle.SUCCESS
+                )
+            ],
+        )
+    )
+    async def group_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+        match fired_component_id:
+            case "group_link":
+                modal = build_modal(
+                    title="Link a Group",
+                    command_name=self.command_name,
+                    interaction=interaction,
+                    prompt_data = {
+                        "page_number": self.current_page_number,
+                        "prompt_name": self.__class__.__name__,
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
+                    },
+                    components=[
+                        TextInput(
+                            style=TextInput.TextInputStyle.SHORT,
+                            placeholder="https://www.roblox.com/groups/3587262/Bloxlink-Space#!/about",
+                            custom_id="group_id_input",
+                            value="Type your Group URL or ID",
+                            required=True
+                        ),
+                    ]
+                )
+
+                yield await self.response.send_modal(modal)
+
+                if not await modal.submitted():
+                    return
+
+                group_id = await modal.get_data("group_id_input")
+
+                try:
+                    group = await get_group(group_id)
+                except RobloxNotFound:
+                    yield await self.response.send_first("That group does not exist! Please try again.", ephemeral=True)
+                    return
+
+                await self.save_stateful_data(groupID=group.id)
+
+                await self.edit_page(
+                    components={
+                        "group_submit": {
+                            "is_disabled": False,
+                        },
+                    }
+                )
+
+                await self.response.send(
+                    f"Linked the group **{group.name}** ({group.id})!\n"
+                    "Press the **Next** button to continue to the next page.",
+                    ephemeral=True
+                )
+
+            case "group_skip" | "group_submit":
+                yield await self.next()
+
 
 
 
