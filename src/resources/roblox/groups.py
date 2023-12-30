@@ -71,11 +71,11 @@ class RobloxGroup(RobloxEntity):
         return f"{roleset_name} ({roleset_id})" if include_id else roleset_name
 
 
-async def get_group(group_id: str) -> RobloxGroup:
+async def get_group(group_id_or_url: str) -> RobloxGroup:
     """Get and sync a RobloxGroup.
 
     Args:
-        group_id (str): ID of the group to retrieve
+        group_id_or_url (str): ID or URL of the group to retrieve
 
     Raises:
         RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
@@ -83,6 +83,14 @@ async def get_group(group_id: str) -> RobloxGroup:
     Returns:
         RobloxGroup: A synced roblox group.
     """
+
+    regex_search = ROBLOX_GROUP_REGEX.search(group_id_or_url)
+
+    if regex_search:
+        group_id = regex_search.group(1)
+    else:
+        group_id = group_id_or_url
+
     group: RobloxGroup = RobloxGroup(id=group_id)
 
     try:
