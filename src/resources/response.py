@@ -52,6 +52,7 @@ class PromptPageData:
     components: list[Components.Component] = field(default=list())
     title: str = None
     fields: list["Field"] = field(default=list())
+    color: int = None
 
     @define(slots=True)
     class Field:
@@ -429,6 +430,9 @@ class Prompt(Generic[T]):
         if page.details.fields:
             for field in page.details.fields:
                 embed.add_field(field.name, field.value, inline=field.inline)
+
+        if page.details.color:
+            embed.color = page.details.color
 
         if self._pending_embed_changes:
             if self._pending_embed_changes.get("description"):
