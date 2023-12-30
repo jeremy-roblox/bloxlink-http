@@ -7,6 +7,7 @@ from resources.response import Prompt, PromptPageData
 from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
 from resources.exceptions import RobloxNotFound
+from resources.constants import BROWN_COLOR
 
 
 class SetupPrompt(Prompt):
@@ -384,7 +385,29 @@ class SetupPrompt(Prompt):
             case "group_skip" | "group_submit":
                 yield await self.next()
 
+    @Prompt.programmatic_page()
+    async def finish_setup(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        setup_data = await self.current_data()
 
+        yield PromptPageData(
+            title="Setup Bloxlink",
+            description="You have reached the end of setup. Please confirm the following settings before finishing.",
+            color=BROWN_COLOR,
+            components=[
+                Button(
+                    label="Finish",
+                    component_id="finish_setup",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SUCCESS
+                ),
+                Button(
+                    label="Cancel",
+                    component_id="cancel_setup",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SECONDARY
+                )
+            ],
+        )
 
 
 @bloxlink.command(
