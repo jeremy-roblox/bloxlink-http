@@ -10,10 +10,10 @@ T = TypeVar('T')
 
 @define(slots=True, kw_only=True)
 class BaseCustomID:
-    """Base class for custom IDs."""
+    """Base class for interactive custom IDs."""
 
     command_name: str
-    subcommand_name: str = None
+    subcommand_name: str = field(default="")
     user_id: int = field(converter=int)
 
     def __str__(self):
