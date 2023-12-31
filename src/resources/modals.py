@@ -3,13 +3,14 @@ import hikari
 import json
 from resources.components import Component, get_custom_id, BaseCustomID
 from resources.redis import redis
+import resources.response as response
 
 @define(slots=True, kw_only=True)
 class ModalCustomID(BaseCustomID):
     """Represents a custom ID for a modal component."""
 
     prompt_name: str = field(default="")
-    user_id: int = field(converter=int)
+    # user_id: int = field(converter=int)
     page_number: int = field(converter=int)
     prompt_message_id: int = field(converter=int, default=0)
     component_custom_id: str = field(default="")
@@ -75,7 +76,7 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
     command_data = command_data or {}
 
     new_custom_id = get_custom_id(
-        ModalCustomID,
+        ModalCustomID if command_data else response.PromptCustomID,
         command_name=command_name,
         subcommand_name=command_data.get("subcommand_name") or "",
         prompt_name=prompt_data.get("prompt_name") or "",

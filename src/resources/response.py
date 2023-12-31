@@ -7,7 +7,7 @@ from attrs import define, field
 
 import resources.components as Components
 from resources.bloxlink import instance as bloxlink
-from resources.modals import Modal
+import resources.modals as modal
 
 from .exceptions import CancelCommand, PageNotFound
 
@@ -270,7 +270,7 @@ class Response:
             **kwargs
         )
 
-    async def send_modal(self, modal: Modal):
+    async def send_modal(self, modal: 'modal.Modal'):
         """Send a modal response. This needs to be yielded."""
 
         # check if the modal was already submitted
