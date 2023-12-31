@@ -1,16 +1,13 @@
 from attrs import define, field, fields
 import hikari
 import json
-import asyncio
-from resources.components import Component, get_custom_id
+from resources.components import Component, get_custom_id, BaseCustomID
 from resources.redis import redis
 
 @define(slots=True, kw_only=True)
-class ModalCustomID:
+class ModalCustomID(BaseCustomID):
     """Represents a custom ID for a modal component."""
 
-    command_name: str
-    subcommand_name: str = field(default="")
     prompt_name: str = field(default="")
     user_id: int = field(converter=int)
     page_number: int = field(converter=int)

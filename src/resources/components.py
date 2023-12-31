@@ -3,10 +3,25 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 import resources.commands as commands
 from typing import Type, TypeVar, Literal
-from attrs import fields, define
+from attrs import fields, define, field
 from enum import Enum
 
 T = TypeVar('T')
+
+@define(slots=True, kw_only=True)
+class BaseCustomID:
+    """Base class for custom IDs."""
+
+    command_name: str
+    subcommand_name: str = None
+    user_id: int = field(converter=int)
+
+    def __str__(self):
+        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
+        return ":".join(field_values)
+
+    def to_dict(self):
+        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
 
 
 @define(slots=True, kw_only=True)
@@ -535,6 +550,39 @@ def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
 
     # Return the dataclass instance, discarding additional values
     return custom_id_instance
+
+# def parse_custom_id(T: Type[T], custom_id: str) -> T:
+#     """Parses a custom_id into T, discarding additional positional arguments.
+
+#     Args:
+#         T (Type[T]): The attrs dataclass type to parse the custom_id into.
+#         custom_id (str): The custom_id to parse.
+
+#     Returns:
+#         T: The parsed custom_id with additional positional arguments discarded.
+#     """
+#     # Split the custom_id into parts
+#     parts = custom_id.split(':')
+
+#     # Ensure the number of parts does not exceed the number of fields in the dataclass
+#     num_fields = len(fields(T))
+#     parts = parts[:num_fields]
+
+#     # Create a dictionary to store the keyword-only arguments
+#     kw_only_args: dict[str, str] = {}
+
+#     # Retrieve the keyword-only argument names
+#     kw_only_field_names = {field.name for field in fields(T) if field.init is False}
+
+#     # Assign values to keyword-only arguments
+#     for name, value in zip(kw_only_field_names, parts[len(parts) - len(kw_only_field_names):]):
+#         kw_only_args[name] = value
+
+#     # Create an instance of the attrs dataclass with the custom_id values
+#     custom_id_instance = T(**kw_only_args, **{field.name: value for field, value in zip(fields(T), parts) if field.init})
+
+#     # Return the dataclass instance
+#     return custom_id_instance
 
 def get_custom_id(T: Type[T], **kwargs) -> str:
     """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.

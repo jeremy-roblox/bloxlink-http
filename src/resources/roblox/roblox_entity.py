@@ -18,6 +18,7 @@ class RobloxEntity(ABC):
     name: str = None
     description: str = None
     synced: bool = False
+    url: str = None
 
     @abstractmethod
     async def sync(self):

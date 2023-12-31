@@ -3,13 +3,13 @@ import uuid
 from typing import Callable, Generic, Type, TypeVar
 
 import hikari
-from attrs import define, field, fields
+from attrs import define, field
 
 import resources.components as Components
 from resources.bloxlink import instance as bloxlink
 from resources.modals import Modal
 
-from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
+from .exceptions import CancelCommand, PageNotFound
 
 
 @define()
@@ -27,23 +27,18 @@ class EmbedPrompt:
     page_number: int = 0
 
 
+
 @define(slots=True, kw_only=True)
-class PromptCustomID:
+class PromptCustomID(Components.BaseCustomID):
     """Represents a custom ID for a prompt component."""
 
-    command_name: str
+    # command_name: str
+    # prompt_name: str
+    # user_id: int = field(converter=int)
     prompt_name: str
-    user_id: int = field(converter=int)
     page_number: int = field(converter=int)
     component_custom_id: str = None
     prompt_message_id: int = field(converter=int)
-
-    def __str__(self):
-        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
-        return ":".join(field_values)
-
-    def to_dict(self):
-        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
 
 
 @define(slots=True)

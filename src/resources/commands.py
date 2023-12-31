@@ -296,9 +296,14 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
             # find matching prompt handler
             for command_prompt in command.prompts:
                 if parsed_custom_id.prompt_name == command_prompt.__name__:
-                    new_prompt = command_prompt(command.name, response)
+                    new_prompt = await command_prompt.new_prompt(
+                        prompt_instance=command_prompt,
+                        interaction=interaction,
+                        response=response,
+                        command_name=command.name,
+                    )
+
                     new_prompt._custom_id_format = ModalCustomID
-                    new_prompt.insert_pages(command_prompt)
 
                     async for generator_response in new_prompt.entry_point(interaction):
                         if not isinstance(generator_response, PromptPageData):
@@ -340,6 +345,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
     """Handle a component interaction."""
 
     custom_id = interaction.custom_id
+    print(custom_id)
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
@@ -361,13 +367,17 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
         for command_prompt in command.prompts:
             try:
                 parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
-            except ValueError:
+            except TypeError as e:
+                print("valueerror", e)
                 continue
+
+            print("ok")
 
             if (
                 parsed_custom_id.command_name == command.name
                 and parsed_custom_id.prompt_name == command_prompt.__name__
             ):
+                print("found handler")
                 new_prompt = await command_prompt.new_prompt(
                     prompt_instance=command_prompt,
                     interaction=interaction,
