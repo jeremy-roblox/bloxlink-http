@@ -66,12 +66,12 @@ class Restriction:
                     if roleset_restriction:
                         description = (
                             "You are not the required rank in "
-                            f"[{group.name}](https://www.roblox.com/groups/{group.id})!"
+                            f"[{group.name}]({group.url})!"
                         )
                     else:
                         description = (
                             "This server requires that you join "
-                            f"[{group.name}](https://www.roblox.com/groups/{group.id}) "
+                            f"[{group.name}]({group.url}) "
                             "before you can verify!"
                         )
 
