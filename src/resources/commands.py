@@ -370,11 +370,8 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
         for command_prompt in command.prompts:
             try:
                 parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
-            except TypeError as e:
-                print("valueerror", e)
+            except TypeError: # TODO: why is this needed
                 continue
-
-            print("ok")
 
             if (
                 parsed_custom_id.command_name == command.name

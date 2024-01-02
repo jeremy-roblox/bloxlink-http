@@ -1,29 +1,26 @@
 import json
 import uuid
-from typing import Callable, Generic, Type, TypeVar
+from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
 
 import hikari
 from attrs import define, field
 
 import resources.components as Components
 from resources.bloxlink import instance as bloxlink
+from resources.models import InteractiveMessage
 import resources.modals as modal
 
 from .exceptions import CancelCommand, PageNotFound
 
 
-@define()
-class AutocompleteOption:
-    name: str
-    value: str
+if TYPE_CHECKING:
+    from resources.autocomplete import AutocompleteOption
 
 
 @define(slots=True)
-class EmbedPrompt:
+class PromptEmbed(InteractiveMessage):
     """Represents a prompt consisting of an embed & components for the message."""
 
-    embed: hikari.Embed = hikari.Embed()
-    action_rows: list = field(factory=list)
     page_number: int = 0
 
 
@@ -287,8 +284,9 @@ class Response:
 
         return modal.builder
 
-    def send_autocomplete(self, items: list[AutocompleteOption]):
+    def send_autocomplete(self, items: list['AutocompleteOption']):
         """Send an autocomplete response to Discord. Limited to 25 items."""
+
         return self.interaction.build_response(
             [hikari.impl.AutocompleteChoiceBuilder(c.name.title(), c.value) for c in items[:25]]
         )
@@ -396,7 +394,7 @@ class Prompt(Generic[T]):
         return wrapper
 
     async def build_page(self, page: Page, custom_id_data: dict = None, hash_=None):
-        """Build an EmbedPrompt from a prompt and page."""
+        """Build a PromptEmbed from a prompt and page."""
 
         action_rows: list[Components.Component] = []
         embed = hikari.Embed(
@@ -438,7 +436,7 @@ class Prompt(Generic[T]):
                 embed.title = self._pending_embed_changes["title"]
                 self._pending_embed_changes.pop("title")
 
-        return EmbedPrompt(
+        return PromptEmbed(
             embed=embed, action_rows=action_rows if action_rows else None, page_number=page.page_number
         )
 

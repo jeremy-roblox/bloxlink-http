@@ -14,7 +14,7 @@ from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
-from resources.response import EmbedPrompt
+from resources.models import InteractiveMessage
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
@@ -581,8 +581,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
-    mention_roles=True,
-) -> EmbedPrompt:
+) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
     Args:
@@ -602,7 +601,7 @@ async def apply_binds(
         BloxlinkForbidden: Raised when Bloxlink does not have permissions to give roles to a user.
 
     Returns:
-        EmbedPrompt: The embed that will be shown to the user, may or may not include the components that
+        InteractiveMessage: The embed that will be shown to the user, may or may not include the components that
             will be shown, depending on if the user is restricted or not.
     """
     if roblox_account and roblox_account.groups is None:
@@ -851,7 +850,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return EmbedPrompt(embed)
+    return InteractiveMessage(embed)
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:
