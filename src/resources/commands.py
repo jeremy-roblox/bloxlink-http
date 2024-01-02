@@ -293,48 +293,51 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         # iterate through commands and find where
         # they called the modal from, and then execute the function again
         for command in slash_commands.values():
-            # find matching prompt handler
-            for command_prompt in command.prompts:
-                if parsed_custom_id.prompt_name == command_prompt.__name__:
-                    new_prompt = await command_prompt.new_prompt(
-                        prompt_instance=command_prompt,
-                        interaction=interaction,
-                        response=response,
-                        command_name=command.name,
+            if parsed_custom_id.type == "prompt":
+                # cast it into a prompt custom id
+                parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+                # find matching prompt handler
+                for command_prompt in command.prompts:
+                    if parsed_custom_id.prompt_name == command_prompt.__name__:
+                        new_prompt = await command_prompt.new_prompt(
+                            prompt_instance=command_prompt,
+                            interaction=interaction,
+                            response=response,
+                            command_name=command.name,
+                        )
+
+                        async for generator_response in new_prompt.entry_point(interaction):
+                            if not isinstance(generator_response, PromptPageData):
+                                print(2, generator_response)
+                                yield generator_response
+
+                        break
+
+            elif parsed_custom_id.type == "command":
+                # find matching command handler
+                if command.name == parsed_custom_id.command_name and (
+                    parsed_custom_id.subcommand_name
+                    and parsed_custom_id.subcommand_name in command.subcommands
+                    or not parsed_custom_id.subcommand_name
+                ):
+                    command_options_data = await redis.get(f"modal_command_options:{custom_id}")
+                    command_options = json.loads(command_options_data) if command_options_data else {}
+
+                    generator_or_coroutine = handle_command(
+                        interaction,
+                        response,
+                        command_override=command,
+                        command_options=command_options,
+                        subcommand_name=parsed_custom_id.subcommand_name,
                     )
 
-                    new_prompt._custom_id_format = ModalCustomID
-
-                    async for generator_response in new_prompt.entry_point(interaction):
-                        if not isinstance(generator_response, PromptPageData):
-                            print(2, generator_response)
+                    if hasattr(generator_or_coroutine, "__anext__"):
+                        async for generator_response in generator_or_coroutine:
                             yield generator_response
+                    else:
+                        await generator_or_coroutine
 
-                    return
-
-            if command.name == parsed_custom_id.command_name and (
-                parsed_custom_id.subcommand_name
-                and parsed_custom_id.subcommand_name in command.subcommands
-                or not parsed_custom_id.subcommand_name
-            ):
-                command_options_data = await redis.get(f"modal_command_options:{custom_id}")
-                command_options = json.loads(command_options_data) if command_options_data else {}
-
-                generator_or_coroutine = handle_command(
-                    interaction,
-                    response,
-                    command_override=command,
-                    command_options=command_options,
-                    subcommand_name=parsed_custom_id.subcommand_name,
-                )
-
-                if hasattr(generator_or_coroutine, "__anext__"):
-                    async for generator_response in generator_or_coroutine:
-                        yield generator_response
-                else:
-                    await generator_or_coroutine
-
-                return
+                    break
 
     finally:
         # clear modal data from redis so it doesn't get reused if they execute the command again

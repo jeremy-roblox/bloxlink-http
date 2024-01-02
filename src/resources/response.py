@@ -32,13 +32,13 @@ class EmbedPrompt:
 class PromptCustomID(Components.BaseCustomID):
     """Represents a custom ID for a prompt component."""
 
-    # command_name: str
-    # prompt_name: str
-    # user_id: int = field(converter=int)
     prompt_name: str
     page_number: int = field(converter=int)
     component_custom_id: str = None
     prompt_message_id: int = field(converter=int)
+
+    def __attrs_post_init__(self):
+        self.type = "prompt"
 
 
 @define(slots=True)
@@ -296,8 +296,8 @@ class Response:
     async def send_prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
-        if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
-            raise NotImplementedError("Can only call prompt() from a slash command.")
+        if self.interaction.type not in (hikari.InteractionType.APPLICATION_COMMAND, hikari.InteractionType.MODAL_SUBMIT):
+            raise NotImplementedError("Can only call prompt() from a slash command or modal.")
 
         new_prompt = await prompt.new_prompt(
             prompt_instance=prompt,
@@ -692,13 +692,21 @@ class Prompt(Generic[T]):
     async def finish(self, *, disable_components=True):
         """Finish the prompt."""
 
-        self.current_page.edited = True
-
         await self.clear_data()
         await self.ack()
 
+        # TODO: below does not work
+
+        if self.current_page.programmatic:
+            print("check 1")
+            await self.populate_programmatic_page(self.response.interaction)
+            print("after")
+
+        print(self.current_page)
+
         if disable_components and self.current_page.details.components:
-            return await self.edit_page(
+            print("check 2")
+            await self.edit_page(
                 components={
                     component.component_id: {"is_disabled": True}
                     for component in self.current_page.details.components
@@ -706,9 +714,14 @@ class Prompt(Generic[T]):
             )
 
     async def ack(self):
-        """Acknowledge the interaction. This tells the prompt to not send a response."""
+        """Acknowledge the interaction. This should be used if no response will be sent."""
 
         self.current_page.edited = True
+
+        # this stops the interaction from erroring
+        await self.response.interaction.create_initial_response(
+            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+        )
 
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
@@ -745,7 +758,7 @@ class Prompt(Generic[T]):
         hash_ = uuid.uuid4().hex
         print("edit_page() hash=", hash_)
 
-        self.current_page.edited = True
+        self.edited = True
 
         if self.current_page.programmatic:
             await self.populate_programmatic_page(self.response.interaction)

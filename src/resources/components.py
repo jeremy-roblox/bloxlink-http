@@ -14,6 +14,7 @@ class BaseCustomID:
 
     command_name: str
     subcommand_name: str = field(default="")
+    type: Literal["command", "prompt"] = field(default="command")
     user_id: int = field(converter=int)
 
     def __str__(self):
