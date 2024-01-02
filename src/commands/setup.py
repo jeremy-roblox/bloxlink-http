@@ -158,10 +158,13 @@ class SetupPrompt(Prompt):
                         return
 
                     setup_nickname = await modal.get_data("nickname_prefix_input")
+
                 else:
                     setup_nickname = select_nickname
 
                 await self.save_stateful_data(nicknameTemplate=setup_nickname)
+
+                await self.ack()
 
                 await self.edit_page(
                     components={
@@ -174,12 +177,12 @@ class SetupPrompt(Prompt):
                     }
                 )
 
-                await self.response.send(
-                    f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
-                    "You may also add a nickname prefix and/or suffix.\n"
-                    "Press the **Next** button to continue to the next page.",
-                    ephemeral=True
-                )
+                # await self.response.send(
+                #     f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
+                #     "You may also add a nickname prefix and/or suffix.\n"
+                #     "Press the **Next** button to continue to the next page.",
+                #     ephemeral=True
+                # )
 
             case "nickname_prefix_suffix":
                 modal = build_modal(
@@ -219,17 +222,10 @@ class SetupPrompt(Prompt):
 
                 setup_nickname_prefix = modal_data.get("nickname_prefix_input") or ""
                 setup_nickname_suffix = modal_data.get("nickname_suffix_input") or ""
-                new_nickname_template = f"{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}"
 
                 await self.save_stateful_data(nicknameTemplate_prefix=setup_nickname_prefix, nicknameTemplate_suffix=setup_nickname_suffix)
 
-                yield await self.response.send_first(
-                    "Added the nickname prefix and/or suffix!\n\n"
-                    f"Prefix: {setup_nickname_prefix}\n"
-                    f"Suffix: {setup_nickname_suffix}\n"
-                    f"New template: {new_nickname_template}",
-                    ephemeral=True
-                )
+                yield await self.response.send_first("Saved your response. Please click Next to continue.", ephemeral=True)
 
             case "nickname_skip":
                 await self.save_stateful_data(nicknameTemplate=None)
@@ -322,7 +318,7 @@ class SetupPrompt(Prompt):
                     }
                 )
 
-                await self.response.send(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
+                await self.response.send(f"Setting the verified role name to `{new_verified_role_name}`! Please click Next to continue.", ephemeral=True)
 
             case "verified_role_disable":
                 await self.save_stateful_data(verifiedRoleName=None)
@@ -406,12 +402,14 @@ class SetupPrompt(Prompt):
                         "group_submit": {
                             "is_disabled": False,
                         },
+                        "group_skip": {
+                            "is_disabled": True,
+                        },
                     }
                 )
 
                 await self.response.send(
-                    f"Linked the group **{group.name}** ({group.id})!\n"
-                    "Press the **Next** button to continue to the next page.",
+                    f"Adding group **{group.name}** ({group.id})! Please click Next to continue.",
                     ephemeral=True
                 )
 
@@ -419,7 +417,7 @@ class SetupPrompt(Prompt):
                 yield await self.next()
 
     @Prompt.programmatic_page()
-    async def finish_setup(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+    async def setup_finish(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
         setup_data = await self.current_data()
         print(setup_data)
 
@@ -439,46 +437,49 @@ class SetupPrompt(Prompt):
             to_change["nicknameTemplate"] = (
                 new_nickname_template,
                 "New Nickname Template",
-                setup_option[1] if setup_option else "Users will be nicknamed to your custom nickname template."
+                setup_option[1] if setup_option else "Users will be nicknamed to your custom nickname template.",
+                True
             )
 
         if verified_role_name:
             to_change["verifiedRoleName"] = (
                 verified_role_name,
                 "New Verified Role",
-                "Users will be given this Verified role when they verify."
+                "Users will be given this Verified role when they verify.",
+                True
             )
 
         if group_id:
             group = await get_group(group_id)
             to_change["groupID"] = (
-                [group.name](group.url),
+                f"[{group.name}]({group.url})",
                 "Linking group",
-                f"Users in group **{group.name}** will get a Discord role that corresponds to their group rank."
+                f"Users in group **{group.name}** will get a Discord role that corresponds to their group rank.",
+                False
             )
 
         embed_options = []
 
         for option_data in to_change.values():
-            embed_options.append(f"{option_data[1]} -> `{option_data[0]}`\n> {option_data[2]}")
+            embed_options.append(f"{option_data[1]} -> {'`' if option_data[3] else ''}{option_data[0]}{'`' if option_data[3] else ''}\n> {option_data[2]}")
 
         yield PromptPageData(
             title="Setup Confirmation",
             description=(
-                "You have reached the end of setup. Please confirm the following settings before finishing.\n\n"
-                "\n".join(embed_options)
+                "You have reached the end of setup. Please confirm the following settings before finishing.\n\n" +
+                ("\n\n".join(embed_options))
             ),
             color=BROWN_COLOR,
             components=[
                 Button(
                     label="Finish",
-                    component_id="finish_setup",
+                    component_id="setup_finish",
                     is_disabled=False,
                     style=Button.ButtonStyle.SUCCESS
                 ),
                 Button(
                     label="Cancel",
-                    component_id="cancel_setup",
+                    component_id="setup_cancel",
                     is_disabled=False,
                     style=Button.ButtonStyle.SECONDARY
                 )
@@ -486,9 +487,20 @@ class SetupPrompt(Prompt):
         )
 
         match fired_component_id:
-            case "finish_setup":
-                yield await self.finish()
-            case "cancel_setup":
+            case "setup_finish":
+                yield await self.response.send_first("Successfully saved the configuration to your server.")
+                # await self.finish()
+                await self.edit_page(
+                    components={
+                        "setup_finish": {
+                            "is_disabled": True,
+                        },
+                        "setup_cancel": {
+                            "is_disabled": True,
+                        },
+                    }
+                )
+            case "setup_cancel":
                 yield await self.cancel()
 
 
