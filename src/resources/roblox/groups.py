@@ -27,7 +27,7 @@ class RobloxGroup(RobloxEntity):
     user_roleset: dict = None
 
     def __attrs_post_init__(self):
-        self.url = f"https://www.roblox.com/groups/{id}"
+        self.url = f"https://www.roblox.com/groups/{self.id}"
 
     async def sync(self):
         """Retrieve the roblox group information, consisting of rolesets, name, description, and member count."""
