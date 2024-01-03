@@ -53,3 +53,11 @@ class CommandException(BloxlinkException):
 class AlreadyResponded(CommandException):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+class BindException(BloxlinkException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class BindConflictError(BindException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
