@@ -527,9 +527,6 @@ async def create_bind(
 
             existing_binds[0]["roles"] = list(guild_roles & existing_roles)
             guild_binds.append(existing_binds[0])
-        else:
-            # In ideal circumstances, this case should be for entire group bindings only
-            raise BindException("No roles to be assigned were passed.")
 
         if remove_roles:
             # Override roles to remove rather than append.
