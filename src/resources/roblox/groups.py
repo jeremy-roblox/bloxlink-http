@@ -74,7 +74,7 @@ class RobloxGroup(RobloxEntity):
         return f"{roleset_name} ({roleset_id})" if include_id else roleset_name
 
 
-async def get_group(group_id_or_url: str) -> RobloxGroup:
+async def get_group(group_id_or_url: str | int) -> RobloxGroup:
     """Get and sync a RobloxGroup.
 
     Args:
@@ -87,6 +87,7 @@ async def get_group(group_id_or_url: str) -> RobloxGroup:
         RobloxGroup: A synced roblox group.
     """
 
+    group_id_or_url = str(group_id_or_url)
     regex_search = ROBLOX_GROUP_REGEX.search(group_id_or_url)
 
     if regex_search:
