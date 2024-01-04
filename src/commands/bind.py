@@ -710,7 +710,7 @@ class BindCommand:
                 return
 
             await ctx.response.send(
-                f"Your group binding for group [{group.name}](https://www.roblox.com/groups/{group.id}/-) has been saved. "
+                f"Your group binding for group [{group.name}](<{group.url}>) has been saved. "
                 "When people join your server, they will receive a Discord role that corresponds to their group rank. "
             )
 
