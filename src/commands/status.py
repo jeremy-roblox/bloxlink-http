@@ -2,7 +2,7 @@ from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
-from resources.premium import get_premium_status, PremiumModel
+from resources.premium import get_premium_status
 
 
 @bloxlink.command(category="Miscellaneous")
@@ -10,7 +10,7 @@ class StatusCommand:
     """view your premium status"""
 
     async def __main__(self, ctx: CommandContext):
-        premium_status: PremiumModel = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
+        premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
         embed = Embed()
 
         if premium_status.active:

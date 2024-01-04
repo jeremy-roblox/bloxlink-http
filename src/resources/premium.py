@@ -5,8 +5,8 @@ from attrs import define
 from .constants import SKU_TIERS
 
 
-@define(slots=True)
-class PremiumModel:
+@define(slots=True, kw_only=True)
+class PremiumStatus:
     active: bool = False
     type: str = None
     payment_source: str = None
@@ -57,19 +57,19 @@ def get_merged_features(premium_data, tier):
 
 async def get_premium_status(
     *, guild_id: int | str = None, user_id: int | str = None, interaction: hikari.CommandInteraction=None
-) -> PremiumModel:
+) -> PremiumStatus:
     if guild_id:
         premium_data = (await bloxlink.fetch_guild_data(str(guild_id), "premium")).premium
 
         if interaction:
-            guild_skus = getattr(interaction, "entitlement_sku_ids", []) # FIXME
+            guild_skus = getattr(interaction, "entitlements", []) # FIXME
 
             for sku_id, sku_tier in SKU_TIERS.items():
                 if sku_id in guild_skus:
                     tier, term = get_user_facing_tier(sku_tier)
                     features = get_merged_features(premium_data, sku_tier)
 
-                    return PremiumModel(
+                    return PremiumStatus(
                         active=True,
                         type="guild",
                         payment_source="Discord Billing",
@@ -83,7 +83,7 @@ async def get_premium_status(
             tier, term = get_user_facing_tier(premium_data["type"])
             features = get_merged_features(premium_data, premium_data.get("type", "basic/month"))
 
-            return PremiumModel(
+            return PremiumStatus(
                 active=True,
                 type="guild",
                 payment_source=f"[Bloxlink Dashboard](https://blox.link/dashboard/guilds/{guild_id}/premium)",
@@ -95,4 +95,4 @@ async def get_premium_status(
         # user premium
         raise NotImplementedError()
 
-    return PremiumModel(active=False)
+    return PremiumStatus(active=False)
