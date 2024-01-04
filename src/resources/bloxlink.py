@@ -6,7 +6,8 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import Callable, Coroutine, Optional
+from typing import Callable, Coroutine, Optional, TypedDict, TYPE_CHECKING
+from typing_extensions import Unpack
 
 import hikari
 import redis.asyncio as redis  # pylint: disable=import-error
@@ -20,6 +21,10 @@ from resources.utils import default_field
 from resources.constants import DEFAULTS
 
 instance: "Bloxlink" = None
+
+
+if TYPE_CHECKING:
+    from resources.commands import NewCommandArgs
 
 
 @define(slots=True)
@@ -366,7 +371,7 @@ class Bloxlink(yuyo.AsgiBot):
         logging.info(f"Loaded module {import_name}")
 
     @staticmethod
-    def command(**command_attrs):
+    def command(**command_attrs: 'Unpack[NewCommandArgs]'):
         """Decorator to register a command."""
 
         from resources.commands import new_command

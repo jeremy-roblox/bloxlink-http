@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Callable
+from typing import Callable, TypedDict
+from typing_extensions import Unpack
 
 import hikari
 from attrs import define
@@ -12,7 +13,7 @@ from resources.components import parse_custom_id
 from resources.exceptions import *
 from resources.modals import ModalCustomID
 from resources.redis import redis
-from resources.response import PromptCustomID, PromptPageData, Response
+from resources.response import PromptCustomID, PromptPageData, Response, Prompt
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.constants import DEVELOPERS
 
@@ -108,6 +109,28 @@ class Command:
         else:
             yield await generator_or_coroutine
 
+
+
+class NewCommandArgs(TypedDict, total=False):
+    """Initialize a command with these arguments
+
+    """
+
+    name: str
+    category: str
+    permissions: hikari.Permissions
+    defer: bool
+    defer_with_ephemeral: bool
+    description: str
+    options: list[hikari.commands.CommandOptions]
+    subcommands: dict[str, Callable]
+    rest_subcommands: list[hikari.CommandOption]
+    accepted_custom_ids: list[str]
+    autocomplete_handlers: list[str]
+    dm_enabled: bool
+    prompts: list[Prompt]
+    developer_only: bool
+    premium: bool
 
 @define(slots=True, kw_only=True)
 class CommandContext:
@@ -430,7 +453,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                 return
 
 
-def new_command(command: Callable, **kwargs):
+def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
     """Registers a command with Bloxlink.
 
     This is only used for the wrapper function in resources.bloxlink on the bot object. Commands should not
@@ -463,25 +486,26 @@ def new_command(command: Callable, **kwargs):
     command_attrs = {
         "name": command_name,
         "fn": command_fn,
-        "category": kwargs.get("category", "Miscellaneous"),
-        "permissions": kwargs.get("permissions", hikari.Permissions.NONE),
-        "defer": kwargs.get("defer", False),
-        "defer_with_ephemeral": kwargs.get("defer_with_ephemeral", False),
+        "category": command_args.get("category", "Miscellaneous"),
+        "permissions": command_args.get("permissions", hikari.Permissions.NONE),
+        "defer": command_args.get("defer", False),
+        "defer_with_ephemeral": command_args.get("defer_with_ephemeral", False),
         "description": new_command_class.__doc__,
-        "options": kwargs.get("options"),
+        "options": command_args.get("options"),
         "subcommands": subcommands,
         "rest_subcommands": rest_subcommands,
-        "accepted_custom_ids": kwargs.get("accepted_custom_ids"),
-        "autocomplete_handlers": kwargs.get("autocomplete_handlers"),
-        "dm_enabled": kwargs.get("dm_enabled"),
-        "prompts": kwargs.get("prompts"),
-        "developer_only": kwargs.get("developer_only", False),
+        "accepted_custom_ids": command_args.get("accepted_custom_ids"),
+        "autocomplete_handlers": command_args.get("autocomplete_handlers"),
+        "dm_enabled": command_args.get("dm_enabled"),
+        "prompts": command_args.get("prompts"),
+        "developer_only": command_args.get("developer_only", False),
+        "premium": command_args.get("premium", False),
     }
 
     new_command = Command(**command_attrs)
     slash_commands[command_name] = new_command
 
-    for alias in kwargs.get("aliases", []):
+    for alias in command_args.get("aliases", []):
         command_attrs["name"] = alias
         new_alias_command = Command(**command_attrs)
         slash_commands[alias] = new_alias_command
