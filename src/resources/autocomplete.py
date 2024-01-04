@@ -1,20 +1,30 @@
 import resources.binds as binds
 import resources.roblox.users as users
-from resources.commands import CommandContext
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.response import AutocompleteOption
+from attrs import define
+from typing import TYPE_CHECKING
 
 
-async def bind_category_autocomplete(ctx: CommandContext):
+if TYPE_CHECKING:
+    from resources.commands import CommandContext
+
+
+@define(slots=True)
+class AutocompleteOption:
+    name: str
+    value: str
+
+
+async def bind_category_autocomplete(ctx: 'CommandContext'):
     """Autocomplete for a bind category input based upon the binds the user has."""
 
     guild_data = await binds.get_binds(ctx.guild_id)
     bind_types = set(bind.type for bind in guild_data)
 
-    yield ctx.response.send_autocomplete([AutocompleteOption(x, x) for x in bind_types])
+    return ctx.response.send_autocomplete([AutocompleteOption(x, x) for x in bind_types])
 
 
-async def bind_id_autocomplete(ctx: CommandContext):
+async def bind_id_autocomplete(ctx: 'CommandContext'):
     """Autocomplete for bind ID inputs, expects that there is an additional category option in the
     command arguments that must be set prior to this argument."""
 
@@ -42,10 +52,10 @@ async def bind_id_autocomplete(ctx: CommandContext):
         for bind in filtered_binds:
             choices.append(AutocompleteOption(str(bind), str(bind)))
 
-    yield ctx.response.send_autocomplete(choices)
+    return ctx.response.send_autocomplete(choices)
 
 
-async def roblox_lookup_autocomplete(ctx: CommandContext):
+async def roblox_lookup_autocomplete(ctx: 'CommandContext'):
     """Return a matching roblox user from a user's input."""
 
     interaction = ctx.interaction
@@ -55,8 +65,7 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
 
     user_input = str(option.value)
     if not user_input:
-        yield ctx.response.send_autocomplete([])
-        return
+        return interaction.build_response([])
 
     user = None
     try:
@@ -68,4 +77,4 @@ async def roblox_lookup_autocomplete(ctx: CommandContext):
     if user is not None:
         result_list.append(AutocompleteOption(f"{user.username} ({user.id})", str(user.id)))
 
-    yield ctx.response.send_autocomplete(result_list)
+    return ctx.response.send_autocomplete(result_list)

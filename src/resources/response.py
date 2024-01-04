@@ -1,49 +1,41 @@
 import json
 import uuid
-from typing import Callable, Generic, Type, TypeVar
+from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
 
 import hikari
-from attrs import define, field, fields
+from attrs import define, field
 
 import resources.components as Components
 from resources.bloxlink import instance as bloxlink
-from resources.modals import Modal
+from resources.models import InteractiveMessage
+import resources.modals as modal
 
-from .exceptions import AlreadyResponded, CancelCommand, PageNotFound
+from .exceptions import CancelCommand, PageNotFound
 
 
-@define()
-class AutocompleteOption:
-    name: str
-    value: str
+if TYPE_CHECKING:
+    from resources.autocomplete import AutocompleteOption
 
 
 @define(slots=True)
-class EmbedPrompt:
+class PromptEmbed(InteractiveMessage):
     """Represents a prompt consisting of an embed & components for the message."""
 
-    embed: hikari.Embed = hikari.Embed()
-    action_rows: list = field(factory=list)
     page_number: int = 0
 
 
+
 @define(slots=True, kw_only=True)
-class PromptCustomID:
+class PromptCustomID(Components.BaseCustomID):
     """Represents a custom ID for a prompt component."""
 
-    command_name: str
     prompt_name: str
-    user_id: int = field(converter=int)
     page_number: int = field(converter=int)
     component_custom_id: str = None
     prompt_message_id: int = field(converter=int)
 
-    def __str__(self):
-        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
-        return ":".join(field_values)
-
-    def to_dict(self):
-        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
+    def __attrs_post_init__(self):
+        self.type = "prompt"
 
 
 @define(slots=True)
@@ -52,6 +44,7 @@ class PromptPageData:
     components: list[Components.Component] = field(default=list())
     title: str = None
     fields: list["Field"] = field(default=list())
+    color: int = None
 
     @define(slots=True)
     class Field:
@@ -274,7 +267,7 @@ class Response:
             **kwargs
         )
 
-    async def send_modal(self, modal: Modal):
+    async def send_modal(self, modal: 'modal.Modal'):
         """Send a modal response. This needs to be yielded."""
 
         # check if the modal was already submitted
@@ -291,8 +284,9 @@ class Response:
 
         return modal.builder
 
-    def send_autocomplete(self, items: list[AutocompleteOption]):
+    def send_autocomplete(self, items: list['AutocompleteOption']):
         """Send an autocomplete response to Discord. Limited to 25 items."""
+
         return self.interaction.build_response(
             [hikari.impl.AutocompleteChoiceBuilder(c.name.title(), c.value) for c in items[:25]]
         )
@@ -300,8 +294,8 @@ class Response:
     async def send_prompt(self, prompt: Type["Prompt"], custom_id_data: dict = None):
         """Prompt the user with the first page of the prompt."""
 
-        if self.interaction.type != hikari.InteractionType.APPLICATION_COMMAND:
-            raise NotImplementedError("Can only call prompt() from a slash command.")
+        if self.interaction.type not in (hikari.InteractionType.APPLICATION_COMMAND, hikari.InteractionType.MODAL_SUBMIT):
+            raise NotImplementedError("Can only call prompt() from a slash command or modal.")
 
         new_prompt = await prompt.new_prompt(
             prompt_instance=prompt,
@@ -325,7 +319,6 @@ class Prompt(Generic[T]):
         *,
         custom_id_format: Type[T] = PromptCustomID,
         start_with_fresh_data: bool = True,
-        custom_id_data: dict = None,
     ):
         self.pages: list[Page] = []
         self.current_page_number = 0
@@ -338,6 +331,8 @@ class Prompt(Generic[T]):
         self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
 
+        self.custom_id: T = None # this is set in prompt.new_prompt()
+
         response.defer_through_rest = True
 
     @staticmethod
@@ -346,7 +341,6 @@ class Prompt(Generic[T]):
         interaction: hikari.ComponentInteraction | hikari.CommandInteraction,
         command_name: str,
         response: Response,
-        custom_id_format: Type[T] = PromptCustomID,
         custom_id_data: dict = None,
     ):
         """Return a new initialized Prompt"""
@@ -360,21 +354,22 @@ class Prompt(Generic[T]):
 
         prompt.insert_pages(prompt_instance)
 
-        if isinstance(interaction, hikari.ComponentInteraction):
-            await prompt._save_data_from_interaction(interaction)
+        match interaction:
+            case hikari.ComponentInteraction():
+                await prompt._save_data_from_interaction(interaction)
 
-        elif isinstance(interaction, hikari.CommandInteraction):
-            if prompt.start_with_fresh_data:
-                await prompt.clear_data()
+            case hikari.CommandInteraction():
+                if prompt.start_with_fresh_data:
+                    await prompt.clear_data()
 
-            prompt.custom_id: T = prompt._custom_id_format(
-                command_name=command_name,
-                prompt_name=prompt.prompt_name,
-                page_number=0,
-                user_id=response.user_id,
-                prompt_message_id=0,
-                **(custom_id_data or {}),
-            )
+                prompt.custom_id: T = prompt._custom_id_format(
+                    command_name=command_name,
+                    prompt_name=prompt.prompt_name,
+                    page_number=0,
+                    user_id=response.user_id,
+                    prompt_message_id=0,
+                    **(custom_id_data or {}),
+                )
 
         return prompt
 
@@ -399,7 +394,7 @@ class Prompt(Generic[T]):
         return wrapper
 
     async def build_page(self, page: Page, custom_id_data: dict = None, hash_=None):
-        """Build an EmbedPrompt from a prompt and page."""
+        """Build a PromptEmbed from a prompt and page."""
 
         action_rows: list[Components.Component] = []
         embed = hikari.Embed(
@@ -429,6 +424,9 @@ class Prompt(Generic[T]):
             for field in page.details.fields:
                 embed.add_field(field.name, field.value, inline=field.inline)
 
+        if page.details.color:
+            embed.color = page.details.color
+
         if self._pending_embed_changes:
             if self._pending_embed_changes.get("description"):
                 embed.description = self._pending_embed_changes["description"]
@@ -438,7 +436,7 @@ class Prompt(Generic[T]):
                 embed.title = self._pending_embed_changes["title"]
                 self._pending_embed_changes.pop("title")
 
-        return EmbedPrompt(
+        return PromptEmbed(
             embed=embed, action_rows=action_rows if action_rows else None, page_number=page.page_number
         )
 
@@ -692,23 +690,34 @@ class Prompt(Generic[T]):
     async def finish(self, *, disable_components=True):
         """Finish the prompt."""
 
-        self.current_page.edited = True
-
         await self.clear_data()
         await self.ack()
 
-        if disable_components and self.current_page.details.components:
-            return await self.edit_page(
-                components={
-                    component.component_id: {"is_disabled": True}
-                    for component in self.current_page.details.components
-                }
-            )
+        if disable_components:
+            if self.custom_id.prompt_message_id:
+                message = await bloxlink.rest.fetch_message(
+                    self.response.interaction.channel_id, self.custom_id.prompt_message_id
+                )
+            else:
+                message = self.response.interaction.message
+
+            for action_row in message.components:
+                for component in action_row.components:
+                    component.is_disabled = True
+
+            await Components.set_components(message, components=message.components)
+
 
     async def ack(self):
-        """Acknowledge the interaction. This tells the prompt to not send a response."""
+        """Acknowledge the interaction. This should be used if no response will be sent."""
 
         self.current_page.edited = True
+
+        if not self.response.responded:
+            # this stops the interaction from erroring
+            await self.response.interaction.create_initial_response(
+                hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+            )
 
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
@@ -745,7 +754,7 @@ class Prompt(Generic[T]):
         hash_ = uuid.uuid4().hex
         print("edit_page() hash=", hash_)
 
-        self.current_page.edited = True
+        self.edited = True
 
         if self.current_page.programmatic:
             await self.populate_programmatic_page(self.response.interaction)

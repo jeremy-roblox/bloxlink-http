@@ -27,10 +27,17 @@ SKU_TIERS = {
 	"1022662272188952627": "basic/month"
 }
 
-ALL_USER_API_SCOPES = ["groups", "badges"]
-
 RED_COLOR       = 0xdb2323
 INVISIBLE_COLOR = 0x36393E
+ORANGE_COLOR    = 0xCE8037
+GOLD_COLOR      = 0xFDC333
+CYAN_COLOR      = 0x4DD3CC
+PURPLE_COLOR    = 0xa830c5
+GREEN_COLOR     = 0x0ec37e
+BROWN_COLOR     = 0xa2734a
+BLURPLE_COLOR   = 0x4a58a2
+YELLOW_COLOR    = 0xf1c40f
+PINK_COLOR      = 0xf47fff
 
 REPLY_EMOTE = "<:Reply:870665583593660476>"
 REPLY_CONT = "<:ReplyCont:870764844012412938>"
@@ -60,3 +67,5 @@ GROUP_RANK_CRITERIA_TEXT = {
     "gst": "People who are not in **this group**",
     "all": "People who are in **this group**",
 }
+
+DEVELOPERS = [84117866944663552, 156872400145874944]

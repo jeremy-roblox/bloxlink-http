@@ -7,8 +7,8 @@ from hikari.commands import CommandOption, OptionType
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
-from resources.exceptions import RobloxNotFound
-from resources.response import Prompt, PromptCustomID, PromptPageData, Response
+from resources.exceptions import RobloxNotFound, BindConflictError
+from resources.response import Prompt, PromptCustomID, PromptPageData
 from resources.components import Button, RoleSelectMenu, TextSelectMenu
 
 # bind resource API
@@ -703,9 +703,9 @@ class BindCommand:
 
             try:
                 await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id)
-            except NotImplementedError:
+            except BindConflictError:
                 await ctx.response.send(
-                    f"You already have a group binding for group [{group.name}](<https://www.roblox.com/groups/{group.id}/->). No changes were made."
+                    f"You already have a group binding for group [{group.name}](<{group.url}>). No changes were made."
                 )
                 return
 

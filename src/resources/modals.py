@@ -1,25 +1,15 @@
 from attrs import define, field, fields
 import hikari
 import json
-import asyncio
-from resources.components import Component, get_custom_id
+from resources.components import Component, get_custom_id, BaseCustomID
 from resources.redis import redis
+import resources.response as response
 
 @define(slots=True, kw_only=True)
-class ModalCustomID:
+class ModalCustomID(BaseCustomID):
     """Represents a custom ID for a modal component."""
 
-    command_name: str
-    subcommand_name: str = field(default="")
-    prompt_name: str = field(default="")
-    user_id: int = field(converter=int)
-    page_number: int = field(converter=int)
-    prompt_message_id: int = field(converter=int, default=0)
     component_custom_id: str = field(default="")
-
-    def __str__(self):
-        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
-        return ":".join(field_values)
 
 
 @define
@@ -77,16 +67,27 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
     prompt_data = prompt_data or {}
     command_data = command_data or {}
 
-    new_custom_id = get_custom_id(
-        ModalCustomID,
-        command_name=command_name,
-        subcommand_name=command_data.get("subcommand_name") or "",
-        prompt_name=prompt_data.get("prompt_name") or "",
-        user_id=interaction.user.id,
-        page_number=prompt_data.get("page_number") or 0,
-        prompt_message_id=prompt_data.get("prompt_message_id") or 0,
-        component_custom_id=prompt_data.get("component_id") or "",
-    )
+    if command_data:
+        new_custom_id = get_custom_id(
+            ModalCustomID,
+            command_name=command_name,
+            subcommand_name=command_data.get("subcommand_name") or "",
+            user_id=interaction.user.id,
+            component_custom_id=prompt_data.get("component_id") or "",
+        )
+    elif prompt_data:
+        new_custom_id = get_custom_id(
+            response.PromptCustomID,
+            command_name=command_name,
+            subcommand_name=command_data.get("subcommand_name") or "",
+            prompt_name=prompt_data.get("prompt_name") or "",
+            user_id=interaction.user.id,
+            page_number=prompt_data.get("page_number") or 0,
+            prompt_message_id=prompt_data.get("prompt_message_id") or 0,
+            component_custom_id=prompt_data.get("component_id") or "",
+        )
+    else:
+        raise ValueError("Either prompt_data or command_data must be provided.")
 
     modal_builder: hikari.impl.InteractionModalBuilder = None
 

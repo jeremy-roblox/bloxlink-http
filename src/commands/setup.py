@@ -1,9 +1,51 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
+from resources.binds import create_bind
+from resources.roblox.groups import get_group
 from resources.commands import CommandContext
-from resources.response import Prompt, PromptPageData, Response
+from resources.response import Prompt, PromptPageData
 from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
+from resources.exceptions import RobloxNotFound
+from resources.constants import BROWN_COLOR, DEFAULTS
+from resources.utils import find
+
+
+SETUP_OPTIONS = {
+    "nicknameTemplate": {
+        "description": "The nickname template that Bloxlink will use to nickname users. You can choose a preset template, or choose your own nickname format.",
+        "options": {
+            "{smart-name}": (
+                "Name users as: Display Name (@Roblox Username)",
+                "Users will be nicknamed as: `Display Name (@Roblox Username)`. This is the default setting."
+            ),
+            "{roblox-name}": (
+                "Name users as: Roblox Username",
+                "Users will be nicknamed as: `Roblox Username`."
+            ),
+            "{display-name}": (
+                "Name users as: Roblox Display Name",
+                "Users will be nicknamed as: `Roblox Display Name`."
+            ),
+            "{discord-name}": (
+                "Name users as: Discord Username",
+                "Users will be nicknamed as: `Discord Username`."
+            ),
+            "{disable-nicknaming}": (
+                "Do not nickname users",
+                "Users will not be nicknamed."
+            ),
+            "custom": (
+                "Choose my own nickname format...",
+                "You can choose your own nickname format."
+            ),
+        }
+    },
+    "verifiedRoleName": {
+        "description": "The name of the role that Bloxlink will give to users when they verify.",
+    },
+}
+
 
 
 class SetupPrompt(Prompt):
@@ -52,29 +94,10 @@ class SetupPrompt(Prompt):
                     component_id="preset_nickname_select",
                     options=[
                         TextSelectMenu.Option(
-                            label="Name users as: Roblox Display Name (@Roblox Username)",
-                            value="{smart-name}",
-                        ),
-                        TextSelectMenu.Option(
-                            label="Name users as: Roblox Username",
-                            value="{roblox-name}",
-                        ),
-                        TextSelectMenu.Option(
-                            label="Name users as: Roblox Display Name",
-                            value="{display-name}",
-                        ),
-                        TextSelectMenu.Option(
-                            label="Name users as: Discord Username",
-                            value="{discord-name}",
-                        ),
-                        TextSelectMenu.Option(
-                            label="Do not nickname users",
-                            value="{disable-nicknaming}",
-                        ),
-                        TextSelectMenu.Option(
-                            label="Choose my own nickname format...",
-                            value="custom",
-                        ),
+                            label=option_data[0],
+                            value=option_name,
+                        )
+                        for option_name, option_data in SETUP_OPTIONS.get("nicknameTemplate").get("options").items()
                     ],
                 ),
                 Button(
@@ -89,7 +112,7 @@ class SetupPrompt(Prompt):
                     style=Button.ButtonStyle.SECONDARY
                 ),
                 Button(
-                    label="Submit",
+                    label="Next",
                     component_id="nickname_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
@@ -122,7 +145,7 @@ class SetupPrompt(Prompt):
                         components=[
                             TextInput(
                                 style=TextInput.TextInputStyle.SHORT,
-                                placeholder="{smart-name}",
+                                placeholder=DEFAULTS.get("nicknameTemplate"),
                                 custom_id="nickname_prefix_input",
                                 value="Type your nickname template...",
                                 required=True
@@ -136,24 +159,23 @@ class SetupPrompt(Prompt):
                         return
 
                     setup_nickname = await modal.get_data("nickname_prefix_input")
+
                 else:
                     setup_nickname = select_nickname
 
                 await self.save_stateful_data(nicknameTemplate=setup_nickname)
+
+                await self.ack()
 
                 await self.edit_page(
                     components={
                         "nickname_submit": {
                             "is_disabled": False,
                         },
+                        "nickname_skip": {
+                            "is_disabled": True,
+                        },
                     }
-                )
-
-                await self.response.send(
-                    f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
-                    "You may also add a nickname prefix and/or suffix.\n"
-                    "After, press the **Submit** button to continue to the next page.",
-                    ephemeral=True
                 )
 
             case "nickname_prefix_suffix":
@@ -194,25 +216,20 @@ class SetupPrompt(Prompt):
 
                 setup_nickname_prefix = modal_data.get("nickname_prefix_input") or ""
                 setup_nickname_suffix = modal_data.get("nickname_suffix_input") or ""
-                new_nickname_template = f"{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}"
 
                 await self.save_stateful_data(nicknameTemplate_prefix=setup_nickname_prefix, nicknameTemplate_suffix=setup_nickname_suffix)
 
-                yield await self.response.send_first(
-                    "Added the nickname prefix and/or suffix!\n\n"
-                    f"Prefix: {setup_nickname_prefix}\n"
-                    f"Suffix: {setup_nickname_suffix}\n"
-                    f"New template: {new_nickname_template}",
-                    ephemeral=True
-                )
+                yield await self.response.send_first("Saved your response. Please click Next to continue.", ephemeral=True)
 
-            case "nickname_skip" | "nickname_submit":
+            case "nickname_skip":
+                await self.save_stateful_data(nicknameTemplate=None)
+                yield await self.next()
+
+            case "nickname_submit":
                 yield await self.next()
 
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
-
-        print(fired_component_id, self.custom_id)
 
         yield PromptPageData(
             title="Setup Bloxlink",
@@ -223,17 +240,23 @@ class SetupPrompt(Prompt):
             ),
             components=[
                 Button(
+                    label="Leave as default (Verified)",
+                    component_id="verified_role_default",
+                    is_disabled=False,
+                ),
+                Button(
                     label="Change the name",
                     component_id="verified_role_change_name",
                     is_disabled=False,
                 ),
                 Button(
-                    label="Leave as default (skip)",
-                    component_id="verified_role_default",
+                    label="Disable the Verified role",
+                    component_id="verified_role_disable",
                     is_disabled=False,
+                    style=Button.ButtonStyle.DANGER
                 ),
                 Button(
-                    label="Submit",
+                    label="Next",
                     component_id="verified_role_submit",
                     is_disabled=True,
                     style=Button.ButtonStyle.SUCCESS
@@ -278,14 +301,240 @@ class SetupPrompt(Prompt):
                         "verified_role_submit": {
                             "is_disabled": False,
                         },
+                        "verified_role_default": {
+                            "is_disabled": True,
+                        },
+                        "verified_role_disable": {
+                            "is_disabled": True,
+                        },
                     }
                 )
 
-                await self.response.send(f"Updated the verified role name to `{new_verified_role_name}`!", ephemeral=True)
+                await self.response.send(f"Setting the verified role name to `{new_verified_role_name}`! Please click Next to continue.", ephemeral=True)
+
+            case "verified_role_disable":
+                await self.save_stateful_data(verifiedRoleName="{disable}")
+
+                yield await self.next()
 
             case "verified_role_default" | "verified_role_submit":
-                pass
+                yield await self.next()
 
+    @Prompt.page(
+        PromptPageData(
+            title="Setup Bloxlink",
+            description=("Would you like to link a **Roblox group** to your server? This will create Discord roles that match "
+                         "your Roblox group and assign it to server members.\n\n**Important:** if you require more advanced "
+                         "group management, you can use the `/bind` command to link specific Roblox groups to specific Discord roles."
+            ),
+            components=[
+                Button(
+                    label="Link a group",
+                    component_id="group_link",
+                    is_disabled=False,
+                ),
+                Button(
+                    label="Skip, leave unchanged",
+                    component_id="group_skip",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SECONDARY
+                ),
+                Button(
+                    label="Next",
+                    component_id="group_submit",
+                    is_disabled=True,
+                    style=Button.ButtonStyle.SUCCESS
+                )
+            ],
+        )
+    )
+    async def group_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+        match fired_component_id:
+            case "group_link":
+                modal = build_modal(
+                    title="Link a Group",
+                    command_name=self.command_name,
+                    interaction=interaction,
+                    prompt_data = {
+                        "page_number": self.current_page_number,
+                        "prompt_name": self.__class__.__name__,
+                        "component_id": fired_component_id,
+                        "prompt_message_id": self.custom_id.prompt_message_id
+                    },
+                    components=[
+                        TextInput(
+                            style=TextInput.TextInputStyle.SHORT,
+                            placeholder="https://www.roblox.com/groups/3587262/Bloxlink-Space#!/about",
+                            custom_id="group_id_input",
+                            value="Type your Group URL or ID",
+                            required=True
+                        ),
+                    ]
+                )
+
+                yield await self.response.send_modal(modal)
+
+                if not await modal.submitted():
+                    return
+
+                group_id = await modal.get_data("group_id_input")
+
+                try:
+                    group = await get_group(group_id)
+                except RobloxNotFound:
+                    yield await self.response.send_first("That group does not exist! Please try again.", ephemeral=True)
+                    return
+
+                await self.save_stateful_data(groupID=group.id)
+
+                await self.edit_page(
+                    components={
+                        "group_submit": {
+                            "is_disabled": False,
+                        },
+                        "group_skip": {
+                            "is_disabled": True,
+                        },
+                    }
+                )
+
+                await self.response.send(
+                    f"Adding group **{group.name}** ({group.id})! Please click Next to continue.",
+                    ephemeral=True
+                )
+
+            case "group_skip" | "group_submit":
+                yield await self.next()
+
+    @Prompt.programmatic_page()
+    async def setup_finish(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        yield await self.response.defer()
+
+        setup_data = await self.current_data()
+        guild_data = await bloxlink.fetch_guild_data(self.guild_id)
+
+        nickname_template = setup_data.get("nicknameTemplate") or guild_data.nicknameTemplate or DEFAULTS.get("nicknameTemplate")
+        verified_role_name = setup_data.get("verifiedRoleName")
+        group_id = setup_data.get("groupID")
+        nickname_template_prefix = setup_data.get("nicknameTemplate_prefix") or ""
+        nickname_template_suffix = setup_data.get("nicknameTemplate_suffix") or ""
+
+        to_change = {}
+
+        new_nickname_template = f"{nickname_template_prefix}{nickname_template}{nickname_template_suffix}"
+        setup_option = SETUP_OPTIONS.get("nicknameTemplate").get("options").get(new_nickname_template)
+
+        to_change["nicknameTemplate"] = (
+            new_nickname_template,
+            "New Nickname Template",
+            setup_option[1] if setup_option else "Users will be nicknamed to your custom nickname template.",
+            True
+        )
+
+        if verified_role_name and verified_role_name != "{disable}":
+            to_change["verifiedRoleName"] = (
+                verified_role_name,
+                "New Verified Role",
+                "Users will be given this Verified role when they verify.",
+                True
+            )
+        elif verified_role_name == "{disable}":
+            to_change["verifiedRoleName"] = (
+                "Disabled",
+                "New Verified Role",
+                "Users will not be given a Verified role when they verify.",
+                True
+            )
+        else:
+            create_verified_role = not guild_data.verifiedRole
+
+            if guild_data.verifiedRole:
+                guild = await bloxlink.rest.fetch_guild(self.guild_id)
+                verified_role = find(lambda r_id, r: str(r_id) == guild_data.verifiedRole, guild.roles.items())
+
+                if not verified_role:
+                    create_verified_role = True
+
+            if create_verified_role:
+                verified_role = await bloxlink.rest.create_role(self.guild_id, name="Verified")
+                await bloxlink.update_guild_data(self.guild_id, verifiedRole=str(verified_role.id))
+
+            to_change["verifiedRoleName"] = (
+                verified_role.name,
+                "New Verified Role",
+                "Users will be given this Verified role when they verify.",
+                True
+            )
+
+        if group_id:
+            group = await get_group(group_id)
+            to_change["groupID"] = (
+                f"[{group.name}]({group.url})",
+                "Linking group",
+                f"Users in group **{group.name}** will get a Discord role that corresponds to their group rank.",
+                False
+            )
+
+        embed_options = []
+
+        for option_data in to_change.values():
+            embed_options.append(f"{option_data[1]} -> {'`' if option_data[3] else ''}{option_data[0]}{'`' if option_data[3] else ''}\n> {option_data[2]}")
+
+        yield PromptPageData(
+            title="Setup Confirmation",
+            description=(
+                "You have reached the end of setup. Please confirm the following settings before finishing.\n\n" +
+                ("\n\n".join(embed_options))
+            ),
+            color=BROWN_COLOR,
+            components=[
+                Button(
+                    label="Finish",
+                    component_id="setup_finish",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SUCCESS
+                ),
+                Button(
+                    label="Cancel",
+                    component_id="setup_cancel",
+                    is_disabled=False,
+                    style=Button.ButtonStyle.SECONDARY
+                )
+            ],
+        )
+
+        match fired_component_id:
+            case "setup_finish":
+                pending_db_changes = {}
+
+                if to_change.get("groupID"):
+                    await create_bind(self.guild_id, bind_type="group", bind_id=group_id)
+
+                if to_change.get("nicknameTemplate"):
+                    pending_db_changes["nicknameTemplate"] = to_change["nicknameTemplate"][0]
+
+                if to_change.get("verifiedRoleName"):
+                    if to_change["verifiedRoleName"][0] == "Disabled":
+                        pending_db_changes["verifiedRoleEnabled"] = False
+                    else:
+                        verified_role_name = to_change["verifiedRoleName"][0]
+                        pending_db_changes["verifiedRoleEnabled"] = True
+
+                        # create role if it doesn't exist
+                        guild = await bloxlink.rest.fetch_guild(self.guild_id)
+
+                        if not find(lambda r: r.name == verified_role_name, guild.roles.values()):
+                            verified_role = await bloxlink.rest.create_role(self.guild_id, name=verified_role_name)
+                            pending_db_changes["verifiedRole"] = str(verified_role.id)
+
+                if pending_db_changes:
+                    await bloxlink.update_guild_data(self.guild_id, **pending_db_changes)
+
+                await self.response.send("Successfully saved the configuration to your server.")
+                await self.finish()
+
+            case "setup_cancel":
+                yield await self.finish()
 
 
 @bloxlink.command(

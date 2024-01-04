@@ -19,6 +19,7 @@ logger = logging.getLogger()
 from resources.redis import RedisMessageCollector, redis
 from resources.secrets import MONGO_URL
 from resources.utils import default_field
+from resources.constants import DEFAULTS
 
 instance: "Bloxlink" = None
 
@@ -61,7 +62,7 @@ class GuildData:
     groupLock: dict = None
     highTrafficServer: bool = None
 
-    nicknameTemplate: str = "{smart-name}"
+    nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
 
     premium: dict = None
 
@@ -213,7 +214,7 @@ class Bloxlink(yuyo.AsgiBot):
 
         # we don't save lists and dicts to redis
         for aspect_name, aspect_value in dict(aspects).items():
-            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None:
+            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None: # TODO: support bools
                 redis_aspects.pop(aspect_name)
 
         if redis_aspects:

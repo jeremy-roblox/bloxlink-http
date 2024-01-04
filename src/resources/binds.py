@@ -13,8 +13,8 @@ import resources.roblox.users as users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound
-from resources.response import EmbedPrompt
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException
+from resources.models import InteractiveMessage
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
@@ -460,9 +460,9 @@ async def create_bind(
         nickname (str, optional): The nickname template for this bind. Defaults to None.
 
     Raises:
-        NotImplementedError: When a duplicate binding is found in the database,
-        NotImplementedError: _description_
-        NotImplementedError: _description_
+        BindConflictError: When a duplicate binding is found in the database,
+        BindException: _description_
+        BindException: _description_
     """
 
     guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
@@ -512,7 +512,7 @@ async def create_bind(
         # group, badge, gamepass, and asset binds
         if len(existing_binds) > 1:
             # invalid bind. binds with IDs should only have one entry in the db.
-            raise NotImplementedError(
+            raise BindConflictError(
                 "Binds with IDs should only have one entry. More than one duplicate was found."
             )
 
@@ -527,9 +527,6 @@ async def create_bind(
 
             existing_binds[0]["roles"] = list(guild_roles & existing_roles)
             guild_binds.append(existing_binds[0])
-        else:
-            # In ideal circumstances, this case should be for entire group bindings only
-            raise NotImplementedError("No roles to be assigned were passed.")
 
         if remove_roles:
             # Override roles to remove rather than append.
@@ -542,7 +539,7 @@ async def create_bind(
 
     else:
         # everything else
-        raise NotImplementedError("No bind_id was passed when trying to make a bind.")
+        raise BindException("No bind_id was passed when trying to make a bind.")
 
 
 async def delete_bind(
@@ -581,8 +578,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
-    mention_roles=True,
-) -> EmbedPrompt:
+) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
     Args:
@@ -602,7 +598,7 @@ async def apply_binds(
         BloxlinkForbidden: Raised when Bloxlink does not have permissions to give roles to a user.
 
     Returns:
-        EmbedPrompt: The embed that will be shown to the user, may or may not include the components that
+        InteractiveMessage: The embed that will be shown to the user, may or may not include the components that
             will be shown, depending on if the user is restricted or not.
     """
     if roblox_account and roblox_account.groups is None:
@@ -851,7 +847,7 @@ async def apply_binds(
     else:
         embed = hikari.Embed(description="No binds apply to you!")
 
-    return EmbedPrompt(embed)
+    return InteractiveMessage(embed)
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:

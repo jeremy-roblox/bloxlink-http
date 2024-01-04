@@ -1,6 +1,7 @@
 import asyncio
 from enum import Enum
 from json import JSONDecodeError, loads
+from typing import Iterable, Callable
 from attrs import field
 import copy
 
@@ -180,3 +181,10 @@ async def fetch(
 
 def default_field(obj: list | dict):
     return field(factory=lambda: copy.copy(obj))
+
+def find(predicate: Callable, iterable: Iterable):
+    for element in iterable:
+        if predicate(element):
+            return element
+
+    return None
