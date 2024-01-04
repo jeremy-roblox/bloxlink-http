@@ -322,9 +322,7 @@ class SetupPrompt(Prompt):
             case "verified_role_disable":
                 await self.save_stateful_data(verifiedRoleName="{disable}")
 
-                await self.response.send(f"Disabled the verified role! Members will not get a Verified role when joining the server.", ephemeral=True)
-
-                await self.next()
+                yield await self.next()
 
             case "verified_role_default" | "verified_role_submit":
                 yield await self.next()
@@ -527,6 +525,7 @@ class SetupPrompt(Prompt):
                         pending_db_changes["verifiedRoleEnabled"] = False
                     else:
                         verified_role_name = to_change["verifiedRoleName"][0]
+                        pending_db_changes["verifiedRoleEnabled"] = True
 
                         # create role if it doesn't exist
                         guild = await bloxlink.rest.fetch_guild(self.guild_id)
@@ -538,8 +537,6 @@ class SetupPrompt(Prompt):
                 if pending_db_changes:
                     await bloxlink.update_guild_data(self.guild_id, **pending_db_changes)
 
-                await self.response.send("Successfully saved the configuration to your server.")
-                # await self.finish()
                 await self.edit_page(
                     components={
                         "setup_finish": {
@@ -550,6 +547,9 @@ class SetupPrompt(Prompt):
                         },
                     }
                 )
+
+                await self.response.send("Successfully saved the configuration to your server.")
+                # await self.finish()
             case "setup_cancel":
                 yield await self.cancel()
 
