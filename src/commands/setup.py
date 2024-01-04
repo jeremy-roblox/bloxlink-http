@@ -178,13 +178,6 @@ class SetupPrompt(Prompt):
                     }
                 )
 
-                # await self.response.send(
-                #     f"Updated the nickname template to `{setup_nickname_prefix}{setup_nickname}{setup_nickname_suffix}`!\n"
-                #     "You may also add a nickname prefix and/or suffix.\n"
-                #     "Press the **Next** button to continue to the next page.",
-                #     ephemeral=True
-                # )
-
             case "nickname_prefix_suffix":
                 modal = build_modal(
                     title="Add a Nickname Prefix and/or Suffix",
