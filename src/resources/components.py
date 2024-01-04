@@ -387,7 +387,6 @@ def get_custom_id_data(
     if message:
         for action_row in message.components:
             for component in action_row.components:
-                # print(component.custom_id)
                 if component.custom_id.startswith(custom_id):
                     custom_id = component.custom_id
 

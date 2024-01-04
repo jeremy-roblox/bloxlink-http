@@ -14,8 +14,6 @@ import yuyo
 from attrs import define
 from motor.motor_asyncio import AsyncIOMotorClient
 
-logger = logging.getLogger()
-
 from resources.redis import RedisMessageCollector, redis
 from resources.secrets import MONGO_URL
 from resources.utils import default_field
@@ -341,17 +339,17 @@ class Bloxlink(yuyo.AsgiBot):
             import_name (str): Name of the module to import
         """
 
-        logger.info(f"Attempting to load module {import_name}")
+        logging.info(f"Attempting to load module {import_name}")
 
         try:
             module = importlib.import_module(import_name)
 
         except (ImportError, ModuleNotFoundError) as e:
-            logger.error(f"Failed to import {import_name}: {e}")
+            logging.error(f"Failed to import {import_name}: {e}")
             raise e
 
         except Exception as e:
-            logger.error(f"Module {import_name} errored: {e}")
+            logging.error(f"Module {import_name} errored: {e}")
             raise e
 
         if hasattr(module, "__setup__"):
@@ -362,7 +360,7 @@ class Bloxlink(yuyo.AsgiBot):
                     module.__setup__()
 
             except Exception as e:
-                logger.error(f"Module {import_name} errored: {e}")
+                logging.error(f"Module {import_name} errored: {e}")
                 raise e
 
         logging.info(f"Loaded module {import_name}")

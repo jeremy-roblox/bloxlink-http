@@ -6,8 +6,6 @@ from blacksheep.server.normalization import ensure_response
 
 from resources.secrets import SERVER_AUTH  # pylint: disable=no-name-in-module
 
-logger = logging.getLogger()
-
 UNAUTHORIZED_RESPONSE = unauthorized("You are not authorized to use this endpoint.")
 
 
@@ -17,7 +15,7 @@ def authenticate():
         async def wrapped(*args, **kwargs):
             # In case we ever omit the server auth config, we forbid all requests.
             if not SERVER_AUTH:
-                logger.error("No SERVER_AUTH was set! Blocking all requests.")
+                logging.error("No SERVER_AUTH was set! Blocking all requests.")
                 return UNAUTHORIZED_RESPONSE
 
             # Find the Request typed argument. Will not work if the handler does not want the Request obj.

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from enum import Enum
 from json import JSONDecodeError, loads
 from typing import Iterable, Callable
@@ -126,9 +127,9 @@ async def fetch(
                     raise RobloxNotFound()
                 elif response_status >= 400:
                     if proxied:
-                        print(old_url, response_body, flush=True)
+                        logging.debug(old_url, response_body, flush=True)
                     else:
-                        print(old_url, await response.text(), flush=True)
+                        logging.debug(old_url, await response.text(), flush=True)
                     raise RobloxAPIError()
 
                 if return_data is ReturnType.JSON:
@@ -154,7 +155,7 @@ async def fetch(
             elif return_data is ReturnType.JSON:
                 if proxied:
                     if not isinstance(response_body, dict):
-                        print("Roblox API Error: ", old_url, type(response_body), response_body, flush=True)
+                        logging.debug("Roblox API Error: ", old_url, type(response_body), response_body, flush=True)
 
                         if raise_on_failure:
                             raise RobloxAPIError()
@@ -164,7 +165,7 @@ async def fetch(
                 try:
                     json = await response.json()
                 except aiohttp.client_exceptions.ContentTypeError as exc:
-                    print(old_url, await response.text(), flush=True)
+                    logging.debug(old_url, await response.text(), flush=True)
 
                     raise RobloxAPIError() from exc
 
@@ -176,7 +177,7 @@ async def fetch(
             return response
 
     except asyncio.TimeoutError:
-        print(f"URL {old_url} timed out", flush=True)
+        logging.debug(f"URL {old_url} timed out", flush=True)
         raise RobloxDown() from None
 
 def default_field(obj: list | dict):

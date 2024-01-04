@@ -1,5 +1,6 @@
 import json
 import uuid
+import logging
 from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
 
 import hikari
@@ -134,7 +135,7 @@ class Response:
             build_components (bool, optional): Should this convert custom components to hikari components. Defaults to True.
         """
 
-        print("responded=", self.responded)
+        logging.debug("responded=", self.responded)
 
         if components and build_components:
             components = Components.build_action_rows(components)
@@ -306,7 +307,7 @@ class Response:
         )
 
         hash_ = uuid.uuid4().hex
-        print("prompt() hash=", hash_)
+        logging.debug("prompt() hash=", hash_)
 
         return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
 
@@ -477,7 +478,7 @@ class Prompt(Generic[T]):
     async def populate_programmatic_page(
         self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None
     ):
-        print("current_page=", self.current_page)
+        logging.debug("current_page=", self.current_page)
 
         if self.current_page.programmatic:
             generator_or_coroutine = self.current_page.func(interaction, fired_component_id)
@@ -507,12 +508,12 @@ class Prompt(Generic[T]):
             return
 
         hash_ = uuid.uuid4().hex
-        print("entry_point() hash=", hash_)
+        logging.debug("entry_point() hash=", hash_)
 
         async for generator_response in self.run_page(hash_=hash_):
             if isinstance(generator_response, hikari.Message):
                 continue
-            print(hash_, "generator_response entry_point()", generator_response)
+            logging.debug(hash_, "generator_response entry_point()", generator_response)
             yield generator_response
 
     async def run_page(self, custom_id_data: dict = None, hash_=None, changing_page=False, initial_prompt=False):
@@ -522,7 +523,7 @@ class Prompt(Generic[T]):
 
         self.current_page = self.pages[self.current_page_number]
 
-        print(hash_, "run_page() current page=", self.current_page_number, self.current_page.details.title)
+        logging.debug(hash_, "run_page() current page=", self.current_page_number, self.current_page.details.title)
 
         generator_or_coroutine = self.current_page.func(
             self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None
@@ -556,7 +557,7 @@ class Prompt(Generic[T]):
                 )
                 return
 
-        print(
+        logging.debug(
             hash_,
             "building page run_page(), current page=",
             self.current_page_number,
@@ -568,7 +569,7 @@ class Prompt(Generic[T]):
 
             built_page = await self.build_page(self.current_page, custom_id_data, hash_)
 
-            print(hash_, "run_page() built page", built_page.embed.title)
+            logging.debug(hash_, "run_page() built page", built_page.embed.title)
 
             if built_page.page_number != self.current_page_number:
                 return
@@ -679,7 +680,7 @@ class Prompt(Generic[T]):
             raise PageNotFound(f"Page {page} not found.")
 
         hash_ = uuid.uuid4().hex
-        print("go_to() hash=", hash_)
+        logging.debug("go_to() hash=", hash_)
 
         if kwargs:
             for attr_name, attr_value in kwargs.items():
@@ -723,7 +724,7 @@ class Prompt(Generic[T]):
         """Edit a component on the current page."""
 
         hash_ = uuid.uuid4().hex
-        print("edit_component() hash=", hash_)
+        logging.debug("edit_component() hash=", hash_)
 
         if self.current_page.programmatic:
             await self.populate_programmatic_page(self.response.interaction)
@@ -752,7 +753,7 @@ class Prompt(Generic[T]):
         """Edit the current page."""
 
         hash_ = uuid.uuid4().hex
-        print("edit_page() hash=", hash_)
+        logging.debug("edit_page() hash=", hash_)
 
         self.edited = True
 

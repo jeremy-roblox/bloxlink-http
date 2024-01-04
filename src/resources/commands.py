@@ -347,7 +347,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
                         async for generator_response in new_prompt.entry_point(interaction):
                             if not isinstance(generator_response, PromptPageData):
-                                print(2, generator_response)
+                                logging.debug(2, generator_response)
                                 yield generator_response
 
                         break
@@ -387,7 +387,6 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
     """Handle a component interaction."""
 
     custom_id = interaction.custom_id
-    print(custom_id)
 
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
@@ -416,7 +415,6 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
                 parsed_custom_id.command_name == command.name
                 and parsed_custom_id.prompt_name == command_prompt.__name__
             ):
-                print("found handler")
                 new_prompt = await command_prompt.new_prompt(
                     prompt_instance=command_prompt,
                     interaction=interaction,
@@ -426,7 +424,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 async for generator_response in new_prompt.entry_point(interaction):
                     if not isinstance(generator_response, PromptPageData):
-                        print(3, generator_response)
+                        logging.debug(3, generator_response)
                         yield generator_response
 
                 return
