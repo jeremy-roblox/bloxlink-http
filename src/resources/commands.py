@@ -83,6 +83,8 @@ class Command:
                 ephemeral=True,
             )
 
+        # TODO: check for premium
+
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
 
