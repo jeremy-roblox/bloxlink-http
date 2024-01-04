@@ -8,6 +8,7 @@ from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
 from resources.exceptions import RobloxNotFound
 from resources.constants import BROWN_COLOR
+from resources.utils import find
 
 
 SETUP_OPTIONS = {
@@ -237,8 +238,6 @@ class SetupPrompt(Prompt):
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
 
-        print(fired_component_id)
-
         yield PromptPageData(
             title="Setup Bloxlink",
             description=(
@@ -321,9 +320,9 @@ class SetupPrompt(Prompt):
                 await self.response.send(f"Setting the verified role name to `{new_verified_role_name}`! Please click Next to continue.", ephemeral=True)
 
             case "verified_role_disable":
-                await self.save_stateful_data(verifiedRoleName=None)
+                await self.save_stateful_data(verifiedRoleName="{disable}")
 
-                yield await self.response.send_first(f"Disabled the verified role! Members will not get a Verified role when joining the server.", ephemeral=True)
+                await self.response.send(f"Disabled the verified role! Members will not get a Verified role when joining the server.", ephemeral=True)
 
                 await self.next()
 
@@ -418,32 +417,59 @@ class SetupPrompt(Prompt):
 
     @Prompt.programmatic_page()
     async def setup_finish(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
-        setup_data = await self.current_data()
-        print(setup_data)
+        yield await self.response.defer()
 
-        nickname_template = setup_data.get("nicknameTemplate")
+        setup_data = await self.current_data()
+        guild_data = await bloxlink.fetch_guild_data(self.guild_id)
+
+        nickname_template = setup_data.get("nicknameTemplate") or guild_data.nicknameTemplate or "{smart-name}"
+        verified_role_name = setup_data.get("verifiedRoleName")
+        group_id = setup_data.get("groupID")
         nickname_template_prefix = setup_data.get("nicknameTemplate_prefix") or ""
         nickname_template_suffix = setup_data.get("nicknameTemplate_suffix") or ""
 
-        verified_role_name = setup_data.get("verifiedRoleName")
-        group_id = setup_data.get("groupID")
-
         to_change = {}
 
-        if nickname_template:
-            new_nickname_template = f"{nickname_template_prefix}{nickname_template}{nickname_template_suffix}"
-            setup_option = SETUP_OPTIONS.get("nicknameTemplate").get("options").get(new_nickname_template)
+        new_nickname_template = f"{nickname_template_prefix}{nickname_template}{nickname_template_suffix}"
+        setup_option = SETUP_OPTIONS.get("nicknameTemplate").get("options").get(new_nickname_template)
 
-            to_change["nicknameTemplate"] = (
-                new_nickname_template,
-                "New Nickname Template",
-                setup_option[1] if setup_option else "Users will be nicknamed to your custom nickname template.",
-                True
-            )
+        to_change["nicknameTemplate"] = (
+            new_nickname_template,
+            "New Nickname Template",
+            setup_option[1] if setup_option else "Users will be nicknamed to your custom nickname template.",
+            True
+        )
 
-        if verified_role_name:
+        if verified_role_name and verified_role_name != "{disable}":
             to_change["verifiedRoleName"] = (
                 verified_role_name,
+                "New Verified Role",
+                "Users will be given this Verified role when they verify.",
+                True
+            )
+        elif verified_role_name == "{disable}":
+            to_change["verifiedRoleName"] = (
+                "Disabled",
+                "New Verified Role",
+                "Users will not be given a Verified role when they verify.",
+                True
+            )
+        else:
+            create_verified_role = not guild_data.verifiedRole
+
+            if guild_data.verifiedRole:
+                guild = await bloxlink.rest.fetch_guild(self.guild_id)
+                verified_role = find(lambda r_id, r: str(r_id) == guild_data.verifiedRole, guild.roles.items())
+
+                if not verified_role:
+                    create_verified_role = True
+
+            if create_verified_role:
+                verified_role = await bloxlink.rest.create_role(self.guild_id, name="Verified")
+                await bloxlink.update_guild_data(self.guild_id, verifiedRole=str(verified_role.id))
+
+            to_change["verifiedRoleName"] = (
+                verified_role.name,
                 "New Verified Role",
                 "Users will be given this Verified role when they verify.",
                 True
@@ -488,7 +514,31 @@ class SetupPrompt(Prompt):
 
         match fired_component_id:
             case "setup_finish":
-                yield await self.response.send_first("Successfully saved the configuration to your server.")
+                pending_db_changes = {}
+
+                if to_change.get("groupID"):
+                    await create_bind(self.guild_id, bind_type="group", bind_id=group_id)
+
+                if to_change.get("nicknameTemplate"):
+                    pending_db_changes["nicknameTemplate"] = to_change["nicknameTemplate"][0]
+
+                if to_change.get("verifiedRoleName"):
+                    if to_change["verifiedRoleName"][0] == "Disabled":
+                        pending_db_changes["verifiedRoleEnabled"] = False
+                    else:
+                        verified_role_name = to_change["verifiedRoleName"][0]
+
+                        # create role if it doesn't exist
+                        guild = await bloxlink.rest.fetch_guild(self.guild_id)
+
+                        if not find(lambda r: r.name == verified_role_name, guild.roles.values()):
+                            verified_role = await bloxlink.rest.create_role(self.guild_id, name=verified_role_name)
+                            pending_db_changes["verifiedRole"] = str(verified_role.id)
+
+                if pending_db_changes:
+                    await bloxlink.update_guild_data(self.guild_id, **pending_db_changes)
+
+                await self.response.send("Successfully saved the configuration to your server.")
                 # await self.finish()
                 await self.edit_page(
                     components={
