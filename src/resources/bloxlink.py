@@ -19,6 +19,7 @@ logger = logging.getLogger()
 from resources.redis import RedisMessageCollector, redis
 from resources.secrets import MONGO_URL
 from resources.utils import default_field
+from resources.constants import DEFAULTS
 
 instance: "Bloxlink" = None
 
@@ -61,7 +62,7 @@ class GuildData:
     groupLock: dict = None
     highTrafficServer: bool = None
 
-    nicknameTemplate: str = "{smart-name}"
+    nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
 
     premium: dict = None
 

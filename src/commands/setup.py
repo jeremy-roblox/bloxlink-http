@@ -7,7 +7,7 @@ from resources.response import Prompt, PromptPageData
 from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
 from resources.exceptions import RobloxNotFound
-from resources.constants import BROWN_COLOR
+from resources.constants import BROWN_COLOR, DEFAULTS
 from resources.utils import find
 
 
@@ -145,7 +145,7 @@ class SetupPrompt(Prompt):
                         components=[
                             TextInput(
                                 style=TextInput.TextInputStyle.SHORT,
-                                placeholder="{smart-name}",
+                                placeholder=DEFAULTS.get("nicknameTemplate"),
                                 custom_id="nickname_prefix_input",
                                 value="Type your nickname template...",
                                 required=True
@@ -422,7 +422,7 @@ class SetupPrompt(Prompt):
         setup_data = await self.current_data()
         guild_data = await bloxlink.fetch_guild_data(self.guild_id)
 
-        nickname_template = setup_data.get("nicknameTemplate") or guild_data.nicknameTemplate or "{smart-name}"
+        nickname_template = setup_data.get("nicknameTemplate") or guild_data.nicknameTemplate or DEFAULTS.get("nicknameTemplate")
         verified_role_name = setup_data.get("verifiedRoleName")
         group_id = setup_data.get("groupID")
         nickname_template_prefix = setup_data.get("nicknameTemplate_prefix") or ""
