@@ -16,6 +16,8 @@ from resources.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
+from resources.constants import DEVELOPERS
+from resources.premium import get_premium_status
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -43,7 +45,7 @@ class Command:
     developer_only: bool = False
     premium: bool = False
 
-    def assert_permissions(self, ctx: CommandContext):
+    async def assert_permissions(self, ctx: CommandContext):
         """Check if the user has the required permissions to run this command.
 
         Raises if the user does not have the required permissions.
@@ -68,7 +70,15 @@ class Command:
                 ephemeral=True,
             )
 
-        # TODO: check for premium
+        if self.premium:
+            premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
+
+            if not premium_status.active:
+                raise BloxlinkForbidden(
+                    f"This command is only available to premium servers. "
+                    f"Please purchase premium [here](https://blox.link).",
+                    ephemeral=True,
+                )
 
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
@@ -81,7 +91,7 @@ class Command:
             subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
         """
 
-        self.assert_permissions(ctx)
+        await self.assert_permissions(ctx)
 
         generator_or_coroutine = self.subcommands[subcommand_name](ctx) if subcommand_name else self.fn(ctx)
 

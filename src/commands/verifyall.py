@@ -14,6 +14,7 @@ CHUNK_LIMIT = 1000
 
 @bloxlink.command(
     category="Premium",
+    premium=True,
     defer=True,
     permissions=hikari.Permissions.MANAGE_GUILD | hikari.Permissions.MANAGE_ROLES,
 )
