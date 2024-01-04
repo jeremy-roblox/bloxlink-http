@@ -530,21 +530,11 @@ class SetupPrompt(Prompt):
                 if pending_db_changes:
                     await bloxlink.update_guild_data(self.guild_id, **pending_db_changes)
 
-                await self.edit_page(
-                    components={
-                        "setup_finish": {
-                            "is_disabled": True,
-                        },
-                        "setup_cancel": {
-                            "is_disabled": True,
-                        },
-                    }
-                )
-
                 await self.response.send("Successfully saved the configuration to your server.")
-                # await self.finish()
+                await self.finish()
+
             case "setup_cancel":
-                yield await self.cancel()
+                yield await self.finish()
 
 
 @bloxlink.command(

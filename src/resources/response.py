@@ -693,33 +693,31 @@ class Prompt(Generic[T]):
         await self.clear_data()
         await self.ack()
 
-        # TODO: below does not work
+        if disable_components:
+            if self.custom_id.prompt_message_id:
+                message = await bloxlink.rest.fetch_message(
+                    self.response.interaction.channel_id, self.custom_id.prompt_message_id
+                )
+            else:
+                message = self.response.interaction.message
 
-        if self.current_page.programmatic:
-            print("check 1")
-            await self.populate_programmatic_page(self.response.interaction)
-            print("after")
+            for action_row in message.components:
+                for component in action_row.components:
+                    component.is_disabled = True
 
-        print(self.current_page)
+            await Components.set_components(message, components=message.components)
 
-        if disable_components and self.current_page.details.components:
-            print("check 2")
-            await self.edit_page(
-                components={
-                    component.component_id: {"is_disabled": True}
-                    for component in self.current_page.details.components
-                }
-            )
 
     async def ack(self):
         """Acknowledge the interaction. This should be used if no response will be sent."""
 
         self.current_page.edited = True
 
-        # this stops the interaction from erroring
-        await self.response.interaction.create_initial_response(
-            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
-        )
+        if not self.response.responded:
+            # this stops the interaction from erroring
+            await self.response.interaction.create_initial_response(
+                hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+            )
 
     async def edit_component(self, **component_data):
         """Edit a component on the current page."""
