@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Callable, TypedDict
+from typing import Callable, TypedDict, Type
 from typing_extensions import Unpack
 
 import hikari
@@ -19,45 +19,29 @@ from resources.constants import DEVELOPERS
 
 command_name_pattern = re.compile("(.+)Command")
 
-slash_commands = {}
+slash_commands: dict[str, Command] = {}
 
 
+@define(slots=True, kw_only=True)
 class Command:
     """Base representation of a slash command on Discord"""
 
-    def __init__(
-        self,
-        name: str,
-        fn: Callable = None,  # None if it has sub commands
-        category: str = "Miscellaneous",
-        permissions: hikari.Permissions = None,
-        defer: bool = False,
-        defer_with_ephemeral: bool = False,
-        description: str = None,
-        options: list[hikari.commands.CommandOptions] = None,
-        subcommands: dict[str, Callable] = None,
-        rest_subcommands: list[hikari.CommandOption] = None,
-        accepted_custom_ids: list[str] = None,
-        autocomplete_handlers: list[str] = None,
-        dm_enabled: bool = None,
-        prompts: list[Callable] = None,
-        developer_only: bool = False,
-    ):
-        self.name = name
-        self.fn = fn
-        self.category = category
-        self.permissions = permissions
-        self.defer = defer
-        self.defer_with_ephemeral = defer_with_ephemeral
-        self.description = description
-        self.options = options
-        self.subcommands = subcommands
-        self.rest_subcommands = rest_subcommands
-        self.accepted_custom_ids = accepted_custom_ids or {}
-        self.autocomplete_handlers = autocomplete_handlers or {}
-        self.dm_enabled = dm_enabled
-        self.prompts = prompts or []
-        self.developer_only = developer_only
+    name: str
+    fn: Callable = None  # None if it has sub commands
+    category: str = "Miscellaneous"
+    permissions: hikari.Permissions = None
+    defer: bool = False
+    defer_with_ephemeral: bool = False
+    description: str = None
+    options: list[hikari.commands.CommandOptions] = None
+    subcommands: dict[str, Callable] = None
+    rest_subcommands: list[hikari.CommandOption] = None
+    accepted_custom_ids: dict[str, Callable] = None
+    autocomplete_handlers: dict[str, Callable] = None
+    dm_enabled: bool = None
+    prompts: list[Type[Prompt]] = None
+    developer_only: bool = False
+    premium: bool = False
 
     def assert_permissions(self, ctx: CommandContext):
         """Check if the user has the required permissions to run this command.
@@ -483,7 +467,7 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
             )
             subcommands[attr_name] = attr
 
-    command_attrs = {
+    command_attrs: NewCommandArgs = {
         "name": command_name,
         "fn": command_fn,
         "category": command_args.get("category", "Miscellaneous"),
@@ -522,7 +506,7 @@ async def sync_commands(bot: hikari.RESTBot):
         bot (hikari.RESTBot): The bot object to publish slash commands for.
     """
 
-    commands = []
+    commands: list[hikari.PartialCommand] = []
 
     for new_command_data in slash_commands.values():
         command: hikari.api.SlashCommandBuilder = bot.rest.slash_command_builder(
@@ -558,7 +542,7 @@ def build_context(
     subcommand_name: str = None,
     response: Response = None,
     command: Command = None,
-    options=None,
+    options = None,
 ) -> CommandContext:
     """Build a CommandContext from an interaction.
 
