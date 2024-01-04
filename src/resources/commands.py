@@ -220,7 +220,7 @@ async def handle_interaction(interaction: hikari.Interaction):
             "Please try again in a few minutes.",
             ephemeral=message.ephemeral,
         )
-    except Message as ex:
+    except (Message, BindException) as ex:
         await response.send(ex.message, ephemeral=ex.ephemeral)
     except CancelCommand:
         pass

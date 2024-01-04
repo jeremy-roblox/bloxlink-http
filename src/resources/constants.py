@@ -14,9 +14,9 @@ DEFAULTS = {
 LIMITS = {
     "BINDS": {
         "FREE": 60,
-        "PREMIUM": 200
+        "PREMIUM": 200,
+        "MAX": 500
     },
-    "BACKUPS": 4,
     "RESTRICTIONS": {
         "FREE": 25,
         "PREMIUM": 250
