@@ -1,6 +1,7 @@
 class BloxlinkException(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message=None, ephemeral=False):
         self.message = message
+        self.ephemeral = ephemeral
 
 class RobloxNotFound(BloxlinkException):
     def __init__(self, *args, **kwargs):

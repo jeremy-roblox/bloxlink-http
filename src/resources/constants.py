@@ -67,3 +67,5 @@ GROUP_RANK_CRITERIA_TEXT = {
     "gst": "People who are not in **this group**",
     "all": "People who are in **this group**",
 }
+
+DEVELOPERS = [84117866944663552, 156872400145874944]

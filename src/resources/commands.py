@@ -14,6 +14,7 @@ from resources.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
+from resources.constants import DEVELOPERS
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -28,7 +29,7 @@ class Command:
         name: str,
         fn: Callable = None,  # None if it has sub commands
         category: str = "Miscellaneous",
-        permissions=None,
+        permissions: hikari.Permissions = None,
         defer: bool = False,
         defer_with_ephemeral: bool = False,
         description: str = None,
@@ -39,6 +40,7 @@ class Command:
         autocomplete_handlers: list[str] = None,
         dm_enabled: bool = None,
         prompts: list[Callable] = None,
+        developer_only: bool = False,
     ):
         self.name = name
         self.fn = fn
@@ -54,6 +56,36 @@ class Command:
         self.autocomplete_handlers = autocomplete_handlers or {}
         self.dm_enabled = dm_enabled
         self.prompts = prompts or []
+        self.developer_only = developer_only
+
+    def assert_permissions(self, ctx: CommandContext):
+        """Check if the user has the required permissions to run this command.
+
+        Raises if the user does not have the required permissions.
+
+        Args:
+            ctx (CommandContext): Context for this command.
+
+        Raises:
+            BloxlinkForbidden: Raised if the user does not have the required permissions.
+        """
+
+        member = ctx.member
+
+        if member.id in DEVELOPERS:
+            return True
+
+        if (member.permissions & self.permissions) != self.permissions:
+            missing_perms = ~member.permissions & self.permissions
+
+            raise BloxlinkForbidden(
+                f"You do not have the required permissions ({missing_perms}) to run this command.",
+                ephemeral=True,
+            )
+
+        if self.developer_only:
+            raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
+
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
@@ -62,7 +94,8 @@ class Command:
             ctx (CommandContext): Context for this command.
             subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
         """
-        # TODO: check for permissions
+
+        self.assert_permissions(ctx)
 
         generator_or_coroutine = self.subcommands[subcommand_name](ctx) if subcommand_name else self.fn(ctx)
 
@@ -153,30 +186,34 @@ async def handle_interaction(interaction: hikari.Interaction):
                                   stack_info=True)
 
     except UserNotVerified as message:
-        await response.send(str(message) or "This user is not verified with Bloxlink!")
+        await response.send(str(message) or "This user is not verified with Bloxlink!", ephemeral=message.ephemeral)
     except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
         await response.send(
             str(message)
-            or "I have encountered a permission error! Please make sure I have the appropriate permissions."
+            or "I have encountered a permission error! Please make sure I have the appropriate permissions.",
+            ephemeral=getattr(message, "ephemeral", False),
         )
     except RobloxNotFound as message:
         await response.send(
-            str(message) or "This Roblox entity does not exist! Please check the ID and try again."
+            str(message) or "This Roblox entity does not exist! Please check the ID and try again.",
+            ephemeral=message.ephemeral,
         )
     except RobloxDown:
         await response.send(
             "Roblox appears to be down, so I was unable to process your command. "
-            "Please try again in a few minutes."
+            "Please try again in a few minutes.",
+            ephemeral=message.ephemeral,
         )
     except Message as ex:
-        await response.send(ex.message)
+        await response.send(ex.message, ephemeral=ex.ephemeral)
     except CancelCommand:
         pass
     except Exception as ex:
         logging.exception(ex)
         await response.send(
             "An unexpected error occurred while processing this command. "
-            "Please try again in a few minutes."
+            "Please try again in a few minutes.",
+            ephemeral=True,
         )
 
 
@@ -427,7 +464,7 @@ def new_command(command: Callable, **kwargs):
         "name": command_name,
         "fn": command_fn,
         "category": kwargs.get("category", "Miscellaneous"),
-        "permissions": kwargs.get("permissions", None),
+        "permissions": kwargs.get("permissions", hikari.Permissions.NONE),
         "defer": kwargs.get("defer", False),
         "defer_with_ephemeral": kwargs.get("defer_with_ephemeral", False),
         "description": new_command_class.__doc__,
@@ -438,6 +475,7 @@ def new_command(command: Callable, **kwargs):
         "autocomplete_handlers": kwargs.get("autocomplete_handlers"),
         "dm_enabled": kwargs.get("dm_enabled"),
         "prompts": kwargs.get("prompts"),
+        "developer_only": kwargs.get("developer_only", False),
     }
 
     new_command = Command(**command_attrs)
