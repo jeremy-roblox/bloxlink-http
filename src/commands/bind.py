@@ -7,9 +7,9 @@ from hikari.commands import CommandOption, OptionType
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
-from resources.exceptions import RobloxNotFound, BindConflictError
-from resources.response import Prompt, PromptCustomID, PromptPageData
 from resources.components import Button, RoleSelectMenu, TextSelectMenu
+from resources.exceptions import BindConflictError, RobloxNotFound
+from resources.response import Prompt, PromptCustomID, PromptPageData
 
 # bind resource API
 from resources.roblox.assets import get_asset
@@ -787,7 +787,7 @@ class BindCommand:
                         f"The {cmd_type} ID ({input_id}) you gave is either invalid or does not exist."
                     )
 
-                await ctx.response.prompt(
+                await ctx.response.send_prompt(
                     GenericBindPrompt,
                     custom_id_data={
                         "entity_id": input_id,
