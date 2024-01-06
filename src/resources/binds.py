@@ -578,6 +578,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
+    mention_roles=True,
 ) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
