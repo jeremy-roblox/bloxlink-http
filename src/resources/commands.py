@@ -375,7 +375,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
                         async for generator_response in generator_or_coroutine:
                             yield generator_response
                     else:
-                        await generator_or_coroutine
+                        yield await generator_or_coroutine
 
                     break
 
