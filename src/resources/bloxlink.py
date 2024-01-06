@@ -6,19 +6,19 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import Callable, Coroutine, Optional, TypedDict, TYPE_CHECKING
-from typing_extensions import Unpack
+from typing import TYPE_CHECKING, Callable, Coroutine, Optional, TypedDict
 
 import hikari
-import redis.asyncio as redis  # pylint: disable=import-error
 import yuyo
 from attrs import define
 from motor.motor_asyncio import AsyncIOMotorClient
+from redis import RedisError
+from typing_extensions import Unpack
 
+from resources.constants import DEFAULTS
 from resources.redis import RedisMessageCollector, redis
 from resources.secrets import MONGO_URL
 from resources.utils import default_field
-from resources.constants import DEFAULTS
 
 instance: "Bloxlink" = None
 
@@ -127,7 +127,7 @@ class Bloxlink(yuyo.AsgiBot):
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
             return await self.redis_messages.get_message(reply_channel, timeout=timeout)
-        except redis.RedisError as ex:
+        except RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
         except asyncio.TimeoutError as ex:
             raise TimeoutError("No response was received.") from ex
@@ -217,7 +217,7 @@ class Bloxlink(yuyo.AsgiBot):
 
         # we don't save lists and dicts to redis
         for aspect_name, aspect_value in dict(aspects).items():
-            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None: # TODO: support bools
+            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None:  # TODO: support bools
                 redis_aspects.pop(aspect_name)
 
         if redis_aspects:
@@ -371,7 +371,7 @@ class Bloxlink(yuyo.AsgiBot):
         logging.info(f"Loaded module {import_name}")
 
     @staticmethod
-    def command(**command_attrs: 'Unpack[NewCommandArgs]'):
+    def command(**command_attrs: "Unpack[NewCommandArgs]"):
         """Decorator to register a command."""
 
         from resources.commands import new_command
