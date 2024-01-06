@@ -314,7 +314,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction, respo
                     yield generator_response
 
             else:
-                await generator_or_coroutine
+                yield await generator_or_coroutine
 
 
 async def handle_modal(interaction: hikari.ModalInteraction, response: Response):
