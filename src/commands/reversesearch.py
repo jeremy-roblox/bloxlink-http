@@ -4,8 +4,8 @@ from hikari.commands import CommandOption, OptionType
 import resources.roblox.users as users
 from resources.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
-from resources.exceptions import RobloxNotFound
 from resources.commands import CommandContext
+from resources.exceptions import RobloxNotFound
 
 
 @bloxlink.command(
@@ -59,4 +59,4 @@ class ReverseSearchCommand:
         )
         embed.set_thumbnail(account.avatar)
 
-        return await ctx.response.send_first(embed=embed)
+        await ctx.response.send_first(embed=embed)
