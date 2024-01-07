@@ -840,7 +840,11 @@ async def apply_binds(
             embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
 
     else:
-        embed = hikari.Embed(description="No binds apply to you!")
+        embed = hikari.Embed(
+            description="This user's roles are already up to date! No changes were made.\n"
+            "If you expected to receive different roles, try asking the admins of this server for more information! "
+            "They may not have setup the bot or role permissions correctly."
+        )
 
     return InteractiveMessage(embed)
 
