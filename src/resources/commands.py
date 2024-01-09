@@ -3,19 +3,19 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Callable, TypedDict, Type
-from typing_extensions import Unpack
+from typing import Callable, Type, TypedDict
 
 import hikari
 from attrs import define
+from typing_extensions import Unpack
 
 from resources.components import parse_custom_id
+from resources.constants import DEVELOPERS
 from resources.exceptions import *
 from resources.modals import ModalCustomID
 from resources.redis import redis
-from resources.response import PromptCustomID, PromptPageData, Response, Prompt
+from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
-from resources.constants import DEVELOPERS
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -73,7 +73,6 @@ class Command:
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
 
-
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
 
@@ -94,11 +93,8 @@ class Command:
             yield await generator_or_coroutine
 
 
-
 class NewCommandArgs(TypedDict, total=False):
-    """Initialize a command with these arguments
-
-    """
+    """Initialize a command with these arguments"""
 
     name: str
     category: str
@@ -115,6 +111,7 @@ class NewCommandArgs(TypedDict, total=False):
     prompts: list[Prompt]
     developer_only: bool
     premium: bool
+
 
 @define(slots=True, kw_only=True)
 class CommandContext:
@@ -317,7 +314,7 @@ async def handle_autocomplete(interaction: hikari.AutocompleteInteraction, respo
                     yield generator_response
 
             else:
-                await generator_or_coroutine
+                yield await generator_or_coroutine
 
 
 async def handle_modal(interaction: hikari.ModalInteraction, response: Response):
@@ -328,10 +325,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         components = [c for a in interaction.components for c in a.components]
         parsed_custom_id = parse_custom_id(ModalCustomID, custom_id)
 
-        modal_data = {
-            modal_component.custom_id: modal_component.value
-                for modal_component in components
-        }
+        modal_data = {modal_component.custom_id: modal_component.value for modal_component in components}
 
         # save data from modal to redis
         await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
@@ -381,7 +375,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
                         async for generator_response in generator_or_coroutine:
                             yield generator_response
                     else:
-                        await generator_or_coroutine
+                        yield await generator_or_coroutine
 
                     break
 
@@ -398,43 +392,47 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
     # iterate through commands and find the custom_id mapped function
     for command in slash_commands.values():
         # find matching custom_id handler
-        for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
-            if custom_id.startswith(accepted_custom_id):
-                generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
+        if command.accepted_custom_ids:
+            for accepted_custom_id, custom_id_fn in command.accepted_custom_ids.items():
+                if custom_id.startswith(accepted_custom_id):
+                    generator_or_coroutine = custom_id_fn(build_context(interaction, response=response))
 
-                if hasattr(generator_or_coroutine, "__anext__"):
-                    async for generator_response in generator_or_coroutine:
-                        yield generator_response
+                    if hasattr(generator_or_coroutine, "__anext__"):
+                        async for generator_response in generator_or_coroutine:
+                            yield generator_response
 
-                else:
-                    yield await generator_or_coroutine
+                    else:
+                        yield await generator_or_coroutine
 
-                return
+                    return
 
         # find matching prompt handler
-        for command_prompt in command.prompts:
-            try:
-                parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
-            except TypeError: # TODO: why is this needed
-                continue
+        if command.prompts:
+            for command_prompt in command.prompts:
+                try:
+                    parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+                except (TypeError, IndexError):
+                    # Keeps prompts from preventing normal components from firing on iteration.
+                    # Since we check for a valid handler
+                    continue
 
-            if (
-                parsed_custom_id.command_name == command.name
-                and parsed_custom_id.prompt_name == command_prompt.__name__
-            ):
-                new_prompt = await command_prompt.new_prompt(
-                    prompt_instance=command_prompt,
-                    interaction=interaction,
-                    response=response,
-                    command_name=command.name,
-                )
+                if (
+                    parsed_custom_id.command_name == command.name
+                    and parsed_custom_id.prompt_name == command_prompt.__name__
+                ):
+                    new_prompt = await command_prompt.new_prompt(
+                        prompt_instance=command_prompt,
+                        interaction=interaction,
+                        response=response,
+                        command_name=command.name,
+                    )
 
-                async for generator_response in new_prompt.entry_point(interaction):
-                    if not isinstance(generator_response, PromptPageData):
-                        logging.debug(3, generator_response)
-                        yield generator_response
+                    async for generator_response in new_prompt.entry_point(interaction):
+                        if not isinstance(generator_response, PromptPageData):
+                            logging.debug(3, generator_response)
+                            yield generator_response
 
-                return
+                    return
 
 
 def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):

@@ -155,8 +155,6 @@ async def get_binds(
     guild_id: int | str,
     bind_id: int | str = None,
     category: ValidBindType | None = None,
-    include_old: bool = True,
-    return_dict: bool = False,
 ) -> list[GuildBind] | list[GuildData.binds]:
     """Get the current guild binds.
 
@@ -164,15 +162,11 @@ async def get_binds(
     new format unless the POP_OLD_BINDS flag is set to True. While it is False, old formatted binds will
     be left as is.
 
-    OVERRIDE(ing) can only successfully be flagged if include_old is True.
-
     Args:
         guild_id (int | str): ID of the guild.
         bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
         category (ValidBindType | None, optional): Category to filter by.
             Currently only works if return_dict is false.
-        include_old (bool, optional): Should binds in the old format be included? Defaults to True.
-        return_dict (bool, optional): Return data in list[dict] format.
 
     Returns:
         list[GuildBind]: Typed variants of the binds for the given guild ID.
@@ -578,6 +572,7 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
+    mention_roles=True,
 ) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
@@ -845,7 +840,11 @@ async def apply_binds(
             embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
 
     else:
-        embed = hikari.Embed(description="No binds apply to you!")
+        embed = hikari.Embed(
+            description="This user's roles are already up to date! No changes were made.\n"
+            "If you expected to receive different roles, try asking the admins of this server for more information! "
+            "They may not have setup the bot or role permissions correctly."
+        )
 
     return InteractiveMessage(embed)
 

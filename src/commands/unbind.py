@@ -181,7 +181,7 @@ class UnbindCommand:
         embed = await paginator.embed
         components = await paginator.components
 
-        await ctx.response.send(embed=embed, components=components)
+        await ctx.response.send(embed=embed, components=components, build_components=False)
 
 
 async def _embed_formatter(page_number: int, current_items: list, _guild_id: int | str, max_pages: int):
