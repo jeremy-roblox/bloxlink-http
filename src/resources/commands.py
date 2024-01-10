@@ -46,6 +46,14 @@ class Command:
     premium: bool = False
     pro_bypass: bool = False
 
+
+    async def assert_premium(self, interaction: hikari.CommandInteraction):
+        if self.premium or BOT_RELEASE == "PRO":
+            premium_status = await get_premium_status(guild_id=interaction.guild_id, interaction=interaction)
+
+            if not self.pro_bypass and ((BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
+                raise PremiumRequired()
+
     async def assert_permissions(self, ctx: CommandContext):
         """Check if the user has the required permissions to run this command.
 
@@ -70,12 +78,6 @@ class Command:
                 f"You do not have the required permissions ({missing_perms}) to run this command.",
                 ephemeral=True,
             )
-
-        if self.premium or BOT_RELEASE == "PRO":
-            premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
-
-            if not self.pro_bypass and ((BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
-                raise PremiumRequired()
 
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
@@ -270,6 +272,8 @@ async def handle_command(
             raise NotImplementedError()
     else:
         command_name = command_override.name
+
+    await command.assert_premium(interaction)
 
     if not command_override:
         # get options
