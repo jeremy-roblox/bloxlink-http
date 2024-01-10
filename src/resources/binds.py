@@ -19,6 +19,7 @@ from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
 from resources.premium import get_premium_status
+from resources.components import Button
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
@@ -619,6 +620,9 @@ async def apply_binds(
     nickname = ""
     avatar_url = ""
 
+    embed = hikari.Embed()
+    components = []
+
     # Get necessary user information.
     if isinstance(member, hikari.Member):
         role_ids = member.role_ids
@@ -816,49 +820,62 @@ async def apply_binds(
     if restrict_result is not None and not restrict_result.removed:
         return restrict_result.prompt(guild.name)
 
-    if add_roles or remove_roles or warnings:
-        embed = hikari.Embed(
-            title="Member Updated",
-        )
+    if roblox_account:
+        if add_roles or remove_roles or warnings:
+            embed.title = "Member Updated"
 
-        embed.set_author(
-            name=username,
-            icon=avatar_url or None,
-            url=roblox_account.profile_link if roblox_account else None,
-        )
-
-        if add_roles:
-            embed.add_field(
-                name="Added Roles",
-                value=", ".join([r.mention if mention_roles else r.name for r in add_roles]),
+            embed.set_author(
+                name=username,
+                icon=avatar_url or None,
+                url=roblox_account.profile_link if roblox_account else None,
             )
 
-        if remove_roles:
-            embed.add_field(
-                name="Removed Roles",
-                value=",".join([r.mention if mention_roles else r.name for r in remove_roles]),
+            if add_roles:
+                embed.add_field(
+                    name="Added Roles",
+                    value=", ".join([r.mention if mention_roles else r.name for r in add_roles]),
+                )
+
+            if remove_roles:
+                embed.add_field(
+                    name="Removed Roles",
+                    value=",".join([r.mention if mention_roles else r.name for r in remove_roles]),
+                )
+
+            if not add_roles and not remove_roles:
+                embed.add_field(
+                    name="Roles",
+                    value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
+                )
+
+            if applied_nickname:
+                embed.add_field(name="Nickname Changed", value=applied_nickname)
+
+            if warnings:
+                embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
+
+        else:
+            embed.description = (
+                "This user's roles are already up to date! No changes were made.\n\n"
+                "If you expected to receive different roles, try asking the admins of this server for more information!\n"
+                "They may not have setup the bot or role permissions correctly."
             )
-
-        if not add_roles and not remove_roles:
-            embed.add_field(
-                name="Roles",
-                value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
-            )
-
-        if applied_nickname:
-            embed.add_field(name="Nickname Changed", value=applied_nickname)
-
-        if warnings:
-            embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
-
     else:
-        embed = hikari.Embed(
-            description="This user's roles are already up to date! No changes were made.\n"
-            "If you expected to receive different roles, try asking the admins of this server for more information! "
-            "They may not have setup the bot or role permissions correctly."
-        )
+        components = [
+            Button(
+                label="Verify with Bloxlink",
+                url=await users.get_verification_link(
+                    user_id=member_id,
+                    guild_id=guild_id,
+                )
+            ),
+            Button(
+                label="Stuck? See a Tutorial",
+                url="https://www.youtube.com/watch?v=SbDltmom1R8&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=1&ab_channel=Bloxlink"
+            )
+        ]
 
-    return InteractiveMessage(embed)
+    return InteractiveMessage(content="To verify with Bloxlink, click the link below." if not roblox_account else None, embed=embed, action_rows=components)
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:

@@ -18,4 +18,8 @@ class VerifyCommand:
             ctx.member, ctx.guild_id, roblox_account, moderate_user=True
         )
 
-        await ctx.response.send(embed=message_response.embed, components=message_response.action_rows)
+        await ctx.response.send(
+            content=message_response.content,
+            embed=message_response.embed,
+            components=message_response.action_rows
+        )

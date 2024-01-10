@@ -74,3 +74,6 @@ GROUP_RANK_CRITERIA_TEXT = {
 DEVELOPERS = [84117866944663552, 156872400145874944]
 
 BOT_RELEASE: Literal["LOCAL", "MAIN", "PRO"] = env.get("BOT_RELEASE") or "LOCAL"
+
+VERIFY_URL_GUILD = "https://blox.link/dashboard/verifications/verify?page=username&guild={guild_id}"
+VERIFY_URL = "https://blox.link/dashboard/verifications"

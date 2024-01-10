@@ -211,6 +211,9 @@ class Response:
             **kwargs: match what hikari expects for interaction.execute() or interaction.create_initial_response()
         """
 
+        if embed and embed.total_length() == 0:
+            embed = None
+
         if channel and channel_id:
             raise ValueError("Cannot specify both channel and channel_id.")
 
