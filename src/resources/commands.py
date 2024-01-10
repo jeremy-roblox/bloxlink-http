@@ -74,7 +74,7 @@ class Command:
             premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
 
             if (BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active):
-                return await ctx.response.send_premium_upsell()
+                raise PremiumRequired()
 
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
@@ -197,6 +197,8 @@ async def handle_interaction(interaction: hikari.Interaction):
                                   exc_info=True,
                                   stack_info=True)
 
+    except PremiumRequired:
+        await response.send_premium_upsell()
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!", ephemeral=message.ephemeral)
     except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:

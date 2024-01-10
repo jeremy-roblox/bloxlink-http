@@ -13,7 +13,7 @@ import resources.roblox.users as users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException
+from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.models import InteractiveMessage
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
@@ -468,19 +468,8 @@ async def create_bind(
         if bind_count >= LIMITS["BINDS"]["MAX"]:
             raise BindException("You have reached the maximum number of binds for this server.")
 
-        elif bind_count >= LIMITS["BINDS"]["FREE"]:
-            if not premium_status.active:
-                raise BindException(
-                    "You have reached the maximum number of binds for this server. "
-                    "Upgrade to Bloxlink Premium to create more binds."
-                )
-
-        elif bind_count >= LIMITS["BINDS"]["PREMIUM"]:
-            if premium_status.tier != "pro":
-                raise BindException(
-                    "You have reached the maximum number of binds for this server. "
-                    "Upgrade to Bloxlink Pro to create more binds."
-                )
+        elif (bind_count >= LIMITS["BINDS"]["FREE"] and not premium_status.active) or (bind_count >= LIMITS["BINDS"]["PREMIUM"] and premium_status.active and premium_status.tier != "pro"):
+                raise PremiumRequired()
 
     guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
 
