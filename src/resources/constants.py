@@ -1,4 +1,5 @@
 from os import environ as env
+from typing import Literal
 
 # fmt: off
 MODULES = [
@@ -72,4 +73,4 @@ GROUP_RANK_CRITERIA_TEXT = {
 
 DEVELOPERS = [84117866944663552, 156872400145874944]
 
-BOT_RELEASE = env.get("BOT_RELEASE") or "local"
+BOT_RELEASE: Literal["LOCAL", "MAIN", "PRO"] = env.get("BOT_RELEASE") or "LOCAL"

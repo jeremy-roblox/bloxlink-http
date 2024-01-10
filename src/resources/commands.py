@@ -59,7 +59,7 @@ class Command:
 
         member = ctx.member
 
-        if member.id in DEVELOPERS and BOT_RELEASE != "local":
+        if member.id in DEVELOPERS and BOT_RELEASE != "LOCAL":
             return True
 
         if (member.permissions & self.permissions) != self.permissions:
