@@ -1,8 +1,7 @@
-from blacksheep import FromJSON, Request, ok
-from blacksheep.server.controllers import APIController, get, post
+from blacksheep import Request, ok
+from blacksheep.server.controllers import APIController, get
 
 from resources.premium import get_premium_status
-
 
 from ..decorators import authenticate
 
