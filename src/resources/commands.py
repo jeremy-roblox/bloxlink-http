@@ -16,7 +16,7 @@ from resources.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
-from resources.constants import DEVELOPERS
+from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.premium import get_premium_status
 
 command_name_pattern = re.compile("(.+)Command")
@@ -59,7 +59,7 @@ class Command:
 
         member = ctx.member
 
-        if member.id in DEVELOPERS:
+        if member.id in DEVELOPERS and BOT_RELEASE != "local":
             return True
 
         if (member.permissions & self.permissions) != self.permissions:
@@ -70,15 +70,11 @@ class Command:
                 ephemeral=True,
             )
 
-        if self.premium:
+        if self.premium or BOT_RELEASE == "PRO":
             premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
 
-            if not premium_status.active:
-                raise BloxlinkForbidden(
-                    f"This command is only available to premium servers. "
-                    f"Please purchase premium [here](https://blox.link).",
-                    ephemeral=True,
-                )
+            if (BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active):
+                return await ctx.response.send_premium_upsell()
 
         if self.developer_only:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)

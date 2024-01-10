@@ -1,6 +1,7 @@
 from resources.bloxlink import instance as bloxlink
 import hikari
 from attrs import define
+from typing import Literal
 
 from .constants import SKU_TIERS
 
@@ -9,7 +10,8 @@ from .constants import SKU_TIERS
 class PremiumStatus:
     active: bool = False
     type: str = None
-    payment_source: str = None
+    payment_source: Literal["Discord Billing", "Bloxlink Dashboard"] = None
+    payment_source_url: str = None
     tier: str = None
     term: str = None
     features: set = None
@@ -26,6 +28,10 @@ class PremiumStatus:
                 )
 
         return "\n".join(buffer) or "Not premium"
+
+    @property
+    def payment_name_url(self):
+        return f"[{self.payment_source}]({self.payment_source_url})"
 
 
 def get_user_facing_tier(tier_name):
@@ -62,17 +68,16 @@ async def get_premium_status(
         premium_data = (await bloxlink.fetch_guild_data(str(guild_id), "premium")).premium
 
         if interaction:
-            guild_skus = getattr(interaction, "entitlements", []) # FIXME
-
-            for sku_id, sku_tier in SKU_TIERS.items():
-                if sku_id in guild_skus:
-                    tier, term = get_user_facing_tier(sku_tier)
-                    features = get_merged_features(premium_data, sku_tier)
+            for entitlement in interaction.entitlements:
+                if entitlement.id in SKU_TIERS:
+                    tier, term = get_user_facing_tier(SKU_TIERS[entitlement.id])
+                    features = get_merged_features(premium_data, SKU_TIERS[entitlement.id])
 
                     return PremiumStatus(
                         active=True,
                         type="guild",
                         payment_source="Discord Billing",
+                        payment_source_url="https://support.discord.com/hc/en-us/articles/9359445233303-Premium-App-Subscriptions-FAQ",
                         tier=tier,
                         term=term,
                         features=features,
@@ -86,7 +91,8 @@ async def get_premium_status(
             return PremiumStatus(
                 active=True,
                 type="guild",
-                payment_source=f"[Bloxlink Dashboard](https://blox.link/dashboard/guilds/{guild_id}/premium)",
+                payment_source="Bloxlink Dashboard",
+                payment_source_url=f"https://blox.link/dashboard/guilds/{guild_id}/premium",
                 tier=tier,
                 term=term,
                 features=features,

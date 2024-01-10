@@ -18,7 +18,7 @@ class StatusCommand:
             embed.color = 0xFDC333
             embed.add_field(name="Premium Status", value="Active", inline=True)
             embed.add_field(name="Tier", value=premium_status.tier, inline=True)
-            embed.add_field(name="Payment Source", value=premium_status.payment_source, inline=True)
+            embed.add_field(name="Payment Source", value=premium_status.payment_name_url, inline=True)
             embed.add_field(name="Unlocked Features", value=str(premium_status), inline=True)
         else:
             embed.description = (

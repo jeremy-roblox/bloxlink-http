@@ -1,3 +1,5 @@
+from os import environ as env
+
 # fmt: off
 MODULES = [
 	"commands",
@@ -69,3 +71,5 @@ GROUP_RANK_CRITERIA_TEXT = {
 }
 
 DEVELOPERS = [84117866944663552, 156872400145874944]
+
+BOT_RELEASE = env.get("BOT_RELEASE") or "local"
