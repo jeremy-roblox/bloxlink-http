@@ -74,7 +74,7 @@ class Command:
         if self.premium or BOT_RELEASE == "PRO":
             premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
 
-            if not self.pro_bypass and (BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active):
+            if not self.pro_bypass and ((BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
                 raise PremiumRequired()
 
         if self.developer_only:
