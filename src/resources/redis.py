@@ -7,6 +7,7 @@ from resources.secrets import (
     REDIS_HOST,
     REDIS_PASSWORD,
     REDIS_PORT,
+    REDIS_URL
 )
 
 redis: Redis = None
@@ -14,12 +15,18 @@ redis: Redis = None
 def connect_redis():
     global redis
 
-    redis = Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        retry_on_timeout=True,
-    )
+    if REDIS_URL:
+        redis = Redis.from_url(
+            url=REDIS_URL,
+            retry_on_timeout=True,
+        )
+    else:
+        redis = Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD,
+            retry_on_timeout=True,
+        )
 
     # TODO: ping keepalive
 
