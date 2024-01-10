@@ -44,6 +44,7 @@ class Command:
     prompts: list[Type[Prompt]] = None
     developer_only: bool = False
     premium: bool = False
+    pro_bypass: bool = False
 
     async def assert_permissions(self, ctx: CommandContext):
         """Check if the user has the required permissions to run this command.
@@ -73,7 +74,7 @@ class Command:
         if self.premium or BOT_RELEASE == "PRO":
             premium_status = await get_premium_status(guild_id=ctx.guild_id, interaction=ctx.interaction)
 
-            if (BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active):
+            if not self.pro_bypass and (BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active):
                 raise PremiumRequired()
 
         if self.developer_only:
@@ -117,6 +118,7 @@ class NewCommandArgs(TypedDict, total=False):
     prompts: list[Prompt]
     developer_only: bool
     premium: bool
+    pro_bypass: bool
 
 
 @define(slots=True, kw_only=True)
@@ -490,6 +492,7 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "prompts": command_args.get("prompts"),
         "developer_only": command_args.get("developer_only", False),
         "premium": command_args.get("premium", False),
+        "pro_bypass": command_args.get("pro_bypass", False),
     }
 
     new_command = Command(**command_attrs)

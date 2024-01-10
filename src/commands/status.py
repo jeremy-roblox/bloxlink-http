@@ -5,7 +5,10 @@ from resources.commands import CommandContext
 from resources.premium import get_premium_status
 
 
-@bloxlink.command(category="Miscellaneous")
+@bloxlink.command(
+    category="Premium",
+    pro_bypass=True,
+)
 class StatusCommand:
     """view your premium status"""
 
