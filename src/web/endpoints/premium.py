@@ -17,11 +17,16 @@ class Premium(APIController):
 
         premium_status = await get_premium_status(guild_id=guild_id)
 
+        if premium_status.active:
+            return ok({
+                "premium": premium_status.active,
+                "tier": premium_status.tier,
+                "term": premium_status.term,
+                "features": list(premium_status.features)
+            })
+
         return ok({
-            "premium": premium_status.active,
-            "tier": premium_status.tier,
-            "term": premium_status.term,
-            "features": list(premium_status.features)
+            "premium": False,
         })
 
     @get("/users/{user_id}")
