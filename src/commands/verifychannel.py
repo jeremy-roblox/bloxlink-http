@@ -13,7 +13,19 @@ async def verify_button_click(ctx: CommandContext):
         ctx.member, ctx.guild_id, roblox_account, moderate_user=True
     )
 
-    await ctx.response.send(embed=message_response.embed, components=message_response.action_rows)
+    if roblox_account:
+        await ctx.response.send(
+            embed=message_response.embed,
+            components=message_response.action_rows,
+            ephemeral=True
+        )
+    else:
+        verification_url = await users.get_verification_link(ctx.user.id, ctx.guild_id, interaction=ctx.interaction)
+
+        await ctx.response.send(
+            f"You are not verified with Bloxlink! You can verify by going to {verification_url}",
+            ephemeral=True
+        )
 
 
 @bloxlink.command(

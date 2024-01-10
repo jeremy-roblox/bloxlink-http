@@ -212,6 +212,7 @@ class Response:
         """
 
         if embed and embed.total_length() == 0:
+            # allows for empty embeds
             embed = None
 
         if channel and channel_id:

@@ -586,6 +586,7 @@ async def apply_binds(
     *,
     moderate_user=False,
     mention_roles=True,
+    update_embed_for_unverified=False,
 ) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
@@ -599,6 +600,7 @@ async def apply_binds(
         moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
             ban evasion, alt detection) apply to this user. Defaults to False.
         mention_roles (bool, optional): Should roles be mentioned in the reply embed. Defaults to True.
+        update_embed_for_unverified (bool, optional): Should the embed be updated to show the roles added/removed
 
     Raises:
         Message: Raised if there was an issue getting a server's bindings.
@@ -820,7 +822,7 @@ async def apply_binds(
     if restrict_result is not None and not restrict_result.removed:
         return restrict_result.prompt(guild.name)
 
-    if roblox_account:
+    if roblox_account or update_embed_for_unverified:
         if add_roles or remove_roles or warnings:
             embed.title = "Member Updated"
 
