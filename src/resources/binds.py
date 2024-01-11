@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from typing import Literal, TYPE_CHECKING
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
 bracket_search = re.compile(r"\[(.*)\]")
+logger = logging.getLogger()
 
 
 ValidBindType = Literal["group", "asset", "badge", "gamepass"]
@@ -140,6 +142,41 @@ class GroupBind(GuildBind):
             base_dict["bind"]["everyone"] = self.everyone
 
         return base_dict
+
+
+@define
+class UpdateEndpointPayload:
+    nickname: str | None
+
+    final_roles: list[str]
+    added_roles: list[str]
+    removed_roles: list[str]
+    missing_roles: list[str]
+
+    unevaluated_restrictions: list[str]
+    # TODO: use restriction class instead.
+    is_restricted: bool = False
+    restriction_reason: str = None
+    restriction_action: str = None
+    restriction_source: str = None
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "UpdateEndpointPayload":
+        roles = payload["roles"]
+        restr = payload["restrictions"]
+
+        return cls(
+            nickname=payload.get("nickname"),
+            final_roles=roles["final"],
+            added_roles=roles["added"],
+            removed_roles=roles["removed"],
+            missing_roles=roles["missing"],
+            is_restricted=restr["is_restricted"],
+            unevaluated_restrictions=restr["unevaluated"],
+            restriction_reason=restr.get("reason"),
+            restriction_action=restr.get("action"),
+            restriction_source=restr.get("source"),
+        )
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
@@ -657,177 +694,104 @@ async def apply_binds(
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
 
-    # add_roles:    set = set() # used exclusively for display purposes
-    add_roles: list[hikari.Role] = []
-    remove_roles: list[hikari.Role] = []
-    possible_nicknames: list[list[hikari.Role | str]] = []
-    warnings: list[str] = []
-    chosen_nickname = None
-    applied_nickname = None
-
-    # Handle restrictions.
-    restrict_result = None
-    if moderate_user:
-        restrict_result = await restriction.check_guild_restrictions(
-            guild_id,
-            {
-                "id": member_id,
-                "roles": member_roles,
-                "account": roblox_account,
-            },
-        )
-
-    if restrict_result is not None:
-        await restrict_result.moderate(member_id, guild)
-
-        if restrict_result.removed:
-            return restrict_result.prompt(guild.name)
-
-        if restrict_result.restriction == "disallowAlts":
-            warnings.append(
-                "This server does not allow alt accounts, because of this your other accounts have "
-                "been kicked from this server."
-            )
-
-    restricted_flag = (
-        False if (restrict_result is None or restrict_result.restriction == "disallowAlts") else True
-    )
-
-    # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
-    user_binds, user_binds_response = await fetch(
-        "POST",
-        f"{CONFIG.BIND_API}/binds/{member_id}",
-        headers={"Authorization": CONFIG.BIND_API_AUTH},
-        body={
-            "guild": {
-                "id": guild.id,
-                "roles": [
-                    {"id": r.id, "name": r.name, "managed": bool(r.bot_id) and r.name != "@everyone"}
-                    for r in guild.roles.values()
-                ],
-            },
-            "member": {"id": member_id, "roles": member_roles},
-            "roblox_account": roblox_account.to_dict() if roblox_account else None,
-            "restricted": restricted_flag,
+    request_data = {
+        "guild": {
+            "id": guild.id,
+            "roles": [
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "managed": bool(r.bot_id) and r.name != "@everyone",
+                    "position": r.position,
+                }
+                for r in guild.roles.values()
+            ],
         },
-    )
+        "member": {"id": member_id, "roles": member_roles, "name": username, "nick": nickname},
+        "roblox_account": roblox_account.to_dict() if roblox_account else None,
+    }
 
-    if user_binds_response.status == 200:
-        user_binds = user_binds["binds"]
-    else:
-        raise Message("Something went wrong getting this user's relevant bindings!")
-
-    role_ids_to_give = []
-    role_ids_to_remove = []
-    for required_bind in user_binds["required"]:
-        role_ids_to_give.extend(required_bind[1])
-        role_ids_to_remove.extend(required_bind[2])
-
-        if required_bind[3]:
-            for bind_role_id in required_bind[1]:
-                if role := guild.roles.get(int(bind_role_id)):
-                    possible_nicknames.append([role, required_bind[3]])
-
-    # Get the list of roles that the required bindings will give to the user.
-    user_roles, user_roles_response = await fetch(
+    update_data, update_data_response = await fetch(
         "POST",
-        f"{CONFIG.BIND_API}/binds/roles",
+        f"{CONFIG.BIND_API}/update/{guild.id}/{member_id}",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
-        body={
-            "guild_id": guild.id,
-            "user_roles": list(member_roles.keys()),
-            "successful_binds": {
-                "give": role_ids_to_give,
-                "remove": role_ids_to_remove,
-            },
-        },
+        body=request_data,
     )
 
-    if user_roles_response.status != 200 or not user_roles["success"]:
-        raise Message("Something went wrong when deciding which roles this user will get!")
+    if update_data_response.status > 400:
+        logger.error(f"API /update/{guild.id}/{member_id}", update_data)
+        raise Message("Something went wrong internally when trying to update this user!")
 
-    added_roles = user_roles["added_roles"]
-    removed_roles = user_roles["removed_roles"]
-    user_roles = user_roles["final_roles"]
+    warnings = []
 
-    # Convert to IDs discord roles.
-    for role_id in added_roles:
+    payload = UpdateEndpointPayload.from_payload(update_data)
+    if payload.is_restricted:
+        warnings.append(payload.restriction_reason)
+        # handle restriction accordingly
+
+    if payload.unevaluated_restrictions:
+        warnings.append(f"Did not evaluate: {', '.join(payload.unevaluated_restrictions)}")
+        # handle unevaluated restrictions
+
+    added_roles = []
+    removed_roles = []
+    user_roles = []
+
+    # Convert all role IDs to real roles.
+    for role_id in payload.added_roles:
         if role := guild.roles.get(int(role_id)):
-            add_roles.append(role)
+            added_roles.append(role)
 
-    for role_id in removed_roles:
+    for role_id in payload.removed_roles:
         if role := guild.roles.get(int(role_id)):
-            remove_roles.append(role)
+            removed_roles.append(role)
 
-    # first apply the required binds, then ask the user if they want to apply the optional binds
+    for role_id in payload.final_roles:
+        if role := guild.roles.get(int(role_id)):
+            user_roles.append(role)
 
-    # real_add_roles = add_roles
+    gd: GuildData = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
+    if payload.missing_roles and (gd.dynamicRoles is True or gd.dynamicRoles is None):
+        failed_creation = []
 
-    # remove_roles   = remove_roles.difference(add_roles) # added roles get priority
-    # real_add_roles = add_roles.difference(set(member.roles)) # remove roles that are already on the user, also new variable so we can achieve idempotence
-
-    # if real_add_roles or remove_roles:
-    #     await bloxlink.edit_user_roles(member, guild_id, add_roles=real_add_roles, remove_roles=remove_roles)
-
-    if possible_nicknames:
-        if len(possible_nicknames) == 1:
-            chosen_nickname = possible_nicknames[0][1]
-        else:
-            # get highest role with a nickname
-            highest_role = sorted(possible_nicknames, key=lambda e: e[0].position, reverse=True)
-
-            if highest_role:
-                chosen_nickname = highest_role[0][1]
-
-        if chosen_nickname:
-            chosen_nickname_http, nickname_response = await fetch(
-                "GET",
-                f"{CONFIG.BIND_API}/nickname/parse/",
-                headers={"Authorization": CONFIG.BIND_API_AUTH},
-                body={
-                    "user_data": {"name": username, "nick": nickname, "id": member_id},
-                    "guild_id": guild.id,
-                    "guild_name": guild.name,
-                    "roblox_account": roblox_account.to_dict() if roblox_account else None,
-                    "template": chosen_nickname,
-                    "restricted": restricted_flag,
-                },
-            )
-
-            if nickname_response.status == 200:
-                chosen_nickname = chosen_nickname_http["nickname"]
-            else:
-                raise RuntimeError(f"Nickname API returned an error: {chosen_nickname_http}")
-
-            if str(guild.owner_id) == str(member_id):
-                warnings.append(
-                    f"Since you're the Server Owner, I cannot modify your nickname.\nNickname: {chosen_nickname}"
+        for role in payload.missing_roles:
+            try:
+                new_role: hikari.Role = await bloxlink.rest.create_role(
+                    guild_id, name=role, reason="Creating missing roles."
                 )
+                added_roles.append(new_role)
+                user_roles.append(new_role)
+
+            except hikari.ForbiddenError:
+                failed_creation.append(role)
+
+        if failed_creation:
+            warnings.append(f"Could not create these missing roles: `{', '.join(failed_creation)}`")
+
+    applied_nickname = None
+    if payload.nickname:
+        if str(guild.owner_id) == str(member_id):
+            warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {payload.nickname}")  # fmt: skip
+
+        else:
+            try:
+                await bloxlink.rest.edit_member(guild_id, member_id, nickname=payload.nickname)
+
+            except hikari.errors.ForbiddenError:
+                warnings.append(f"I don't have permission to change the nickname of this user.\n> Nickname: {payload.nickname}")  # fmt: skip
+
             else:
-                try:
-                    await bloxlink.rest.edit_member(guild_id, member_id, nickname=chosen_nickname)
+                applied_nickname = payload.nickname
 
-                except hikari.errors.ForbiddenError:
-                    warnings.append("I don't have permission to change the nickname of this user.")
+    if added_roles or removed_roles:
+        try:
+            await bloxlink.rest.edit_member(guild_id, member_id, roles=user_roles)
+        except hikari.ForbiddenError:
+            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
-                else:
-                    applied_nickname = chosen_nickname
-
-    try:
-        if add_roles or remove_roles:
-            await bloxlink.rest.edit_member(
-                guild_id,
-                member_id,
-                roles=user_roles,
-            )
-    except hikari.errors.ForbiddenError:
-        raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
-
-    if restrict_result is not None and not restrict_result.removed:
-        return restrict_result.prompt(guild.name)
-
+    # Build response embed
     if roblox_account or update_embed_for_unverified:
-        if add_roles or remove_roles or warnings:
+        if added_roles or removed_roles or warnings:
             embed.title = "Member Updated"
 
             embed.set_author(
@@ -836,23 +800,24 @@ async def apply_binds(
                 url=roblox_account.profile_link if roblox_account else None,
             )
 
-            if add_roles:
-                embed.add_field(
-                    name="Added Roles",
-                    value=", ".join([r.mention if mention_roles else r.name for r in add_roles]),
-                )
+        if added_roles:
+            embed.add_field(
+                name="Added Roles",
+                value=", ".join([r.mention if mention_roles else r.name for r in added_roles]),
+            )
 
-            if remove_roles:
-                embed.add_field(
-                    name="Removed Roles",
-                    value=",".join([r.mention if mention_roles else r.name for r in remove_roles]),
-                )
+        if removed_roles:
+            embed.add_field(
+                name="Removed Roles",
+                value=",".join([r.mention if mention_roles else r.name for r in removed_roles]),
+            )
 
-            if not add_roles and not remove_roles:
-                embed.add_field(
-                    name="Roles",
-                    value="Your roles are already up to date! If this is a mistake, please contact this server's admins as they did not set up the bot correctly.",
-                )
+        if not added_roles and not removed_roles:
+            embed.add_field(
+                name="Roles",
+                value="Your roles are already up to date! If this is a mistake, please contact this "
+                "server's admins as they did not set up the bot correctly.",
+            )
 
             if applied_nickname:
                 embed.add_field(name="Nickname Changed", value=applied_nickname)
