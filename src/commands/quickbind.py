@@ -1,7 +1,9 @@
 from resources.bloxlink import instance as bloxlink
 
 
-@bloxlink.command()
+@bloxlink.command(
+    developer_only=True,
+)
 class QuickBindCommand:
     """insert some fake binds"""
 
