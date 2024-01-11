@@ -61,6 +61,7 @@ class GuildData:
     autoVerification: bool = None
     disallowAlts: bool = None
     disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
+    dynamicRoles: bool = None
     groupLock: dict = None
     highTrafficServer: bool = None
 
