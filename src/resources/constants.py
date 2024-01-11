@@ -27,7 +27,9 @@ LIMITS = {
 }
 
 SKU_TIERS = {
-	"1022662272188952627": "basic/month"
+	1022662272188952627: "basic/month",
+	1156326821785260102: "pro/month",
+	1106314705867378928: "basic/month" # test sku
 }
 
 RED_COLOR       = 0xdb2323

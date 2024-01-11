@@ -316,14 +316,15 @@ class Response:
         return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
 
 
-    async def send_premium_upsell(self):
+    async def send_premium_upsell(self, raise_exception=True):
         """Send a premium upsell message. This cancels out of the command."""
 
         self.responded = True
 
         await self.interaction.create_premium_required_response()
 
-        raise CancelCommand()
+        if raise_exception:
+            raise CancelCommand()
 
 
 class Prompt(Generic[T]):

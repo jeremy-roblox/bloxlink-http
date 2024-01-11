@@ -79,9 +79,9 @@ async def get_premium_status(
 
         if interaction:
             for entitlement in interaction.entitlements:
-                if entitlement.id in SKU_TIERS:
-                    tier, term = get_user_facing_tier(SKU_TIERS[entitlement.id])
-                    features = get_merged_features(premium_data, SKU_TIERS[entitlement.id])
+                if entitlement.sku_id in SKU_TIERS:
+                    tier, term = get_user_facing_tier(SKU_TIERS[entitlement.sku_id])
+                    features = get_merged_features(premium_data, SKU_TIERS[entitlement.sku_id])
 
                     return PremiumStatus(
                         active=True,
@@ -93,6 +93,38 @@ async def get_premium_status(
                         term=term,
                         features=features,
                     )
+        else:
+            # check discord through REST
+            redis_discord_billing_premium_key = f"premium:discord_billing:{guild_id}"
+            redis_discord_billing_tier: bytes = await redis.get(redis_discord_billing_premium_key)
+            has_discord_billing = redis_discord_billing_tier not in (None, "false")
+
+            if not redis_discord_billing_tier:
+                entitlements = await bloxlink.rest.fetch_entitlements(
+                    DISCORD_APPLICATION_ID,
+                    guild=str(guild_id),
+                    exclude_ended=True
+                )
+
+                has_discord_billing = bool(entitlements)
+                redis_discord_billing_tier = SKU_TIERS[entitlements[0].sku_id] if has_discord_billing else None
+
+                await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", ex=100)
+
+            if has_discord_billing:
+                redis_discord_billing_tier = redis_discord_billing_tier.decode()
+                tier, term = get_user_facing_tier(redis_discord_billing_tier)
+                features = get_merged_features(premium_data, redis_discord_billing_tier)
+
+                return PremiumStatus(
+                    active=True,
+                    type="guild",
+                    payment_source="Discord Billing",
+                    guild_id=guild_id,
+                    tier=tier,
+                    term=term,
+                    features=features,
+                )
 
         # hit database for premium
         if premium_data and premium_data.get("active") and not premium_data.get("externalDiscord"):
@@ -103,35 +135,6 @@ async def get_premium_status(
                 active=True,
                 type="guild",
                 payment_source="Bloxlink Dashboard",
-                payment_source_url=f"https://blox.link/dashboard/guilds/{guild_id}/premium",
-                guild_id=guild_id,
-                tier=tier,
-                term=term,
-                features=features,
-            )
-
-        # check discord
-        redis_discord_billing_premium_key = f"premium:discord_billing:{guild_id}"
-        redis_discord_billing = await redis.get(redis_discord_billing_premium_key)
-        has_discord_billing = redis_discord_billing == 'true'
-
-        if not redis_discord_billing:
-            entitlements = await bloxlink.rest.fetch_entitlements(
-                DISCORD_APPLICATION_ID,
-                guild=str(guild_id),
-                exclude_ended=True
-            )
-
-            has_discord_billing = bool(entitlements)
-
-            await redis.set(redis_discord_billing_premium_key, 'true' if has_discord_billing else 'false', ex=100)
-
-        if has_discord_billing:
-            return PremiumStatus(
-                active=True,
-                type="guild",
-                payment_source="Discord Billing",
-                payment_source_url="https://support.discord.com/hc/en-us/articles/9359445233303-Premium-App-Subscriptions-FAQ",
                 guild_id=guild_id,
                 tier=tier,
                 term=term,

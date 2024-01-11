@@ -79,7 +79,8 @@ class Command:
                 ephemeral=True,
             )
 
-        if self.developer_only:
+        # second check seems redundant but it's to make it work locally because of the above bypass
+        if self.developer_only and not member.id in DEVELOPERS:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
@@ -202,7 +203,7 @@ async def handle_interaction(interaction: hikari.Interaction):
                                   stack_info=True)
 
     except PremiumRequired:
-        await response.send_premium_upsell()
+        await response.send_premium_upsell(raise_exception=False)
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!", ephemeral=message.ephemeral)
     except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
