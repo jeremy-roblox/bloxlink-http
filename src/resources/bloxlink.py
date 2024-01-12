@@ -67,7 +67,9 @@ class GuildData:
 
     nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
 
-    premium: dict = None
+    premium: dict = default_field({}) # deprecated
+
+    affiliate: dict = None
 
     # Old bind fields.
     roleBinds: dict = None

@@ -6,7 +6,9 @@ from resources.commands import CommandContext
 from resources.components import Button
 
 
-@bloxlink.command()
+@bloxlink.command(
+    pro_bypass=True,
+)
 class DonateCommand:
     """Learn how to receive Bloxlink Premium"""
 

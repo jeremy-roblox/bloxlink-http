@@ -211,6 +211,10 @@ class Response:
             **kwargs: match what hikari expects for interaction.execute() or interaction.create_initial_response()
         """
 
+        if embed and embed.total_length() == 0:
+            # allows for empty embeds
+            embed = None
+
         if channel and channel_id:
             raise ValueError("Cannot specify both channel and channel_id.")
 
@@ -310,6 +314,17 @@ class Response:
         logging.debug("prompt() hash=", hash_)
 
         return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
+
+
+    async def send_premium_upsell(self, raise_exception=True):
+        """Send a premium upsell message. This cancels out of the command."""
+
+        self.responded = True
+
+        await self.interaction.create_premium_required_response()
+
+        if raise_exception:
+            raise CancelCommand()
 
 
 class Prompt(Generic[T]):

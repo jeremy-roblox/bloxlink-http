@@ -1,4 +1,4 @@
-hikari==2.0.0.dev122
+git+https://github.com/hikari-py/hikari.git@refs/pull/1803/merge
 hikari-yuyo[asgi]==1.14.2
 motor==2.3
 hiredis

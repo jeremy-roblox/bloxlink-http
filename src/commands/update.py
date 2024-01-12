@@ -27,7 +27,9 @@ class UpdateCommand:
         roblox_account = await users.get_user_account(target_user, raise_errors=False)
 
         message_response = await binds.apply_binds(
-            target_user, ctx.guild_id, roblox_account, moderate_user=True
+            target_user, ctx.guild_id, roblox_account,
+            update_embed_for_unverified=True,
+            moderate_user=True
         )
 
         await ctx.response.send(embed=message_response.embed, components=message_response.action_rows)

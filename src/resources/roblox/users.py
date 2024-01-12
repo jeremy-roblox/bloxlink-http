@@ -10,10 +10,12 @@ import hikari
 import resources.binds as binds
 import resources.roblox.groups as groups
 from resources.bloxlink import instance as bloxlink
-from resources.constants import ALL_USER_API_SCOPES
+from resources.constants import ALL_USER_API_SCOPES, VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
 from resources.utils import ReturnType, fetch
 from resources.secrets import ROBLOX_INFO_SERVER
+from resources.premium import get_premium_status
+from resources.redis import redis
 
 
 @define(slots=True)
@@ -349,3 +351,34 @@ async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) 
         embed.set_thumbnail(roblox_account.avatar)
 
     return embed
+
+async def get_verification_link(user_id: int | str, guild_id: int | str = None, interaction: hikari.ComponentInteraction = None) -> str:
+    """Get the verification link for a user.
+
+    Args:
+        user_id (int | str): The user to get the verification link for.
+        guild_id (int | str, optional): The guild ID to get the verification link for. Defaults to None.
+        interaction (hikari.ComponentInteraction, optional): The interaction to check for premium status. Defaults to None.
+
+    Returns:
+        str: The verification link for the user.
+    """
+
+    if guild_id:
+        guild_id = str(guild_id)
+
+        premium_status = await get_premium_status(guild_id=guild_id, interaction=interaction)
+        affiliate_enabled = ((await bloxlink.fetch_guild_data(guild_id, "affiliate")).affiliate or {}).get("enabled")
+
+        # save where the user verified in
+        # TODO: depreciated, remove
+        await redis.set(f"verifying-from:{user_id}", guild_id, ex=3600)
+
+        if affiliate_enabled:
+            await redis.set(f"affiliate-verifying-from:{user_id}", guild_id, ex=3600)
+
+        if affiliate_enabled or premium_status.active:
+            return VERIFY_URL_GUILD.format(guild_id=guild_id)
+
+
+    return VERIFY_URL

@@ -1,3 +1,6 @@
+from os import environ as env
+from typing import Literal
+
 # fmt: off
 MODULES = [
 	"commands",
@@ -14,9 +17,9 @@ DEFAULTS = {
 LIMITS = {
     "BINDS": {
         "FREE": 60,
-        "PREMIUM": 200
+        "PREMIUM": 200,
+        "MAX": 500
     },
-    "BACKUPS": 4,
     "RESTRICTIONS": {
         "FREE": 25,
         "PREMIUM": 250
@@ -24,7 +27,9 @@ LIMITS = {
 }
 
 SKU_TIERS = {
-	"1022662272188952627": "basic/month"
+	1022662272188952627: "basic/month",
+	1156326821785260102: "pro/month",
+	1106314705867378928: "basic/month" # test sku
 }
 
 RED_COLOR       = 0xdb2323
@@ -69,3 +74,8 @@ GROUP_RANK_CRITERIA_TEXT = {
 }
 
 DEVELOPERS = [84117866944663552, 156872400145874944]
+
+BOT_RELEASE: Literal["LOCAL", "MAIN", "PRO"] = env.get("BOT_RELEASE") or "LOCAL"
+
+VERIFY_URL_GUILD = "https://blox.link/dashboard/verifications/verify?page=username&guild={guild_id}"
+VERIFY_URL = "https://blox.link/dashboard/verifications"

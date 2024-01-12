@@ -16,6 +16,8 @@ from resources.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
+from resources.constants import DEVELOPERS, BOT_RELEASE
+from resources.premium import get_premium_status
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -42,8 +44,17 @@ class Command:
     prompts: list[Type[Prompt]] = None
     developer_only: bool = False
     premium: bool = False
+    pro_bypass: bool = False
 
-    def assert_permissions(self, ctx: CommandContext):
+
+    async def assert_premium(self, interaction: hikari.CommandInteraction):
+        if self.premium or BOT_RELEASE == "PRO":
+            premium_status = await get_premium_status(guild_id=interaction.guild_id, interaction=interaction)
+
+            if not self.pro_bypass and ((BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
+                raise PremiumRequired()
+
+    async def assert_permissions(self, ctx: CommandContext):
         """Check if the user has the required permissions to run this command.
 
         Raises if the user does not have the required permissions.
@@ -57,7 +68,7 @@ class Command:
 
         member = ctx.member
 
-        if member.id in DEVELOPERS:
+        if member.id in DEVELOPERS and BOT_RELEASE != "LOCAL":
             return True
 
         if (member.permissions & self.permissions) != self.permissions:
@@ -68,9 +79,8 @@ class Command:
                 ephemeral=True,
             )
 
-        # TODO: check for premium
-
-        if self.developer_only:
+        # second check seems redundant but it's to make it work locally because of the above bypass
+        if self.developer_only and not member.id in DEVELOPERS:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
@@ -81,7 +91,7 @@ class Command:
             subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
         """
 
-        self.assert_permissions(ctx)
+        await self.assert_permissions(ctx)
 
         generator_or_coroutine = self.subcommands[subcommand_name](ctx) if subcommand_name else self.fn(ctx)
 
@@ -111,6 +121,7 @@ class NewCommandArgs(TypedDict, total=False):
     prompts: list[Prompt]
     developer_only: bool
     premium: bool
+    pro_bypass: bool
 
 
 @define(slots=True, kw_only=True)
@@ -191,6 +202,8 @@ async def handle_interaction(interaction: hikari.Interaction):
                                   exc_info=True,
                                   stack_info=True)
 
+    except PremiumRequired:
+        await response.send_premium_upsell(raise_exception=False)
     except UserNotVerified as message:
         await response.send(str(message) or "This user is not verified with Bloxlink!", ephemeral=message.ephemeral)
     except (BloxlinkForbidden, hikari.errors.ForbiddenError) as message:
@@ -210,7 +223,7 @@ async def handle_interaction(interaction: hikari.Interaction):
             "Please try again in a few minutes.",
             ephemeral=message.ephemeral,
         )
-    except Message as ex:
+    except (Message, BindException) as ex:
         await response.send(ex.message, ephemeral=ex.ephemeral)
     except CancelCommand:
         pass
@@ -260,6 +273,8 @@ async def handle_command(
             raise NotImplementedError()
     else:
         command_name = command_override.name
+
+    await command.assert_premium(interaction)
 
     if not command_override:
         # get options
@@ -482,6 +497,7 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "prompts": command_args.get("prompts"),
         "developer_only": command_args.get("developer_only", False),
         "premium": command_args.get("premium", False),
+        "pro_bypass": command_args.get("pro_bypass", False),
     }
 
     new_command = Command(**command_attrs)
