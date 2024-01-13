@@ -722,7 +722,7 @@ async def apply_binds(
 
     payload = UpdateEndpointPayload.from_payload(update_data)
 
-    if payload.unevaluated_restrictions:
+    if payload.unevaluated_restrictions and roblox_account:
         warnings.append(f"Did not evaluate: {', '.join(payload.unevaluated_restrictions)}")
 
         bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
