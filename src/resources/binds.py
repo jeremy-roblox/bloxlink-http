@@ -154,11 +154,7 @@ class UpdateEndpointPayload:
     missing_roles: list[str]
 
     unevaluated_restrictions: list[str]
-    # TODO: use restriction class instead.
-    is_restricted: bool = False
-    restriction_reason: str = None
-    restriction_action: str = None
-    restriction_source: str = None
+    restriction: restriction.Restriction
 
     @classmethod
     def from_payload(cls, payload: dict) -> "UpdateEndpointPayload":
@@ -171,11 +167,13 @@ class UpdateEndpointPayload:
             added_roles=roles["added"],
             removed_roles=roles["removed"],
             missing_roles=roles["missing"],
-            is_restricted=restr["is_restricted"],
             unevaluated_restrictions=restr["unevaluated"],
-            restriction_reason=restr.get("reason"),
-            restriction_action=restr.get("action"),
-            restriction_source=restr.get("source"),
+            restriction=restriction.Restriction(
+                restricted=restr["is_restricted"],
+                reason=restr.get("reason"),
+                action=restr.get("action"),
+                source=restr.get("source"),
+            ),
         )
 
 
@@ -694,28 +692,26 @@ async def apply_binds(
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
 
-    request_data = {
-        "guild": {
-            "id": guild.id,
-            "roles": [
-                {
-                    "id": r.id,
-                    "name": r.name,
-                    "managed": bool(r.bot_id) and r.name != "@everyone",
-                    "position": r.position,
-                }
-                for r in guild.roles.values()
-            ],
-        },
-        "member": {"id": member_id, "roles": member_roles, "name": username, "nick": nickname},
-        "roblox_account": roblox_account.to_dict() if roblox_account else None,
-    }
-
     update_data, update_data_response = await fetch(
         "POST",
-        f"{CONFIG.BIND_API}/update/{guild.id}/{member_id}",
-        headers={"Authorization": CONFIG.BIND_API_AUTH},
-        body=request_data,
+        f"{BIND_API}/update/{guild.id}/{member_id}",
+        headers={"Authorization": BIND_API_AUTH},
+        body={
+            "guild": {
+                "id": guild.id,
+                "roles": [
+                    {
+                        "id": r.id,
+                        "name": r.name,
+                        "managed": bool(r.bot_id) and r.name != "@everyone",
+                        "position": r.position,
+                    }
+                    for r in guild.roles.values()
+                ],
+            },
+            "member": {"id": member_id, "roles": member_roles, "name": username, "nick": nickname},
+            "roblox_account": roblox_account.to_dict() if roblox_account else None,
+        },
     )
 
     if update_data_response.status > 400:
@@ -725,13 +721,42 @@ async def apply_binds(
     warnings = []
 
     payload = UpdateEndpointPayload.from_payload(update_data)
-    if payload.is_restricted:
-        warnings.append(payload.restriction_reason)
-        # handle restriction accordingly
 
     if payload.unevaluated_restrictions:
         warnings.append(f"Did not evaluate: {', '.join(payload.unevaluated_restrictions)}")
-        # handle unevaluated restrictions
+
+        bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
+
+        accounts = bloxlink_user.robloxAccounts["accounts"]
+        accounts.append(bloxlink_user.robloxID)
+        accounts = list(set(accounts))
+
+        if "disallowAlts" in payload.unevaluated_restrictions:
+            had_alts = await restriction.check_for_alts(guild.id, member_id, accounts)
+
+            if had_alts:
+                warnings.append(
+                    "This server does not allow alternate accounts. Your other accounts were kicked."
+                )
+
+        if "disallowBanEvaders" in payload.unevaluated_restrictions:
+            ban_check = await restriction.check_for_ban_evasion(guild.id, member_id, accounts)
+
+            if ban_check["match"]:
+                match_id = ban_check["match_id"]
+                payload.restriction = restriction.Restriction(
+                    restricted=True,
+                    reason=f"User is evading a ban on user {match_id}.",
+                    action="ban",
+                    source="banEvader",
+                )
+
+    p_restriction = payload.restriction
+    if p_restriction.restricted:
+        warnings.append(p_restriction.reason)
+
+        if moderate_user:
+            await p_restriction.moderate(member_id, guild.id)
 
     added_roles = []
     removed_roles = []
