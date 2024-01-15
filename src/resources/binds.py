@@ -729,8 +729,6 @@ async def apply_binds(
     payload = UpdateEndpointPayload.from_payload(update_data)
 
     if payload.unevaluated_restrictions and roblox_account:
-        warnings.append(f"Did not evaluate: {', '.join(payload.unevaluated_restrictions)}")
-
         bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
 
         accounts = bloxlink_user.robloxAccounts["accounts"]
@@ -757,12 +755,20 @@ async def apply_binds(
                     source="banEvader",
                 )
 
+    moderated_user = False
     p_restriction = payload.restriction
+
     if p_restriction.restricted:
-        warnings.append(p_restriction.reason)
+        warnings.append(f"({p_restriction.source}): {p_restriction.reason}")
 
         if moderate_user:
-            await p_restriction.moderate(member_id, guild.id)
+            try:
+                await p_restriction.moderate(user_id=member_id, guild=guild)
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                pass
+            else:
+                warnings.append("User was removed from the server.")
+                moderated_user = True
 
     added_roles = []
     removed_roles = []
@@ -800,11 +806,11 @@ async def apply_binds(
             warnings.append(f"Could not create these missing roles: `{', '.join(failed_creation)}`")
 
     applied_nickname = None
-    if payload.nickname:
+    if payload.nickname and not moderated_user:
         if str(guild.owner_id) == str(member_id):
             warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {payload.nickname}")  # fmt: skip
 
-        else:
+        elif nickname != payload.nickname:
             try:
                 await bloxlink.rest.edit_member(guild_id, member_id, nickname=payload.nickname)
 
@@ -814,7 +820,7 @@ async def apply_binds(
             else:
                 applied_nickname = payload.nickname
 
-    if added_roles or removed_roles:
+    if (added_roles or removed_roles) and not moderated_user:
         try:
             await bloxlink.rest.edit_member(guild_id, member_id, roles=user_roles)
         except hikari.ForbiddenError:
@@ -822,25 +828,29 @@ async def apply_binds(
 
     # Build response embed
     if roblox_account or update_embed_for_unverified:
-        if added_roles or removed_roles or warnings:
+        if added_roles or removed_roles or warnings or applied_nickname:
             embed.title = "Member Updated"
+        else:
+            embed.title = "Member Unchanged"
 
-            embed.set_author(
-                name=username,
-                icon=avatar_url or None,
-                url=roblox_account.profile_link if roblox_account else None,
-            )
+        embed.set_author(
+            name=username,
+            icon=avatar_url or None,
+            url=roblox_account.profile_link if roblox_account else None,
+        )
 
         if added_roles:
             embed.add_field(
                 name="Added Roles",
                 value=", ".join([r.mention if mention_roles else r.name for r in added_roles]),
+                inline=True,
             )
 
         if removed_roles:
             embed.add_field(
                 name="Removed Roles",
                 value=",".join([r.mention if mention_roles else r.name for r in removed_roles]),
+                inline=True,
             )
 
         if not added_roles and not removed_roles:
@@ -848,20 +858,17 @@ async def apply_binds(
                 name="Roles",
                 value="Your roles are already up to date! If this is a mistake, please contact this "
                 "server's admins as they did not set up the bot correctly.",
+                inline=True,
             )
 
-            if applied_nickname:
-                embed.add_field(name="Nickname Changed", value=applied_nickname)
-
-            if warnings:
-                embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
-
+        if applied_nickname:
+            embed.add_field(name="Nickname", value=applied_nickname, inline=True)
         else:
-            embed.description = (
-                "This user's roles are already up to date! No changes were made.\n\n"
-                "If you expected to receive different roles, try asking the admins of this server for more information!\n"
-                "They may not have setup the bot or role permissions correctly."
-            )
+            embed.add_field(name="Nickname", value="Your nickname is already up to date!", inline=True)
+
+        if warnings:
+            embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
+
     else:
         components = [
             Button(
