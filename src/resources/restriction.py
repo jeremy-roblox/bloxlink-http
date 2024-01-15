@@ -47,6 +47,7 @@ class Restriction:
     async def dm_member(self, user_id: int, guild: hikari.Guild):
         embed = hikari.Embed()
         embed.title = "User Restricted"
+        embed.color = RED_COLOR
 
         reason_suffix = ""
         match self.source:
@@ -61,7 +62,7 @@ class Restriction:
 
         embed.description = f"You were removed from **{guild.name}** because {reason_suffix}."
 
-        if self.reason not in {"banEvader", "disallowAlts"}:
+        if self.source not in {"banEvader", "disallowAlts"}:
             embed.add_field(name="Reason", value=self.reason)
 
         try:
