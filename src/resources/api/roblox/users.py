@@ -176,7 +176,9 @@ async def get_user_account(
     bloxlink_user = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
 
     if guild_id:
-        guild_account = (bloxlink_user.robloxAccounts or {}).get(str(guild_id))
+        guild_accounts = (bloxlink_user.robloxAccounts or {}).get("guilds") or {}
+
+        guild_account = guild_accounts.get(str(guild_id))
 
         if guild_account:
             return RobloxAccount(id=guild_account)
@@ -299,7 +301,10 @@ async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) 
 
     return embed
 
-async def get_verification_link(user_id: int | str, guild_id: int | str = None, interaction: hikari.ComponentInteraction = None) -> str:
+
+async def get_verification_link(
+    user_id: int | str, guild_id: int | str = None, interaction: hikari.ComponentInteraction = None
+) -> str:
     """Get the verification link for a user.
 
     Args:
@@ -315,7 +320,9 @@ async def get_verification_link(user_id: int | str, guild_id: int | str = None, 
         guild_id = str(guild_id)
 
         premium_status = await get_premium_status(guild_id=guild_id, interaction=interaction)
-        affiliate_enabled = ((await bloxlink.fetch_guild_data(guild_id, "affiliate")).affiliate or {}).get("enabled")
+        affiliate_enabled = ((await bloxlink.fetch_guild_data(guild_id, "affiliate")).affiliate or {}).get(
+            "enabled"
+        )
 
         # save where the user verified in
         # TODO: depreciated, remove
