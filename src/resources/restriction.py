@@ -41,23 +41,21 @@ class Restriction:
         # except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
         #     logging.warning(e)
 
-        try:
-            reason = (
-                self.reason[:512]  # pylint: disable=unsubscriptable-object
-                if reason
-                else f"User was removed because they matched this server's {self.source} settings."
-            )
-            if self.action == "kick":
-                await bloxlink.rest.kick_user(guild.id, user_id, reason=reason)
-            elif self.action == "ban":
-                await bloxlink.rest.ban_user(guild.id, user_id, reason=reason)
-
-        except (hikari.ForbiddenError, hikari.NotFoundError):
-            pass
+        reason = (
+            f"({self.source}): {self.reason[:450]}"  # pylint: disable=unsubscriptable-object
+            if self.reason
+            else f"User was removed because they matched this server's {self.source} settings."
+        )
+        if self.action == "kick":
+            await bloxlink.rest.kick_user(guild.id, user_id, reason=reason)
+        elif self.action == "ban":
+            await bloxlink.rest.ban_user(guild.id, user_id, reason=reason)
 
 
 async def check_for_alts(guild_id: str, user_id: int, roblox_users: list) -> bool:
-    matches = [(await bloxlink.reverse_lookup(account, user_id)) for account in roblox_users]
+    matches = []
+    for account in roblox_users:
+        matches.extend(await bloxlink.reverse_lookup(account, user_id))
 
     alts_found: bool = False
     for user in matches:
@@ -82,7 +80,10 @@ async def check_for_alts(guild_id: str, user_id: int, roblox_users: list) -> boo
 
 
 async def check_for_ban_evasion(guild_id: str, user_id: int, roblox_users: list) -> dict:
-    matches = [(await bloxlink.reverse_lookup(account, user_id)) for account in roblox_users]
+    matches = []
+    for account in roblox_users:
+        matches.extend(await bloxlink.reverse_lookup(account, user_id))
+
     response = {"match": False}
 
     for user in matches:
