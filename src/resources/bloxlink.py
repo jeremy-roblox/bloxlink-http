@@ -208,9 +208,6 @@ class Bloxlink(yuyo.AsgiBot):
         """
         Update an item's aspects in local cache, redis, and database.
         """
-        # update redis cache
-        redis_aspects = dict(aspects)
-
         unset_aspects = {}
         set_aspects = {}
         for key, val in aspects.items():
@@ -219,13 +216,22 @@ class Bloxlink(yuyo.AsgiBot):
             else:
                 set_aspects[key] = val
 
-        # we don't save lists and dicts to redis
-        for aspect_name, aspect_value in dict(aspects).items():
-            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None:  # TODO: support bools
-                redis_aspects.pop(aspect_name)
+        # Update redis cache
+        redis_set_aspects = {}
+        redis_unset_aspects = {}
 
-        if redis_aspects:
-            await self.redis.hmset(f"{domain}:{item_id}", redis_aspects)
+        for aspect_name, aspect_value in dict(aspects).items():
+            if aspect_value is None:
+                redis_unset_aspects[aspect_name] = aspect_value
+            elif isinstance(aspect_value, (dict, list, bool)):
+                pass
+            else:
+                redis_set_aspects[aspect_name] = aspect_value
+
+        if redis_set_aspects:
+            await redis.hset(f"{domain}:{item_id}", mapping=redis_set_aspects)
+        if redis_unset_aspects:
+            await redis.hdel(f"{domain}:{item_id}", *redis_unset_aspects.keys())
 
         # update database
         await self.mongo.bloxlink[domain].update_one(
