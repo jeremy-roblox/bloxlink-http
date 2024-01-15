@@ -23,23 +23,16 @@ class Restriction:
     source: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
 
     async def moderate(self, user_id: int, guild: hikari.Guild):
-        """DM, Kick, or Ban a user based on the determined restriction.
+        """Kick or Ban a user based on the determined restriction.
 
         Args:
             user_id (int): ID of the user to moderate.
             guild (hikari.Guild): The guild that the user is verifying in.
         """
 
-        # TODO: Enable ability to DM users prior to their removal again.
-        # prompt = self.prompt(guild.name)
-        # try:
-        #     # Only DM if the user is being kicked or banned.
-        #     if self.action != "dm":
-        #         channel = await bloxlink.rest.create_dm_channel(user_id)
-        #         await channel.send(embed=prompt.embed)
-
-        # except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
-        #     logging.warning(e)
+        # Only DM users if they're being removed; reason will show in main guild otherwise.
+        if self.action in {"kick", "ban"}:
+            await self.dm_member(user_id, guild)
 
         reason = (
             f"({self.source}): {self.reason[:450]}"  # pylint: disable=unsubscriptable-object
@@ -50,6 +43,35 @@ class Restriction:
             await bloxlink.rest.kick_user(guild.id, user_id, reason=reason)
         elif self.action == "ban":
             await bloxlink.rest.ban_user(guild.id, user_id, reason=reason)
+
+    async def dm_member(self, user_id: int, guild: hikari.Guild):
+        embed = hikari.Embed()
+        embed.title = "User Restricted"
+
+        reason_suffix = ""
+        match self.source:
+            # fmt:off
+            case "ageLimit":
+                reason_suffix = "this guild requires users to have a Roblox account older than a certain age"
+            case "groupLock":
+                reason_suffix = "this guild requires users to be in, or have a specific rank in, a Roblox group"
+            case "banEvader":
+                reason_suffix = "this guild does not allow ban evasion"
+            # fmt:on
+
+        embed.description = f"You were removed from **{guild.name}** because {reason_suffix}."
+
+        if self.reason not in {"banEvader", "disallowAlts"}:
+            embed.add_field(name="Reason", value=self.reason)
+
+        try:
+            # Only DM if the user is being kicked or banned. Reason is shown to user in guild otherwise.
+            if self.action != "dm":
+                channel = await bloxlink.rest.create_dm_channel(user_id)
+                await channel.send(embed=embed)
+
+        except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
+            logging.warning(e)
 
 
 async def check_for_alts(guild_id: str, user_id: int, roblox_users: list) -> bool:

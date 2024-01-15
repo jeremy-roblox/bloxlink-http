@@ -759,7 +759,10 @@ async def apply_binds(
     p_restriction = payload.restriction
 
     if p_restriction.restricted:
-        warnings.append(f"({p_restriction.source}): {p_restriction.reason}")
+        if p_restriction.source == "banEvader":
+            warnings.append(f"({p_restriction.source}): User is evading a ban from a previous Discord account.")
+        else:
+            warnings.append(f"({p_restriction.source}): {p_restriction.reason}")
 
         if moderate_user:
             try:
