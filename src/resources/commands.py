@@ -237,7 +237,7 @@ async def handle_interaction(interaction: hikari.Interaction):
             str(message) or "This Roblox entity does not exist! Please check the ID and try again.",
             ephemeral=message.ephemeral,
         )
-    except RobloxDown:
+    except RobloxDown as message:
         await response.send(
             "Roblox appears to be down, so I was unable to process your command. "
             "Please try again in a few minutes.",
