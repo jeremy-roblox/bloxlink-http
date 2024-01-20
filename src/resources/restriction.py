@@ -62,7 +62,7 @@ class Restriction:
                 reason_suffix = "this guild does not allow ban evasion"
             # fmt:on
 
-        embed.description = f"You were removed from **{guild.name}** because {reason_suffix}."
+        embed.description = f"You could not verify in **{guild.name}** because {reason_suffix}."
 
         if self.source not in {"banEvader", "disallowAlts"}:
             embed.add_field(name="Reason", value=self.reason)
