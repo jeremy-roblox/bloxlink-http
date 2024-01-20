@@ -157,13 +157,9 @@ class UpdateEndpointPayload:
     removed_roles: list[str]
     missing_roles: list[str]
 
-    unevaluated_restrictions: list[str]
-    restriction: restriction.Restriction
-
     @classmethod
     def from_payload(cls, payload: dict) -> "UpdateEndpointPayload":
         roles = payload["roles"]
-        restr = payload["restrictions"]
 
         return cls(
             nickname=payload.get("nickname"),
@@ -171,13 +167,6 @@ class UpdateEndpointPayload:
             added_roles=roles["added"],
             removed_roles=roles["removed"],
             missing_roles=roles["missing"],
-            unevaluated_restrictions=restr["unevaluated"],
-            restriction=restriction.Restriction(
-                restricted=restr["is_restricted"],
-                reason=restr.get("reason"),
-                action=restr.get("action"),
-                source=restr.get("source"),
-            ),
         )
 
 
@@ -624,6 +613,89 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
+async def _check_restrictions(member_data: dict, roblox_user: dict | None, guild_id: str | int) -> dict:
+    output = {"restriction": None, "warnings": []}
+
+    restriction_data, restriction_response = await fetch(
+        "POST",
+        f"{BIND_API}/restrictions/evaluate/{guild_id}",
+        headers={"Authorization": BIND_API_AUTH},
+        body={
+            "member": member_data,
+            "roblox_account": roblox_user,
+        },
+    )
+
+    if restriction_response.status > 400:
+        logger.error(f"API /restrictions/evaluate/{guild_id}", restriction_data)
+        raise Message("Something went wrong internally when trying to update this user!")
+
+    unevaluated_restrictions = restriction_data["unevaluated"]
+    restriction_obj = restriction.Restriction(
+        restricted=restriction_data["is_restricted"],
+        reason=restriction_data.get("reason"),
+        action=restriction_data.get("action"),
+        source=restriction_data.get("source"),
+    )
+
+    member_id = member_data["id"]
+
+    if unevaluated_restrictions and roblox_user:
+        bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
+
+        accounts = bloxlink_user.robloxAccounts["accounts"]
+        accounts.append(bloxlink_user.robloxID)
+        accounts = list(set(accounts))
+
+        if "disallowAlts" in unevaluated_restrictions:
+            had_alts = await restriction.check_for_alts(guild_id, member_id, accounts)
+
+            if had_alts:
+                output["warnings"].append(
+                    "This server does not allow alternate accounts. Your other accounts were kicked."
+                )
+
+        if "disallowBanEvaders" in unevaluated_restrictions:
+            ban_check = await restriction.check_for_ban_evasion(guild_id, member_id, accounts)
+
+            if ban_check["match"]:
+                match_id = ban_check["match_id"]
+                restriction_obj = restriction.Restriction(
+                    restricted=True,
+                    reason=f"User is evading a ban on user {match_id}.",
+                    action="ban",
+                    source="banEvader",
+                )
+
+    output["restriction"] = restriction_obj
+    return output
+
+
+async def _get_update_information(
+    guild_data: dict, member_data: dict, roblox_user: dict | None, is_restricted: bool
+) -> UpdateEndpointPayload:
+    guild_id = guild_data["id"]
+    member_id = member_data["id"]
+    # Get user roles + nickname
+    update_data, update_data_response = await fetch(
+        "POST",
+        f"{BIND_API}/update/{guild_id}/{member_id}",
+        headers={"Authorization": BIND_API_AUTH},
+        body={
+            "guild": guild_data,
+            "member": member_data,
+            "roblox_account": roblox_user,
+            "is_restricted": is_restricted,
+        },
+    )
+
+    if update_data_response.status > 400:
+        logger.error(f"API /update/{guild_id}/{member_id}", update_data)
+        raise Message("Something went wrong internally when trying to update this user!")
+
+    return UpdateEndpointPayload.from_payload(update_data)
+
+
 async def apply_binds(
     member: hikari.Member | dict,
     guild_id: hikari.Snowflake,
@@ -663,14 +735,16 @@ async def apply_binds(
 
     role_ids = []
     member_id = None
+    member_roles: dict = {}
     username = ""
     nickname = ""
     avatar_url = ""
 
     embed = hikari.Embed()
     components = []
+    warnings = []
 
-    # Get necessary user information.
+    # Get/Build necessary user information.
     if isinstance(member, hikari.Member):
         role_ids = member.role_ids
         member_id = member.id
@@ -689,7 +763,6 @@ async def apply_binds(
         nickname = member.get("nickname", "")
         avatar_url = member.get("avatar_url", "")
 
-    member_roles: dict = {}
     for member_role_id in role_ids:
         if role := guild.roles.get(member_role_id):
             member_roles[role.id] = {
@@ -698,103 +771,86 @@ async def apply_binds(
                 "managed": bool(role.bot_id) and role.name != "@everyone",
             }
 
-    update_data, update_data_response = await fetch(
-        "POST",
-        f"{BIND_API}/update/{guild.id}/{member_id}",
-        headers={"Authorization": BIND_API_AUTH},
-        body={
-            "guild": {
-                "id": guild.id,
-                "roles": [
-                    {
-                        "id": r.id,
-                        "name": r.name,
-                        "managed": bool(r.bot_id) and r.name != "@everyone",
-                        "position": r.position,
-                    }
-                    for r in guild.roles.values()
-                ],
-            },
-            "member": {"id": member_id, "roles": member_roles, "name": username, "nick": nickname},
-            "roblox_account": roblox_account.to_dict() if roblox_account else None,
-        },
-    )
+    # set up some variables for queries
+    member_data = {"id": member_id, "roles": member_roles, "name": username, "nick": nickname}
+    roblox_user = roblox_account.to_dict() if roblox_account else None
 
-    if update_data_response.status > 400:
-        logger.error(f"API /update/{guild.id}/{member_id}", update_data)
-        raise Message("Something went wrong internally when trying to update this user!")
+    # Check restrictions
+    restriction_info = await _check_restrictions(member_data, roblox_user, guild.id)
 
-    warnings = []
+    restriction_obj: restriction.Restriction = restriction_info["restriction"]
+    warnings.extend(restriction_info["warnings"])
 
-    payload = UpdateEndpointPayload.from_payload(update_data)
-
-    if payload.unevaluated_restrictions and roblox_account:
-        bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
-
-        accounts = bloxlink_user.robloxAccounts["accounts"]
-        accounts.append(bloxlink_user.robloxID)
-        accounts = list(set(accounts))
-
-        if "disallowAlts" in payload.unevaluated_restrictions:
-            had_alts = await restriction.check_for_alts(guild.id, member_id, accounts)
-
-            if had_alts:
-                warnings.append(
-                    "This server does not allow alternate accounts. Your other accounts were kicked."
-                )
-
-        if "disallowBanEvaders" in payload.unevaluated_restrictions:
-            ban_check = await restriction.check_for_ban_evasion(guild.id, member_id, accounts)
-
-            if ban_check["match"]:
-                match_id = ban_check["match_id"]
-                payload.restriction = restriction.Restriction(
-                    restricted=True,
-                    reason=f"User is evading a ban on user {match_id}.",
-                    action="ban",
-                    source="banEvader",
-                )
-
-    moderated_user = False
-    p_restriction = payload.restriction
-
-    if p_restriction.restricted:
-        if p_restriction.source == "banEvader":
-            warnings.append(f"({p_restriction.source}): User is evading a ban from a previous Discord account.")
+    removed_user = False
+    if restriction_obj.restricted:
+        # Don't tell the user which account they're evading with.
+        if restriction_obj.source == "banEvader":
+            warnings.append(
+                f"({restriction_obj.source}): User is evading a ban from a previous Discord account."
+            )
         else:
-            warnings.append(f"({p_restriction.source}): {p_restriction.reason}")
+            warnings.append(f"({restriction_obj.source}): {restriction_obj.reason}")
 
+        # Remove the user if we're moderating.
         if moderate_user:
             try:
-                await p_restriction.moderate(user_id=member_id, guild=guild)
+                await restriction_obj.moderate(user_id=member_id, guild=guild)
             except (hikari.ForbiddenError, hikari.NotFoundError):
-                pass
+                warnings.append("User could not be removed from the server.")
             else:
                 warnings.append("User was removed from the server.")
-                moderated_user = True
+                removed_user = True
+
+    # User won't see the response. Stop early. Bot tries to DM them before they are removed.
+    if removed_user:
+        embed.description = (
+            "Member was removed from this server as per this guild's settings.\n"
+            "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
+        )
+
+        return InteractiveMessage(embed=embed)
 
     added_roles = []
     removed_roles = []
     user_roles = []
+    applied_nickname = None
+
+    guild_data = {
+        "id": guild.id,
+        "roles": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "managed": bool(r.bot_id) and r.name != "@everyone",
+                "position": r.position,
+            }
+            for r in guild.roles.values()
+        ],
+    }
+
+    update_payload = await _get_update_information(
+        guild_data, member_data, roblox_user, restriction_obj.restricted
+    )
 
     # Convert all role IDs to real roles.
-    for role_id in payload.added_roles:
+    for role_id in update_payload.added_roles:
         if role := guild.roles.get(int(role_id)):
             added_roles.append(role)
 
-    for role_id in payload.removed_roles:
+    for role_id in update_payload.removed_roles:
         if role := guild.roles.get(int(role_id)):
             removed_roles.append(role)
 
-    for role_id in payload.final_roles:
+    for role_id in update_payload.final_roles:
         if role := guild.roles.get(int(role_id)):
             user_roles.append(role)
 
+    # Create missing roles if dynamicRoles
     gd: GuildData = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
-    if payload.missing_roles and (gd.dynamicRoles is True or gd.dynamicRoles is None):
+    if update_payload.missing_roles and (gd.dynamicRoles is True or gd.dynamicRoles is None):
         failed_creation = []
 
-        for role in payload.missing_roles:
+        for role in update_payload.missing_roles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
                     guild_id, name=role, reason="Creating missing roles."
@@ -808,22 +864,23 @@ async def apply_binds(
         if failed_creation:
             warnings.append(f"Could not create these missing roles: `{', '.join(failed_creation)}`")
 
-    applied_nickname = None
-    if payload.nickname and not moderated_user:
+    # Apply nickname
+    if update_payload.nickname:
         if str(guild.owner_id) == str(member_id):
-            warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {payload.nickname}")  # fmt: skip
+            warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {update_payload.nickname}")  # fmt: skip
 
-        elif nickname != payload.nickname:
+        elif nickname != update_payload.nickname:
             try:
-                await bloxlink.rest.edit_member(guild_id, member_id, nickname=payload.nickname)
+                await bloxlink.rest.edit_member(guild_id, member_id, nickname=update_payload.nickname)
 
             except hikari.errors.ForbiddenError:
-                warnings.append(f"I don't have permission to change the nickname of this user.\n> Nickname: {payload.nickname}")  # fmt: skip
+                warnings.append(f"I don't have permission to change the nickname of this user.\n> Nickname: {update_payload.nickname}")  # fmt: skip
 
             else:
-                applied_nickname = payload.nickname
+                applied_nickname = update_payload.nickname
 
-    if (added_roles or removed_roles) and not moderated_user:
+    # Apply roles to user
+    if added_roles or removed_roles:
         try:
             await bloxlink.rest.edit_member(guild_id, member_id, roles=user_roles)
         except hikari.ForbiddenError:
@@ -873,6 +930,7 @@ async def apply_binds(
             embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
 
     else:
+        # Default msg for unverified users.
         components = [
             Button(
                 label="Verify with Bloxlink",
