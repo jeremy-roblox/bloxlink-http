@@ -1,15 +1,32 @@
-from attrs import define, field, fields
+from attrs import define, field
+from typing import TypedDict
 import hikari
 import json
-from resources.components import Component, get_custom_id, BaseCustomID
+from resources.components import TextInput, get_custom_id, BaseCustomID
 from resources.redis import redis
 import resources.response as response
+
 
 @define(slots=True, kw_only=True)
 class ModalCustomID(BaseCustomID):
     """Represents a custom ID for a modal component."""
 
     component_custom_id: str = field(default="")
+
+
+class ModalPromptArgs(TypedDict):
+    """Arguments for modals used in prompts"""
+
+    prompt_name: str
+    user_id: int
+    page_number: int
+    prompt_message_id: int
+    component_id: str
+
+class ModalCommandArgs(TypedDict, total=False):
+    """Arguments for modals used in commands"""
+
+    subcommand_name: str
 
 
 @define
@@ -61,21 +78,23 @@ class Modal:
         self.data = None
 
 
-def build_modal(title: str, components: list[Component], *, interaction: hikari.ComponentInteraction | hikari.CommandInteraction, command_name: str, prompt_data: dict = None, command_data: dict = None) -> Modal:
+def build_modal(title: str, components: list[TextInput], *, interaction: hikari.ComponentInteraction | hikari.CommandInteraction, command_name: str, prompt_data: ModalPromptArgs = None, command_data: ModalCommandArgs = None) -> Modal:
     """Build a modal response. This needs to be separately returned."""
 
-    prompt_data = prompt_data or {}
-    command_data = command_data or {}
+    if prompt_data is None and command_data is None:
+        raise ValueError("prompt_data and command_data cannot both be provided.")
+    elif prompt_data is not None and command_data is not None:
+        raise ValueError("prompt_data and command_data cannot both be provided.")
 
-    if command_data:
+    if command_data is not None:
         new_custom_id = get_custom_id(
             ModalCustomID,
             command_name=command_name,
             subcommand_name=command_data.get("subcommand_name") or "",
             user_id=interaction.user.id,
-            component_custom_id=prompt_data.get("component_id") or "",
+            # TODO: is this needed? component_custom_id=command_data.get("component_id") or "",
         )
-    elif prompt_data:
+    elif prompt_data is not None:
         new_custom_id = get_custom_id(
             response.PromptCustomID,
             command_name=command_name,
@@ -86,26 +105,24 @@ def build_modal(title: str, components: list[Component], *, interaction: hikari.
             prompt_message_id=prompt_data.get("prompt_message_id") or 0,
             component_custom_id=prompt_data.get("component_id") or "",
         )
-    else:
-        raise ValueError("Either prompt_data or command_data must be provided.")
 
     modal_builder: hikari.impl.InteractionModalBuilder = None
 
     if not isinstance(interaction, hikari.ModalInteraction):
         modal_builder = interaction.build_modal_response(title, str(new_custom_id))
-        modal_action_row = hikari.impl.ModalActionRowBuilder()
 
         for component in components:
             modal_action_row = hikari.impl.ModalActionRowBuilder()
 
             modal_action_row.add_text_input(
                 component.custom_id,
-                component.value,
-                placeholder=component.placeholder or "Enter a value...",
+                component.label,
+                placeholder=component.placeholder,
                 min_length=component.min_length or 1,
                 max_length=component.max_length or 2000,
                 required=component.required or False,
                 style=component.style or hikari.TextInputStyle.SHORT,
+                value=component.value
             )
 
             modal_builder.add_component(modal_action_row)

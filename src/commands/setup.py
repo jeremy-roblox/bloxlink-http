@@ -144,10 +144,10 @@ class SetupPrompt(Prompt):
                         },
                         components=[
                             TextInput(
+                                label="Type your nickname template...",
                                 style=TextInput.TextInputStyle.SHORT,
-                                placeholder=DEFAULTS.get("nicknameTemplate"),
+                                value=DEFAULTS.get("nicknameTemplate"),
                                 custom_id="nickname_prefix_input",
-                                value="Type your nickname template...",
                                 required=True
                             ),
                         ]
@@ -191,17 +191,17 @@ class SetupPrompt(Prompt):
                     },
                     components=[
                         TextInput(
+                            label="This will be shown FIRST in the nickname",
                             style=TextInput.TextInputStyle.SHORT,
                             placeholder="Type your nickname prefix...",
                             custom_id="nickname_prefix_input",
-                            value="This will be shown FIRST in the nickname",
                             required=False
                         ),
                         TextInput(
+                            label="This will be shown LAST in the nickname",
                             style=TextInput.TextInputStyle.SHORT,
                             placeholder="Type your nickname suffix...",
                             custom_id="nickname_suffix_input",
-                            value="This will be shown LAST in the nickname",
                             required=False
                         ),
                     ]
@@ -278,10 +278,10 @@ class SetupPrompt(Prompt):
                     },
                     components=[
                         TextInput(
+                            label="Type your new verified role name...",
                             style=TextInput.TextInputStyle.SHORT,
-                            placeholder="Verified",
+                            value="Verified",
                             custom_id="verified_role_new_name",
-                            value="Type your new verified role name...",
                             required=True
                         ),
                     ]
@@ -363,10 +363,10 @@ class SetupPrompt(Prompt):
                     },
                     components=[
                         TextInput(
+                            label="Type your Group URL or ID",
                             style=TextInput.TextInputStyle.SHORT,
                             placeholder="https://www.roblox.com/groups/3587262/Bloxlink-Space#!/about",
                             custom_id="group_id_input",
-                            value="Type your Group URL or ID",
                             required=True
                         ),
                     ]

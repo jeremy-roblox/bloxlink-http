@@ -150,7 +150,7 @@ def build_action_rows(components: list[Component]):
                 button_action_row.add_text_input(
                     component.custom_id,
                     component.value,
-                    placeholder=component.placeholder or "Enter a value...",
+                    placeholder=component.placeholder,
                     min_length=component.min_length or 1,
                     max_length=component.max_length or 2000,
                     required=component.required or False,
@@ -217,7 +217,8 @@ class TextInput(Component):
         SHORT = 1
         PARAGRAPH = 2
 
-    placeholder: str = "Enter a value..."
+    label: str
+    placeholder: str = None
     value: str = None
     min_length: int = 1
     max_length: int = None

@@ -19,7 +19,7 @@ class ModalTestCommand:
                     style=TextInput.TextInputStyle.SHORT,
                     placeholder="https://www.roblox.com/groups/3587262/Bloxlink-Space#!/about",
                     custom_id="group_id_input",
-                    value="Type your Group URL or ID",
+                    label="Type your Group URL or ID",
                     required=True
                 ),
             ]
