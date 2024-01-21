@@ -8,6 +8,9 @@ from typing import Literal
 from .constants import SKU_TIERS
 
 
+__all__ = ("PremiumStatus", "get_premium_status")
+
+
 @define(slots=True, kw_only=True)
 class PremiumStatus:
     active: bool = False
