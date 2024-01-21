@@ -1,6 +1,8 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext
-from resources.components import Button
+from resources.components import Button, TextInput
+from resources.premium import get_premium_status
+from resources.modals import build_modal
 import resources.binds as binds
 import resources.roblox.users as users
 import hikari
@@ -31,8 +33,6 @@ async def verify_button_click(ctx: CommandContext):
 @bloxlink.command(
     category="Administration",
     permissions=hikari.Permissions.MANAGE_GUILD,
-    defer=True,
-    defer_with_ephemeral=True,
     accepted_custom_ids={
         "verify_view:verify_button": verify_button_click,
     }
@@ -41,12 +41,58 @@ class VerifyChannelCommand:
     """post a message that users can interact with to get their roles"""
 
     async def __main__(self, ctx: CommandContext):
-        guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(ctx.guild_id)
+        guild_id = ctx.guild_id
+
+        guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+        premium_status = await get_premium_status(guild_id=guild_id, interaction=ctx.interaction)
+
+        button_text = "Verify with Bloxlink"
+        message_text = "Welcome to **{server-name}!** Click the button below to Verify with Bloxlink and gain access to the rest of the server."
+
+        if premium_status.active:
+            modal = build_modal(
+                title="Verification Channel",
+                command_data={},
+                interaction=ctx.interaction,
+                command_name=ctx.command_name,
+                components=[
+                    TextInput(
+                        label="Verification Button Text",
+                        custom_id="verify_channel:modal:verification_button_input",
+                        value=button_text,
+                        style=TextInput.TextInputStyle.SHORT,
+                        required=True
+                    ),
+                    TextInput(
+                        label="Verification Message",
+                        custom_id="verify_channel:modal:verification_message_input",
+                        value=message_text,
+                        style=TextInput.TextInputStyle.PARAGRAPH,
+                        min_length=1,
+                        max_length=2000,
+                        required=True
+                    )
+                ]
+            )
+
+            yield await ctx.response.send_modal(modal)
+
+            if not await modal.submitted():
+                return
+
+            modal_data = await modal.get_data()
+
+            button_text = modal_data["verify_channel:modal:verification_button_input"]
+            message_text = modal_data["verify_channel:modal:verification_message_input"]
+
+        else:
+            yield await ctx.response.defer(True)
+
 
         button_menu = [
             Button(
                 custom_id="verify_view:verify_button",
-                label="Verify with Bloxlink",
+                label=button_text,
                 style=Button.ButtonStyle.SUCCESS,
             ),
             Button(
@@ -55,8 +101,10 @@ class VerifyChannelCommand:
             )
         ]
 
-        message = await ctx.response.send(
-            f"Welcome to **{guild.name}!** Click the button below to Verify with Bloxlink and gain access to the rest of the server.",
+        await ctx.response.send(
+            message_text.format(**{
+                "server-name": guild.name
+            }),
             components=button_menu,
             channel=await ctx.interaction.fetch_channel()
         )
