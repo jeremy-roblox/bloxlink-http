@@ -1,7 +1,7 @@
 {
     "pylint.args": [
-        "--disable=E0401",
         "--disable=C0413",
         "--disable=C0114",
-    ]
+    ],
+    "pylint.cwd": "${workspaceFolder}/src"
 }
