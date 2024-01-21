@@ -11,4 +11,4 @@ blacksheep==1.2.17
 uvicorn[standard]==0.22.0
 asgi-prometheus
 prometheus-client
-attrs==23.1.0
+attrs~=23.2
