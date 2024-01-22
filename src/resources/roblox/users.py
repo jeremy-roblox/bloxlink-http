@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import math
-from attrs import define, field
 from datetime import datetime
+from attrs import define, field
 
-import dateutil.parser as parser
+from dateutil import parser
 import hikari
 
-import resources.binds as binds
-import resources.roblox.groups as groups
+from resources.roblox import groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES, VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
@@ -19,7 +18,7 @@ from resources.redis import redis
 
 
 @define(slots=True)
-class RobloxAccount:
+class RobloxAccount: # pylint: disable=too-many-instance-attributes
     """Representation of a user on Roblox."""
 
     id: str
@@ -109,29 +108,6 @@ class RobloxAccount:
                 if avatar_response.status == 200:
                     self.avatar = avatar_url.get("data", [{}])[0].get("imageUrl")
 
-    async def get_group_ranks(self, guild_id: str | int) -> dict:
-        """
-        NOTE: This method is currently unused and non-functional in its current state. The following doc
-        is assuming what it was for if it was functional (cuz tbh idk if it really does this...)
-
-        Determine the ranks that this Roblox user has in the groups that are bound to this server.
-        """
-        group_ranks = {}
-
-        if self.groups is None:
-            await self.sync(includes=["groups"])
-
-        # TODO: Update this code since binds.get_linked_group_ids is not a thing.
-        linked_groups = await binds.get_linked_group_ids(guild_id)
-
-        for group_id in linked_groups:
-            group = self.groups.get(group_id)
-
-            if group:
-                group_ranks[group.name] = group.rank_name
-
-        return group_ranks
-
     def parse_age(self):
         """Set a human-readable string representing how old this account is."""
         if (self.age_days is not None) or not self.created:
@@ -151,32 +127,6 @@ class RobloxAccount:
             else:
                 ending = f"day{((self.age_days > 1 or self.age_days == 0) and 's') or ''}"
                 self.short_age_string = f"{self.age_days} {ending} ago"
-
-    async def parse_flags(self):
-        """Determine what flags apply to this user. (Bloxlink staff, roblox stars, and roblox staff)"""
-        if self.flags is not None:
-            return
-
-        if self.badges is None or self.groups is None:
-            await self.sync(includes=["badges", "groups"], cache=True, flag_check=False)
-
-        if self.groups is None:
-            print("error for flags", self.name, self.id)
-            return
-
-        # flags = 0
-
-        # if "3587262" in self.groups and self.groups["3587262"].rank_value >= 50:
-        #     flags = flags | BLOXLINK_STAFF
-
-        # if "4199740" in self.groups:
-        #     flags = flags | RBX_STAR
-
-        # if self.badges and "Administrator" in self.badges:
-        #     flags = flags | RBX_STAFF
-
-        # self.flags = flags
-        # self.overlay = self.flags & RBX_STAFF or self.flags & RBX_STAFF or self.flags & RBX_STAR
 
     async def parse_groups(self, group_json: dict | None):
         """Determine what groups this user is in from a json response.
@@ -238,9 +188,8 @@ async def get_user_account(
 
     if raise_errors:
         raise UserNotVerified()
-    else:
-        return None
 
+    return None
 
 async def get_user(
     user: hikari.User = None,

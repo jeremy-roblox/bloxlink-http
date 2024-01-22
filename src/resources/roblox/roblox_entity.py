@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from attrs import define
 from typing import Literal
+from attrs import define
 
 
 @define(slots=True)
