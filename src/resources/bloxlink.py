@@ -39,7 +39,7 @@ class UserData:
 
     id: int
     robloxID: str = None
-    robloxAccounts: dict = default_field({"accounts": [], "guilds": {}})
+    robloxAccounts: dict = default_field({"accounts": [], "guilds": {}, "confirms": {}})
 
 
 @define(slots=True)
