@@ -6,7 +6,7 @@ import hikari
 
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import Message
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 
 logger = logging.getLogger("verify_all")
 CHUNK_LIMIT = 1000
@@ -18,7 +18,7 @@ CHUNK_LIMIT = 1000
     defer=True,
     permissions=hikari.Permissions.MANAGE_GUILD | hikari.Permissions.MANAGE_ROLES,
 )
-class VerifyallCommand:
+class VerifyallCommand(GenericCommand):
     """Update everyone in your server"""
 
     async def __main__(self, ctx: CommandContext):

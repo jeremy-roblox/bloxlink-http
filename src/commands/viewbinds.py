@@ -3,7 +3,7 @@ import hikari
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.binds import GroupBind, GuildBind, get_binds, join_bind_strings, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.components import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError, RobloxNotFound
@@ -85,7 +85,7 @@ async def viewbinds_button(ctx: CommandContext):
         "id": bind_id_autocomplete,
     },
 )
-class ViewBindsCommand:
+class ViewBindsCommand(GenericCommand):
     """View your binds for your server"""
 
     async def __main__(self, ctx: CommandContext):

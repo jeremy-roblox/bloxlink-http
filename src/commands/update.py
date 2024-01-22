@@ -3,7 +3,7 @@ import hikari
 import resources.binds as binds
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 
 
 @bloxlink.command(
@@ -19,7 +19,7 @@ from resources.commands import CommandContext
     ],
     permissions=hikari.Permissions.MANAGE_GUILD | hikari.Permissions.MANAGE_ROLES,
 )
-class UpdateCommand:
+class UpdateCommand(GenericCommand):
     """update the roles and nickname of a specific user"""
 
     async def __main__(self, ctx: CommandContext):

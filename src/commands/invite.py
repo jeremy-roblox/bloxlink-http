@@ -1,11 +1,11 @@
 from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 
 
 @bloxlink.command()
-class InviteCommand:
+class InviteCommand(GenericCommand):
     """invite the bot to your server"""
 
     async def __main__(self, ctx: CommandContext):

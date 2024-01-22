@@ -1,5 +1,5 @@
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.response import Prompt, Response, PromptPageData
 from resources.components import TextInput
 
@@ -8,7 +8,7 @@ from resources.components import TextInput
     category="Miscellaneous",
     developer_only=True
 )
-class ModalTestCommand:
+class ModalTestCommand(GenericCommand):
     """test modals"""
 
     async def __main__(self, ctx: CommandContext):

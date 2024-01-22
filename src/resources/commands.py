@@ -18,10 +18,16 @@ from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.premium import get_premium_status
+from abc import ABC, abstractmethod
 
 command_name_pattern = re.compile("(.+)Command")
 
 slash_commands: dict[str, Command] = {}
+
+
+
+
+
 
 
 @define(slots=True, kw_only=True)
@@ -101,6 +107,22 @@ class Command:
 
         else:
             yield await generator_or_coroutine
+
+
+class GenericCommand(ABC):
+    """Generic command structure for slash commands."""
+
+    @abstractmethod
+    async def __main__(self, ctx: CommandContext) -> hikari.impl.InteractionMessageBuilder | None:
+        """Main function to be executed when this command is triggered.
+
+        This will be blank if the command has subcommands.
+
+        Args:
+            ctx (CommandContext): Context for this command.
+        """
+
+        raise NotImplementedError()
 
 
 class NewCommandArgs(TypedDict, total=False):

@@ -1,10 +1,11 @@
 from resources.bloxlink import instance as bloxlink
+from resources.commands import GenericCommand
 
 
 @bloxlink.command(
     developer_only=True,
 )
-class QuickBindCommand:
+class QuickBindCommand(GenericCommand):
     """insert some fake binds"""
 
     async def __main__(self, ctx):

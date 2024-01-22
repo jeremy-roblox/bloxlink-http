@@ -1,12 +1,12 @@
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 import hikari
 
 
 @bloxlink.command(
     developer_only=True,
 )
-class TestPremiumCommand:
+class TestPremiumCommand(GenericCommand):
     """adds/remove premium from server"""
 
     async def __main__(self, ctx: CommandContext):

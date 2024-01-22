@@ -5,7 +5,7 @@ import hikari
 from resources.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.binds import GroupBind, GuildBind, delete_bind, get_binds
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.components import component_author_validation, get_custom_id_data
 from resources.exceptions import RobloxAPIError
 from resources.pagination import Paginator
@@ -154,7 +154,7 @@ async def unbind_cancel_button(ctx: CommandContext):
     },
     dm_enabled=False,
 )
-class UnbindCommand:
+class UnbindCommand(GenericCommand):
     """Delete some binds from your server"""
 
     async def __main__(self, ctx: CommandContext):

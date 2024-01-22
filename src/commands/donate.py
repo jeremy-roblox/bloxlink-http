@@ -1,15 +1,14 @@
-import hikari
 from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.components import Button
 
 
 @bloxlink.command(
     pro_bypass=True,
 )
-class DonateCommand:
+class DonateCommand(GenericCommand):
     """Learn how to receive Bloxlink Premium"""
 
     async def __main__(self, ctx: CommandContext):

@@ -1,7 +1,7 @@
 from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.premium import get_premium_status
 from resources.exceptions import PremiumRequired
 
@@ -10,7 +10,7 @@ from resources.exceptions import PremiumRequired
     category="Premium",
     pro_bypass=True,
 )
-class StatusCommand:
+class StatusCommand(GenericCommand):
     """view your premium status"""
 
     async def __main__(self, ctx: CommandContext):

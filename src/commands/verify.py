@@ -1,7 +1,7 @@
 import resources.binds as binds
 import resources.roblox.users as users
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 
 
 @bloxlink.command(
@@ -9,7 +9,7 @@ from resources.commands import CommandContext
     defer=True,
     aliases=["getrole"]
 )
-class VerifyCommand:
+class VerifyCommand(GenericCommand):
     """Link your Roblox account to your Discord account and get your server roles."""
 
     async def __main__(self, ctx: CommandContext):

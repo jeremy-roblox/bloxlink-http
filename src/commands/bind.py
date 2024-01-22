@@ -6,7 +6,7 @@ from hikari.commands import CommandOption, OptionType
 
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.components import Button, RoleSelectMenu, TextSelectMenu
 from resources.exceptions import BindConflictError, RobloxNotFound
 from resources.response import Prompt, PromptCustomID, PromptPageData
@@ -650,8 +650,11 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
     dm_enabled=False,
     prompts=[GroupPrompt, GenericBindPrompt],
 )
-class BindCommand:
+class BindCommand(GenericCommand):
     """bind Discord role(s) to Roblox entities"""
+
+    async def __main__(self, ctx: CommandContext):
+        raise NotImplementedError("This command has sub-commands and cannot be run directly.")
 
     @bloxlink.subcommand(
         options=[

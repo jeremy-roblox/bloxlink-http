@@ -1,5 +1,5 @@
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.components import Button, TextInput
 from resources.premium import get_premium_status
 from resources.modals import build_modal
@@ -37,7 +37,7 @@ async def verify_button_click(ctx: CommandContext):
         "verify_view:verify_button": verify_button_click,
     }
 )
-class VerifyChannelCommand:
+class VerifyChannelCommand(GenericCommand):
     """post a message that users can interact with to get their roles"""
 
     async def __main__(self, ctx: CommandContext):

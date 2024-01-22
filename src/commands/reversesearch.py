@@ -4,7 +4,7 @@ from hikari.commands import CommandOption, OptionType
 import resources.roblox.users as users
 from resources.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.exceptions import RobloxNotFound
 
 
@@ -25,7 +25,7 @@ from resources.exceptions import RobloxNotFound
         "user": roblox_lookup_autocomplete,
     },
 )
-class ReverseSearchCommand:
+class ReverseSearchCommand(GenericCommand):
     """Find Discord users in your server that are linked to a certain Roblox account."""
 
     async def __main__(self, ctx: CommandContext):

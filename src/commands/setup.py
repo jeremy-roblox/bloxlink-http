@@ -2,7 +2,7 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.binds import create_bind
 from resources.roblox.groups import get_group
-from resources.commands import CommandContext
+from resources.commands import CommandContext, GenericCommand
 from resources.response import Prompt, PromptPageData
 from resources.components import Button, TextSelectMenu, TextInput
 from resources.modals import build_modal
@@ -544,7 +544,7 @@ class SetupPrompt(Prompt):
     dm_enabled=False,
     prompts=[SetupPrompt],
 )
-class SetupCommand:
+class SetupCommand(GenericCommand):
     """setup Bloxlink for your server"""
 
     async def __main__(self, ctx: CommandContext):
