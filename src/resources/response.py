@@ -203,18 +203,20 @@ class Response:
         channel: hikari.GuildTextChannel = None,
         channel_id: str | int = None,
         build_components: bool = True,
+        fetch_message=False,
         **kwargs,
-    ):
+    ) -> hikari.Message | None:
         """Send this Response to discord. This function only sends via REST and ignores the initial webhook response.
 
         Args:
             content (str, optional): Message content to send. Defaults to None.
             embed (hikari.Embed, optional): Embed to send. Defaults to None.
             components (list, optional): Components to attach to the message. Defaults to None.
-            ephemeral (bool, optional): Should this message be ephemeral. Defaults to False.
+            ephemeral (bool, optional): Whether this message be ephemeral. Defaults to False.
             channel (hikari.GuildTextChannel, optional): Channel to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
             channel_id (int, str, optional): Channel ID to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
-            build_components (bool, optional): Should this convert custom components to hikari components. Defaults to True.
+            build_components (bool, optional): Whether this convert custom components to hikari components. Defaults to True.
+            fetch_message (bool, optional): Whether to fetch the message through HTTP. Defaults to False.
             **kwargs: match what hikari expects for interaction.execute() or interaction.create_initial_response()
         """
 
@@ -269,7 +271,9 @@ class Response:
 
         self.responded = True
 
-        return await self.interaction.create_initial_response(
+
+
+        await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
             content,
             embed=embed,
@@ -278,6 +282,9 @@ class Response:
             role_mentions=False,
             **kwargs
         )
+
+        if fetch_message:
+            return await self.interaction.fetch_initial_response()
 
     async def send_modal(self, modal: 'modal.Modal'):
         """Send a modal response. This needs to be yielded."""

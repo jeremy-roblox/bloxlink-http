@@ -5,13 +5,13 @@ from collections import defaultdict
 from typing import Literal, TYPE_CHECKING
 
 import hikari
-from attrs import asdict, define
 from datetime import timedelta
+from attrs import asdict, define
 
 from resources import restriction
 from resources.roblox import roblox_entity, users
 from resources.bloxlink import GuildData, instance as bloxlink
-from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS
+from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.models import InteractiveMessage
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
@@ -883,7 +883,8 @@ async def apply_binds(
 
     return InteractiveMessage(content="To verify with Bloxlink, click the link below." if not roblox_account else None, embed=embed, action_rows=components)
 
-async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, response: Response, roblox_account: users.RobloxAccount = None):
+
+async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, response: Response, roblox_account: users.RobloxAccount | None):
     """Send a request for the user to confirm their account"""
 
     if roblox_account:
@@ -893,14 +894,32 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
         user_confirms = roblox_accounts.get("confirms", {})
 
         if not premium_status.active and str(guild_id) not in user_confirms:
-            await response.send("pls confirm account")
+            embed = hikari.Embed(
+                title="Select Account",
+                description="Please click the link below to select an account for this server.",
+                color=ORANGE_COLOR
+            )
+
+            message = await response.send(
+                embed=embed,
+                components=[
+                    Button(
+                        label="Select Account",
+                        url=f"https://blox.link/confirm/v2/{guild_id}"
+                    ),
+                ],
+                fetch_message=True
+            )
 
             try:
-                await bloxlink.relay(f"confirm_account:{member.id}", None, timedelta(minutes=2).seconds)
-            except TimeoutError:
-                print("took too long")
-            except RuntimeError as e:
-                print("runtime error", e)
+                await bloxlink.relay(f"account_confirm:{guild_id}:{roblox_account.id}", None, timedelta(minutes=2).seconds)
+            except (TimeoutError, RuntimeError):
+                pass
+
+            try:
+                await message.delete()
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                pass
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:
