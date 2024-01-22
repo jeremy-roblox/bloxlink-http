@@ -198,6 +198,24 @@ class TextInput(Component):
     style: TextInputStyle = TextInputStyle.SHORT
     type: hikari.ComponentType.TEXT_INPUT = hikari.ComponentType.TEXT_INPUT
 
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
+        # Text inputs take up one full action row.
+        modal_action_row = hikari.impl.ModalActionRowBuilder()
+        action_rows.append(modal_action_row)
+
+        modal_action_row.add_text_input(
+            self.custom_id,
+            self.label,
+            placeholder=self.placeholder,
+            min_length=self.min_length or 1,
+            max_length=self.max_length or 2000,
+            required=self.required or False,
+            style=self.style or hikari.TextInputStyle.SHORT,
+            value=self.value
+        )
+
+        return action_rows
+
 
 @define(slots=True, kw_only=True)
 class Separator(Component):
