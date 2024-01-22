@@ -894,6 +894,10 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
         user_confirms = roblox_accounts.get("confirms", {})
 
         if not premium_status.active and str(guild_id) not in user_confirms:
+            user_confirms[str(guild_id)] = roblox_account.id
+            roblox_accounts["confirms"] = user_confirms
+            await bloxlink.update_user_data(member.id, robloxAccounts=roblox_accounts)
+
             embed = hikari.Embed(
                 title="Select Account",
                 description="Please click the link below to select an account for this server.",
