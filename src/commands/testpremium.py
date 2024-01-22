@@ -1,6 +1,6 @@
+import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-import hikari
 
 
 @bloxlink.command(

@@ -7,9 +7,9 @@ from typing import Literal
 import hikari
 from attrs import asdict, define
 
-import resources.restriction as restriction
-import resources.roblox.roblox_entity as roblox_entity
-import resources.roblox.users as users
+from resources import restriction
+from resources.roblox import roblox_entity
+from resources.roblox import users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS
@@ -66,6 +66,8 @@ class GuildBind:
         self.entity = create_entity(self.type, self.id)
 
     def to_dict(self) -> dict:
+        """Convert this bind to a dict that can be saved in the database."""
+
         return {
             "roles": self.roles,
             "removeRoles": self.removeRoles,
@@ -114,8 +116,8 @@ class GroupBind(GuildBind):
         """
         if not self.roles or self.roles in ("undefined", "null"):
             return "linked_group"
-        else:
-            return "group_roles"
+
+        return "group_roles"
 
     def to_dict(self) -> dict:
         base_dict = super().to_dict()
@@ -469,8 +471,8 @@ async def create_bind(
         if bind_count >= LIMITS["BINDS"]["MAX"]:
             raise BindException("You have reached the maximum number of binds for this server.")
 
-        elif (bind_count >= LIMITS["BINDS"]["FREE"] and not premium_status.active) or (bind_count >= LIMITS["BINDS"]["PREMIUM"] and premium_status.active and premium_status.tier != "pro"):
-                raise PremiumRequired()
+        if (bind_count >= LIMITS["BINDS"]["FREE"] and not premium_status.active) or (bind_count >= LIMITS["BINDS"]["PREMIUM"] and premium_status.active and premium_status.tier != "pro"):
+            raise PremiumRequired()
 
     guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
 

@@ -5,7 +5,7 @@ try:
 except ImportError:
     config = None
 
-VALID_SECRETS = (
+VALID_SECRETS = [
     "DISCORD_APPLICATION_ID",
     "DISCORD_TOKEN",
     "DISCORD_PUBLIC_KEY",
@@ -23,9 +23,7 @@ VALID_SECRETS = (
     "SERVER_AUTH",
     "ROBLOX_INFO_SERVER",
     "BOT_RELEASE"
-)
-
-__all__ = VALID_SECRETS
+]
 
 for secret in VALID_SECRETS:
     globals()[secret] = env.get(secret) or getattr(config, secret, "")

@@ -13,6 +13,8 @@ from resources.secrets import (
 redis: Redis = None
 
 def connect_redis():
+    """Connect to Redis."""
+
     global redis
 
     if REDIS_URL:

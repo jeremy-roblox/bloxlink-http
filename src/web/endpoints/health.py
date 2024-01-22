@@ -9,7 +9,7 @@ class Health(APIController):
     """Results in a path of <URL>/api/health/..."""
 
     @get("/")
-    async def check_health(self, request: Request):
+    async def check_health(self, _request: Request):
         """Endpoint to check if the service is alive and healthy."""
 
         # These will raise exceptions if they fail.

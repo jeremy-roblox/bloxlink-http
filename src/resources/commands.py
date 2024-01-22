@@ -4,28 +4,25 @@ import json
 import logging
 import re
 from typing import Callable, Type, TypedDict
-
+from abc import ABC, abstractmethod
 import hikari
 from attrs import define
 from typing_extensions import Unpack
-
 from resources.components import parse_custom_id
-from resources.constants import DEVELOPERS
-from resources.exceptions import *
+from resources.constants import DEVELOPERS, BOT_RELEASE
+from resources.exceptions import (
+    BloxlinkForbidden, CancelCommand, PremiumRequired, UserNotVerified,
+    RobloxNotFound, RobloxDown, Message, BindException
+)
 from resources.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
-from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.premium import get_premium_status
-from abc import ABC, abstractmethod
 
 command_name_pattern = re.compile("(.+)Command")
 
 slash_commands: dict[str, Command] = {}
-
-
-
 
 
 
@@ -249,7 +246,7 @@ async def handle_interaction(interaction: hikari.Interaction):
         await response.send(ex.message, ephemeral=ex.ephemeral)
     except CancelCommand:
         pass
-    except Exception as ex:
+    except Exception as ex: # pylint: disable=broad-except
         logging.exception(ex)
         await response.send(
             "An unexpected error occurred while processing this command. "
@@ -372,10 +369,10 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         for command in slash_commands.values():
             if parsed_custom_id.type == "prompt":
                 # cast it into a prompt custom id
-                parsed_custom_id = parse_custom_id(PromptCustomID, custom_id)
+                prompt_custom_id = parse_custom_id(PromptCustomID, custom_id)
                 # find matching prompt handler
                 for command_prompt in command.prompts:
-                    if parsed_custom_id.prompt_name == command_prompt.__name__:
+                    if prompt_custom_id.prompt_name == command_prompt.__name__:
                         new_prompt = await command_prompt.new_prompt(
                             prompt_instance=command_prompt,
                             interaction=interaction,
@@ -385,7 +382,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
 
                         async for generator_response in new_prompt.entry_point(interaction):
                             if not isinstance(generator_response, PromptPageData):
-                                logging.debug(2, generator_response)
+                                logging.debug("2 %s", generator_response)
                                 yield generator_response
 
                         break
@@ -466,7 +463,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                     async for generator_response in new_prompt.entry_point(interaction):
                         if not isinstance(generator_response, PromptPageData):
-                            logging.debug(3, generator_response)
+                            logging.debug("3 %s", generator_response)
                             yield generator_response
 
                     return
@@ -522,13 +519,12 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "pro_bypass": command_args.get("pro_bypass", False),
     }
 
-    new_command = Command(**command_attrs)
-    slash_commands[command_name] = new_command
+    new_command_obj = Command(**command_attrs)
+    slash_commands[command_name] = new_command_obj
 
     for alias in command_args.get("aliases", []):
         command_attrs["name"] = alias
-        new_alias_command = Command(**command_attrs)
-        slash_commands[alias] = new_alias_command
+        slash_commands[alias] = new_command_obj
 
         logging.info(f"Registered command alias {alias} of {command_name}")
 

@@ -49,6 +49,8 @@ SETUP_OPTIONS = {
 
 
 class SetupPrompt(Prompt):
+    """Setup prompt"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -73,7 +75,9 @@ class SetupPrompt(Prompt):
             ]
         )
     )
-    async def intro_page(self, interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
+    async def intro_page(self, _interaction: hikari.CommandInteraction | hikari.ComponentInteraction, fired_component_id: str | None):
+        """The first page of the prompt."""
+
         match fired_component_id:
             case "intro_next":
                 return await self.next()
@@ -121,6 +125,8 @@ class SetupPrompt(Prompt):
         )
     )
     async def nickname_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+        """The second page of the prompt."""
+
         guild_nickname = (await bloxlink.fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
 
         setup_nickname = await self.current_data(key_name="nicknameTemplate", raise_exception=False) or guild_nickname
@@ -230,6 +236,7 @@ class SetupPrompt(Prompt):
 
     @Prompt.programmatic_page()
     async def verified_role_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+        """The third page of the prompt."""
 
         yield PromptPageData(
             title="Setup Bloxlink",
@@ -349,6 +356,8 @@ class SetupPrompt(Prompt):
         )
     )
     async def group_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
+        """The fourth page of the prompt."""
+
         match fired_component_id:
             case "group_link":
                 modal = build_modal(
@@ -408,6 +417,8 @@ class SetupPrompt(Prompt):
 
     @Prompt.programmatic_page()
     async def setup_finish(self, interaction: hikari.ComponentInteraction, fired_component_id: str | None):
+        """The final page of the prompt."""
+
         yield await self.response.defer()
 
         setup_data = await self.current_data()

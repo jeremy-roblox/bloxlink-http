@@ -42,6 +42,8 @@ class PromptCustomID(Components.BaseCustomID):
 
 @define(slots=True)
 class PromptPageData:
+    """Represents the data for a page of a prompt."""
+
     description: str
     components: list[Components.Component] = field(default=list())
     title: str = None
@@ -50,6 +52,8 @@ class PromptPageData:
 
     @define(slots=True)
     class Field:
+        """Represents a field in a prompt embed."""
+
         name: str
         value: str
         inline: bool = False
@@ -57,6 +61,8 @@ class PromptPageData:
 
 @define(slots=True)
 class Page:
+    """Represents a page of a prompt."""
+
     func: Callable
     details: PromptPageData
     page_number: int
@@ -135,7 +141,7 @@ class Response:
             build_components (bool, optional): Should this convert custom components to hikari components. Defaults to True.
         """
 
-        logging.debug("responded=", self.responded)
+        logging.debug("responded=%s", self.responded)
 
         if components and build_components:
             components = Components.clean_action_rows(functools.reduce(lambda a, c: c.build(a), components, [bloxlink.rest.build_message_action_row()]))
@@ -311,7 +317,7 @@ class Response:
         )
 
         hash_ = uuid.uuid4().hex
-        logging.debug("prompt() hash=", hash_)
+        logging.debug("prompt() hash=%s", hash_)
 
         return await new_prompt.run_page(custom_id_data, hash_=hash_, changing_page=True, initial_prompt=True).__anext__()
 
@@ -342,12 +348,14 @@ class Prompt(Generic[T]):
         self.response = response
         self.command_name = command_name
         self.prompt_name = self.__class__.__name__
-        self._custom_id_format: Type[T] = custom_id_format
+        self.custom_id_format: Type[T] = custom_id_format
         self._pending_embed_changes = {}
         self.guild_id = response.interaction.guild_id
         self.start_with_fresh_data = start_with_fresh_data
 
         self.custom_id: T = None # this is set in prompt.new_prompt()
+
+        self.edited = False
 
         response.defer_through_rest = True
 
@@ -372,13 +380,13 @@ class Prompt(Generic[T]):
 
         match interaction:
             case hikari.ComponentInteraction():
-                await prompt._save_data_from_interaction(interaction)
+                await prompt.save_data_from_interaction(interaction)
 
             case hikari.CommandInteraction():
                 if prompt.start_with_fresh_data:
                     await prompt.clear_data()
 
-                prompt.custom_id: T = prompt._custom_id_format(
+                prompt.custom_id: T = prompt.custom_id_format(
                     command_name=command_name,
                     prompt_name=prompt.prompt_name,
                     page_number=0,
@@ -391,6 +399,8 @@ class Prompt(Generic[T]):
 
     @staticmethod
     def page(page_details: PromptPageData):
+        """Decorator to mark a function as a page."""
+
         def wrapper(func: Callable):
             func.__page_details__ = page_details
             func.__programmatic_page__ = False
@@ -401,6 +411,8 @@ class Prompt(Generic[T]):
 
     @staticmethod
     def programmatic_page():
+        """Decorator to mark a function as a programmatic page."""
+
         def wrapper(func: Callable):
             func.__page_details__ = None
             func.__programmatic_page__ = True
@@ -427,7 +439,7 @@ class Prompt(Generic[T]):
         if page.details.components:
             for component in page.details.components:
                 component_custom_id = Components.set_custom_id_field(
-                    self._custom_id_format,
+                    self.custom_id_format,
                     str(self.custom_id),
                     component_custom_id=component.component_id,
                     prompt_message_id=self.custom_id.prompt_message_id,
@@ -493,7 +505,7 @@ class Prompt(Generic[T]):
     async def populate_programmatic_page(
         self, interaction: hikari.ComponentInteraction, fired_component_id: str | None = None
     ):
-        logging.debug("current_page=", self.current_page)
+        logging.debug("current_page=%s", self.current_page)
 
         if self.current_page.programmatic:
             generator_or_coroutine = self.current_page.func(interaction, fired_component_id)
@@ -512,7 +524,7 @@ class Prompt(Generic[T]):
     async def entry_point(self, interaction: hikari.ComponentInteraction):
         """Entry point when a component is called. Redirect to the correct page."""
 
-        self.custom_id = Components.parse_custom_id(self._custom_id_format, interaction.custom_id)
+        self.custom_id = Components.parse_custom_id(self.custom_id_format, interaction.custom_id)
         self.current_page_number = self.custom_id.page_number
         self.current_page = self.pages[self.current_page_number]
 
@@ -523,7 +535,7 @@ class Prompt(Generic[T]):
             return
 
         hash_ = uuid.uuid4().hex
-        logging.debug("entry_point() hash=", hash_)
+        logging.debug("entry_point() hash=%s", hash_)
 
         async for generator_response in self.run_page(hash_=hash_):
             if isinstance(generator_response, hikari.Message):
@@ -624,7 +636,7 @@ class Prompt(Generic[T]):
 
         return json.loads(redis_data).get(key_name) if key_name else json.loads(redis_data)
 
-    async def _save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
+    async def save_data_from_interaction(self, interaction: hikari.ComponentInteraction):
         """Save the data from the interaction from the current page to Redis."""
 
         custom_id = Components.parse_custom_id(PromptCustomID, interaction.custom_id)
@@ -670,14 +682,14 @@ class Prompt(Generic[T]):
                 f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}"
             )
 
-    async def previous(self, content: str = None):
+    async def previous(self, _content: str = None):
         """Go to the previous page of the prompt."""
 
         self.current_page_number -= 1
 
         return await self.run_page(changing_page=True).__anext__()
 
-    async def next(self, content: str = None):
+    async def next(self, _content: str = None):
         """Go to the next page of the prompt."""
 
         self.current_page_number += 1
@@ -695,7 +707,7 @@ class Prompt(Generic[T]):
             raise PageNotFound(f"Page {page} not found.")
 
         hash_ = uuid.uuid4().hex
-        logging.debug("go_to() hash=", hash_)
+        logging.debug("go_to() hash=%s", hash_)
 
         if kwargs:
             for attr_name, attr_value in kwargs.items():
@@ -739,7 +751,7 @@ class Prompt(Generic[T]):
         """Edit a component on the current page."""
 
         hash_ = uuid.uuid4().hex
-        logging.debug("edit_component() hash=", hash_)
+        logging.debug("edit_component() hash=%s", hash_)
 
         if self.current_page.programmatic:
             await self.populate_programmatic_page(self.response.interaction)
@@ -768,7 +780,7 @@ class Prompt(Generic[T]):
         """Edit the current page."""
 
         hash_ = uuid.uuid4().hex
-        logging.debug("edit_page() hash=", hash_)
+        logging.debug("edit_page() hash=%s", hash_)
 
         self.edited = True
 

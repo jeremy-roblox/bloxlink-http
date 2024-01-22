@@ -10,6 +10,8 @@ UNAUTHORIZED_RESPONSE = unauthorized("You are not authorized to use this endpoin
 
 
 def authenticate():
+    """Decorator to authenticate a request."""
+
     def decorator(handler):
         @wraps(handler)
         async def wrapped(*args, **kwargs):

@@ -6,7 +6,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Callable, Coroutine, Optional, TypedDict
+from typing import TYPE_CHECKING, Callable, Coroutine, Optional
 
 import hikari
 import yuyo
@@ -90,6 +90,8 @@ class Bloxlink(yuyo.AsgiBot):
         self.started_at = datetime.utcnow()
         self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
         self.mongo.get_io_loop = asyncio.get_running_loop
+
+        self.redis_messages: RedisMessageCollector = None
 
         instance = self
 
@@ -376,7 +378,7 @@ class Bloxlink(yuyo.AsgiBot):
     def command(**command_attrs: "Unpack[NewCommandArgs]"):
         """Decorator to register a command."""
 
-        from resources.commands import new_command
+        from resources.commands import new_command # pylint: disable=import-outside-toplevel
 
         def wrapper(*args, **kwargs):
             return new_command(*args, **kwargs, **command_attrs)

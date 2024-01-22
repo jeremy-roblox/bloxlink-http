@@ -1,8 +1,8 @@
-import resources.binds as binds
-import resources.roblox.users as users
-from resources.exceptions import RobloxAPIError, RobloxNotFound
-from attrs import define
 from typing import TYPE_CHECKING
+from attrs import define
+from resources import binds
+from resources.roblox import users
+from resources.exceptions import RobloxAPIError, RobloxNotFound
 
 
 if TYPE_CHECKING:
@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 @define(slots=True)
 class AutocompleteOption:
+    """Represents an autocomplete option."""
+
     name: str
     value: str
 

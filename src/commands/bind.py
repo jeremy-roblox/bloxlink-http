@@ -1,6 +1,7 @@
 from typing import Literal
 
 import hikari
+from abc import ABC
 from attrs import define, field
 from hikari.commands import CommandOption, OptionType
 
@@ -19,12 +20,16 @@ from resources.roblox.groups import get_group
 
 
 @define
-class GenericBindPromptCustomID(PromptCustomID):
+class GenericBindPromptCustomID(PromptCustomID, ABC):
+    """Custom ID for the GenericBindPrompt."""
+
     entity_id: int = field(converter=int)
     entity_type: str = field(converter=str)
 
 
 class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
+    """Generic prompt for binding Roblox entities to Discord roles."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args, **kwargs,
@@ -212,10 +217,14 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
 
 @define
 class GroupPromptCustomID(PromptCustomID):
+    """Custom ID for the GroupPrompt."""
+
     group_id: int = field(converter=int)
 
 
 class GroupPrompt(Prompt[GroupPromptCustomID]):
+    """Prompt for binding a Roblox group to Discord role(s)."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args, **kwargs,

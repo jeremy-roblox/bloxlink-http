@@ -1,11 +1,11 @@
+from typing import Type, TypeVar, Literal
+from enum import Enum
+from abc import ABC, abstractmethod
+from attrs import fields, define, field
 import hikari
 
 from resources.bloxlink import instance as bloxlink
-import resources.commands as commands
-from typing import Type, TypeVar, Literal
-from attrs import fields, define, field
-from enum import Enum
-from abc import ABC, abstractmethod
+from resources import commands
 
 
 T = TypeVar('T')

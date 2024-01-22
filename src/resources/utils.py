@@ -2,9 +2,9 @@ import asyncio
 import logging
 from enum import Enum
 from json import JSONDecodeError, loads
-from typing import Iterable, Callable
-from attrs import field
+from typing import Iterable, Callable, TypeVar
 import copy
+from attrs import field
 
 import aiohttp
 from requests.utils import requote_uri
@@ -16,8 +16,11 @@ __all__ = ("fetch", "ReturnType", "default_field")
 
 session = None
 
+T = TypeVar("T")
 
 class ReturnType(Enum):
+    """Enum for the type of data to return from a request."""
+
     JSON = 1
     TEXT = 2
     BYTES = 3
@@ -155,7 +158,7 @@ async def fetch(
             elif return_data is ReturnType.JSON:
                 if proxied:
                     if not isinstance(response_body, dict):
-                        logging.debug("Roblox API Error: ", old_url, type(response_body), response_body, flush=True)
+                        logging.debug("Roblox API Error: %s %s %s", old_url, type(response_body), response_body, flush=True)
 
                         if raise_on_failure:
                             raise RobloxAPIError()
@@ -180,10 +183,14 @@ async def fetch(
         logging.debug(f"URL {old_url} timed out", flush=True)
         raise RobloxDown() from None
 
-def default_field(obj: list | dict):
+def default_field(obj: list | dict) -> field:
+    """Returns a default field for an object."""
+
     return field(factory=lambda: copy.copy(obj))
 
-def find(predicate: Callable, iterable: Iterable):
+def find(predicate: Callable, iterable: Iterable[T]) -> T | None:
+    """Finds the first element in an iterable that matches the predicate."""
+
     for element in iterable:
         if predicate(element):
             return element

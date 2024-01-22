@@ -1,6 +1,5 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.response import Prompt, Response, PromptPageData
 from resources.components import TextInput
 
 
@@ -26,6 +25,5 @@ class ModalTestCommand(GenericCommand):
         )
 
         await ctx.response.send_modal(modal)
-
 
         return await ctx.response.send_first("pong")

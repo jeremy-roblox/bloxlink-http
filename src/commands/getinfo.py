@@ -1,6 +1,6 @@
 from hikari.commands import CommandOption, OptionType
 
-import resources.roblox.users as users
+from resources.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import UserNotVerified
 from resources.commands import CommandContext, GenericCommand

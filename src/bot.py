@@ -56,6 +56,8 @@ webserver.mount("/bot", bot)
 
 @webserver.on_start
 async def handle_start(_):
+    """Start the bot and sync commands"""
+
     await bot.start()
 
     # only sync commands once every hour unless the --sync-commands flag is passed
@@ -72,6 +74,8 @@ async def handle_start(_):
 
 @webserver.on_stop
 async def handle_stop(_):
+    """Executes when the bot is stopped"""
+
     await bot.close()
 
 

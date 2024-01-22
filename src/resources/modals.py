@@ -1,10 +1,10 @@
-from attrs import define, field
-from typing import TypedDict
-import hikari
 import json
+from typing import TypedDict
+from attrs import define, field
+import hikari
 from resources.components import TextInput, get_custom_id, BaseCustomID
 from resources.redis import redis
-import resources.response as response
+from resources import response
 
 
 @define(slots=True, kw_only=True)
@@ -83,7 +83,8 @@ def build_modal(title: str, components: list[TextInput], *, interaction: hikari.
 
     if prompt_data is None and command_data is None:
         raise ValueError("prompt_data and command_data cannot both be provided.")
-    elif prompt_data is not None and command_data is not None:
+
+    if prompt_data is not None and command_data is not None:
         raise ValueError("prompt_data and command_data cannot both be provided.")
 
     if command_data is not None:
