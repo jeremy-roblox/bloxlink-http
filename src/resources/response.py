@@ -1,6 +1,7 @@
 import json
 import uuid
 import logging
+import functools
 from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
 
 import hikari
@@ -123,9 +124,8 @@ class Response:
         edit_original: bool = False,
         build_components: bool = True,
     ):
-        """Directly respond to Discord with this response. This should not be called more than once. This needs to be yielded."""
+        """Directly respond to Discord with this response. This should not be called more than once. This needs to be yielded.
 
-        """"
         Args:
             content (str, optional): Message content to send. Defaults to None.
             embed (hikari.Embed, optional): Embed to send. Defaults to None.
@@ -138,7 +138,7 @@ class Response:
         logging.debug("responded=", self.responded)
 
         if components and build_components:
-            components = Components.build_action_rows(components)
+            components = Components.clean_action_rows(functools.reduce(lambda a, c: c.build(a), components, [bloxlink.rest.build_message_action_row()]))
 
         if self.responded:
             if edit_original:
@@ -219,7 +219,7 @@ class Response:
             raise ValueError("Cannot specify both channel and channel_id.")
 
         if components and build_components:
-            components = Components.build_action_rows(components)
+            components = Components.clean_action_rows(functools.reduce(lambda a, c: c.build(a), components, [bloxlink.rest.build_message_action_row()]))
 
         if channel:
             return await channel.send(content,
@@ -434,7 +434,7 @@ class Prompt(Generic[T]):
                 )
                 component.custom_id = component_custom_id
 
-            action_rows = Components.build_action_rows(page.details.components)
+            action_rows = Components.clean_action_rows(functools.reduce(lambda a, c: c.build(a), page.details.components, [bloxlink.rest.build_message_action_row()]))
 
         if page.details.fields:
             for field in page.details.fields:

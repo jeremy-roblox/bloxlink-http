@@ -5,6 +5,8 @@ import resources.commands as commands
 from typing import Type, TypeVar, Literal
 from attrs import fields, define, field
 from enum import Enum
+from abc import ABC, abstractmethod
+
 
 T = TypeVar('T')
 
@@ -21,151 +23,39 @@ class BaseCustomID:
         field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
         return ":".join(field_values)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str | int]:
+        """Converts the custom_id into a dict of values."""
+
         return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
 
 
 @define(slots=True, kw_only=True)
-class Component:
+class Component(ABC):
+    """Abstract base class for components."""
+
     type: Literal[
         hikari.ComponentType.BUTTON,
         hikari.ComponentType.TEXT_SELECT_MENU,
         hikari.ComponentType.ROLE_SELECT_MENU,
         hikari.ComponentType.TEXT_INPUT,
     ] = None
-    custom_id: str = None
+    custom_id: str = None # only None for prompt page initializations, it's set by the prompt handler
     component_id: str = None # used for prompts
 
-    def convert_to_hikari(self):
-        match self.type:
-            case hikari.ComponentType.BUTTON:
-                return hikari.ButtonComponent(
-                    custom_id=self.custom_id,
-                    label=self.label,
-                    # emoji=self.emoji,
-                    style=self.style,
-                    is_disabled=self.is_disabled,
-                    url=self.url,
-                )
-            case hikari.ComponentType.ROLE_SELECT_MENU:
-                return hikari.SelectMenuComponent(
-                    custom_id=self.custom_id,
-                    placeholder=self.placeholder,
-                    min_values=self.min_values,
-                    max_values=self.max_values,
-                    is_disabled=self.is_disabled,
-                )
-            case hikari.ComponentType.TEXT_SELECT_MENU:
-                return hikari.TextSelectMenuComponent(
-                    custom_id=self.custom_id,
-                    placeholder=self.placeholder,
-                    min_values=self.min_values,
-                    max_values=self.max_values,
-                    is_disabled=self.is_disabled,
-                    options=[
-                        hikari.SelectMenuOption(
-                            label=option.label,
-                            value=option.value,
-                            description=option.description,
-                            emoji=option.emoji,
-                            is_default=option.is_default,
-                        )
-                        for option in self.options
-                    ],
+    @abstractmethod
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]) -> list[hikari.impl.MessageActionRowBuilder]:
+        """Builds the component into a Hikari component and appends it to the last action row. The action row is returned for chaining."""
 
-                )
-            case hikari.ComponentType.TEXT_INPUT:
-                return hikari.TextInputComponent(
-                    custom_id=self.custom_id,
-                    placeholder=self.placeholder,
-                    min_length=self.min_length,
-                    max_length=self.max_length,
-                    required=self.required,
-                    style=self.style,
-                )
+        raise NotImplementedError()
 
-def build_action_rows(components: list[Component]):
-    action_rows: list[hikari.impl.MessageActionRowBuilder()] = []
-
-    button_action_row = bloxlink.rest.build_message_action_row()
-    has_button = False
-
-    for component in components:
-        match component.type:
-            case hikari.ComponentType.BUTTON:
-                has_button = True
-
-                if component.style == Button.ButtonStyle.LINK:
-                    button_action_row.add_link_button(
-                        component.url,
-                        label=component.label,
-                        # if not component.emoji
-                        # else hikari.undefined.UNDEFINED,
-                        # emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
-                        is_disabled=component.is_disabled,
-                    )
-                else:
-                    button_action_row.add_interactive_button(
-                        component.style,
-                        component.custom_id,
-                        label=component.label,
-                        # if not component.emoji
-                        # else hikari.undefined.UNDEFINED,
-                        # emoji=component.emoji if component.emoji else hikari.undefined.UNDEFINED,
-                        is_disabled=component.is_disabled,
-                    )
-
-            case hikari.ComponentType.ROLE_SELECT_MENU:
-                role_action_row = bloxlink.rest.build_message_action_row()
-                role_action_row.add_select_menu(
-                    hikari.ComponentType.ROLE_SELECT_MENU,
-                    component.custom_id,
-                    placeholder=component.placeholder,
-                    min_values=component.min_values,
-                    max_values=component.max_values,
-                    is_disabled=component.is_disabled,
-                )
-                action_rows.append(role_action_row)
-
-            case hikari.ComponentType.TEXT_SELECT_MENU:
-                text_action_row = bloxlink.rest.build_message_action_row()
-                text_menu = text_action_row.add_text_menu(
-                    component.custom_id,
-                    placeholder=component.placeholder,
-                    min_values=component.min_values,
-                    max_values=component.max_values,
-                    is_disabled=component.is_disabled,
-                )
-                for option in component.options:
-                    text_menu.add_option(
-                        option.label,
-                        option.value,
-                        description=option.description,
-                        is_default=option.is_default,
-                    )
-
-                action_rows.append(text_action_row)
-
-            case hikari.ComponentType.TEXT_INPUT:
-                button_action_row.add_text_input(
-                    component.custom_id,
-                    component.value,
-                    placeholder=component.placeholder,
-                    min_length=component.min_length or 1,
-                    max_length=component.max_length or 2000,
-                    required=component.required or False,
-                    style=component.style or TextInput.TextInputStyle.SHORT,
-                )
-
-    # buttons show at the bottom
-    if has_button:
-        action_rows.append(button_action_row)
-
-    return action_rows
 
 @define(slots=True, kw_only=True)
 class Button(Component):
+    """Base class for buttons."""
+
     class ButtonStyle(Enum):
+        """Button styles."""
+
         PRIMARY = 1
         SECONDARY = 2
         SUCCESS = 3
@@ -183,8 +73,33 @@ class Button(Component):
         if self.url:
             self.style = Button.ButtonStyle.LINK
 
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
+        current_action_row = action_rows[len(action_rows)-1]
+
+        if self.style == Button.ButtonStyle.LINK:
+            current_action_row.add_link_button(
+                self.url,
+                label=self.label,
+                # emoji=self.emoji,
+                is_disabled=self.is_disabled,
+            )
+        else:
+            current_action_row.add_interactive_button(
+                self.style,
+                self.custom_id,
+                label=self.label,
+                # emoji=self.emoji,
+                is_disabled=self.is_disabled,
+            )
+
+
+        return action_rows
+
+
 @define(slots=True, kw_only=True)
-class SelectMenu(Component):
+class SelectMenu(Component, ABC):
+    """Abstract base class for select menus."""
+
     placeholder: str = "Select an option..."
     min_values: int = 1
     max_values: int = None
@@ -192,28 +107,85 @@ class SelectMenu(Component):
     max_length: int = None
     is_disabled: bool = False
 
+
 @define(slots=True, kw_only=True)
 class RoleSelectMenu(SelectMenu):
-    placeholder: str = "Select a role..."
+    """Base class for role select menus."""
 
+    placeholder: str = "Select a role..."
     type: hikari.ComponentType.ROLE_SELECT_MENU = hikari.ComponentType.ROLE_SELECT_MENU
+
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
+        # Role menus take up one full action row.
+        new_action_row = bloxlink.rest.build_message_action_row()
+        action_rows.append(new_action_row)
+
+        new_action_row.add_select_menu(
+            hikari.ComponentType.ROLE_SELECT_MENU,
+            self.custom_id,
+            placeholder=self.placeholder,
+            min_values=self.min_values,
+            max_values=self.max_values,
+            is_disabled=self.is_disabled,
+        )
+
+        # Next component gets an empty action row
+        action_rows.append(bloxlink.rest.build_message_action_row())
+
+        return action_rows
+
 
 @define(slots=True, kw_only=True)
 class TextSelectMenu(SelectMenu):
+    """Base class for text select menus."""
+
     options: list['Option']
     type: hikari.ComponentType.TEXT_SELECT_MENU = hikari.ComponentType.TEXT_SELECT_MENU
 
     @define(slots=True, kw_only=True)
     class Option:
+        """Option for a text select menu."""
+
         label: str
         value: str
         description: str = None
         emoji: hikari.Emoji = None
         is_default: bool = False
 
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
+        # Text menus take up one full action row.
+        new_action_row = bloxlink.rest.build_message_action_row()
+        action_rows.append(new_action_row)
+
+        text_menu = new_action_row.add_text_menu(
+            self.custom_id,
+            placeholder=self.placeholder,
+            min_values=self.min_values,
+            max_values=self.max_values,
+            is_disabled=self.is_disabled,
+        )
+
+        for option in self.options:
+            text_menu.add_option(
+                option.label,
+                option.value,
+                description=option.description,
+                is_default=option.is_default,
+            )
+
+        # Next component gets an empty action row
+        action_rows.append(bloxlink.rest.build_message_action_row())
+
+        return action_rows
+
+
 @define(slots=True, kw_only=True)
 class TextInput(Component):
+    """Base class for modal text inputs."""
+
     class TextInputStyle(Enum):
+        """Text input styles."""
+
         SHORT = 1
         PARAGRAPH = 2
 
@@ -226,6 +198,23 @@ class TextInput(Component):
     style: TextInputStyle = TextInputStyle.SHORT
     type: hikari.ComponentType.TEXT_INPUT = hikari.ComponentType.TEXT_INPUT
 
+
+@define(slots=True, kw_only=True)
+class Separator(Component):
+    """Used to build a new ActionRow for the next set of components."""
+
+    def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
+        new_action_row = bloxlink.rest.build_message_action_row()
+
+        action_rows.append(new_action_row)
+
+        return action_rows
+
+
+def clean_action_rows(action_rows:list[hikari.impl.MessageActionRowBuilder]) -> list[hikari.impl.MessageActionRowBuilder]:
+    """Removes empty action rows from the list. Empty action rows may appear from using Component.build()."""
+
+    return list(filter(lambda action_row: len(action_row.components) > 0, action_rows))
 
 
 async def get_component(message: hikari.Message, custom_id: str):
