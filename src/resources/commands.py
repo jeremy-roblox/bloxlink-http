@@ -519,12 +519,11 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "pro_bypass": command_args.get("pro_bypass", False),
     }
 
-    new_command_obj = Command(**command_attrs)
-    slash_commands[command_name] = new_command_obj
+    slash_commands[command_name] = Command(**command_attrs)
 
     for alias in command_args.get("aliases", []):
         command_attrs["name"] = alias
-        slash_commands[alias] = new_command_obj
+        slash_commands[alias] = Command(**command_attrs)
 
         logging.info(f"Registered command alias {alias} of {command_name}")
 
