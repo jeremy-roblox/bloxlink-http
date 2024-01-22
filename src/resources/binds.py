@@ -6,6 +6,7 @@ from typing import Literal, TYPE_CHECKING
 
 import hikari
 from attrs import asdict, define
+from datetime import timedelta
 
 from resources import restriction
 from resources.roblox import roblox_entity, users
@@ -895,7 +896,7 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
             await response.send("pls confirm account")
 
             try:
-                await bloxlink.relay(f"confirm_account:{member.id}", None, 20)
+                await bloxlink.relay(f"confirm_account:{member.id}", None, timedelta(minutes=2).seconds)
             except TimeoutError:
                 print("took too long")
             except RuntimeError as e:

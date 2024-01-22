@@ -3,6 +3,7 @@ import uuid
 import logging
 import functools
 from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
+from datetime import timedelta
 
 import hikari
 from attrs import define, field
@@ -290,7 +291,7 @@ class Response:
         # we save the command options so we can re-execute the command correctly
         if modal.command_options:
             await bloxlink.redis.set(
-                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=3600
+                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=timedelta(hours=1).seconds
             )
 
         return modal.builder
@@ -648,7 +649,7 @@ class Prompt(Generic[T]):
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",
             json.dumps(data),
-            ex=3600,
+            ex=timedelta(hours=1).seconds,
         )
 
     async def save_stateful_data(self, ex: int = 3600, **save_data):
@@ -675,7 +676,7 @@ class Prompt(Generic[T]):
             await bloxlink.redis.set(
                 f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
                 json.dumps(data),
-                ex=5 * 60,
+                ex=timedelta(hours=1).seconds,
             )
         else:
             await bloxlink.redis.delete(

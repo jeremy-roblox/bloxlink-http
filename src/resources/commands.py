@@ -6,6 +6,7 @@ import re
 from typing import Callable, Type, TypedDict
 from abc import ABC, abstractmethod
 import hikari
+from datetime import timedelta
 from attrs import define
 from typing_extensions import Unpack
 from resources.components import parse_custom_id
@@ -362,7 +363,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         modal_data = {modal_component.custom_id: modal_component.value for modal_component in components}
 
         # save data from modal to redis
-        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
+        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=timedelta(hours=1).seconds)
 
         # iterate through commands and find where
         # they called the modal from, and then execute the function again
