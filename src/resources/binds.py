@@ -912,6 +912,7 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
                         url=f"https://blox.link/confirm/v2/{guild_id}"
                     ),
                 ],
+                ephemeral=True,
                 fetch_message=True
             )
 
