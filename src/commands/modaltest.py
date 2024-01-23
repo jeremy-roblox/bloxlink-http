@@ -1,6 +1,6 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.components import TextInput
+from resources.models.components import TextInput
 
 
 @bloxlink.command(

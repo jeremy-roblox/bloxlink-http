@@ -9,13 +9,13 @@ import hikari
 from datetime import timedelta
 from attrs import define
 from typing_extensions import Unpack
-from resources.components import parse_custom_id
+from resources.models.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
     BloxlinkForbidden, CancelCommand, PremiumRequired, UserNotVerified,
     RobloxNotFound, RobloxDown, Message, BindException
 )
-from resources.modals import ModalCustomID
+from resources.models.modals import ModalCustomID
 from resources.redis import redis
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module

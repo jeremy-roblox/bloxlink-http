@@ -18,7 +18,7 @@ from resources.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
 from resources.premium import get_premium_status
-from resources.components import Button
+from resources.models.components import Button
 
 if TYPE_CHECKING:
     from resources.response import Response
