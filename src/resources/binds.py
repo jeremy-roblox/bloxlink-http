@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 import hikari
+from datetime import timedelta
 from attrs import asdict, define
 
 from resources import restriction
-from resources.roblox import roblox_entity
-from resources.roblox import users
-from resources.bloxlink import GuildData
-from resources.bloxlink import instance as bloxlink
-from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS
+from resources.roblox import roblox_entity, users
+from resources.bloxlink import GuildData, instance as bloxlink
+from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.models import InteractiveMessage
 from resources.roblox.roblox_entity import RobloxEntity, create_entity
@@ -20,6 +19,9 @@ from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
 from resources.premium import get_premium_status
 from resources.components import Button
+
+if TYPE_CHECKING:
+    from resources.response import Response
 
 nickname_template_regex = re.compile(r"\{(.*?)\}")
 any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
@@ -880,6 +882,49 @@ async def apply_binds(
         ]
 
     return InteractiveMessage(content="To verify with Bloxlink, click the link below." if not roblox_account else None, embed=embed, action_rows=components)
+
+
+async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, response: Response, roblox_account: users.RobloxAccount | None):
+    """Send a request for the user to confirm their account"""
+
+    if roblox_account:
+        premium_status = await get_premium_status(guild_id=guild_id)
+
+        roblox_accounts = (await bloxlink.fetch_user_data(member.id, "robloxAccounts")).robloxAccounts
+        user_confirms = roblox_accounts.get("confirms", {})
+
+        if not premium_status.active and str(guild_id) not in user_confirms:
+            user_confirms[str(guild_id)] = roblox_account.id
+            roblox_accounts["confirms"] = user_confirms
+            await bloxlink.update_user_data(member.id, robloxAccounts=roblox_accounts)
+
+            embed = hikari.Embed(
+                title="Select Account",
+                description="Please click the link below to select an account for this server.",
+                color=ORANGE_COLOR
+            )
+
+            message = await response.send(
+                embed=embed,
+                components=[
+                    Button(
+                        label="Select Account",
+                        url=f"https://blox.link/confirm/v2/{guild_id}"
+                    ),
+                ],
+                ephemeral=True,
+                fetch_message=True
+            )
+
+            try:
+                await bloxlink.relay(f"account_confirm:{guild_id}:{roblox_account.id}", None, timedelta(minutes=2).seconds)
+            except (TimeoutError, RuntimeError):
+                pass
+
+            try:
+                await message.delete()
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                pass
 
 
 def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, id_filter: str = None) -> list:

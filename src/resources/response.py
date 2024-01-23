@@ -3,6 +3,7 @@ import uuid
 import logging
 import functools
 from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
+from datetime import timedelta
 
 import hikari
 from attrs import define, field
@@ -202,18 +203,20 @@ class Response:
         channel: hikari.GuildTextChannel = None,
         channel_id: str | int = None,
         build_components: bool = True,
+        fetch_message=False,
         **kwargs,
-    ):
+    ) -> hikari.Message | None:
         """Send this Response to discord. This function only sends via REST and ignores the initial webhook response.
 
         Args:
             content (str, optional): Message content to send. Defaults to None.
             embed (hikari.Embed, optional): Embed to send. Defaults to None.
             components (list, optional): Components to attach to the message. Defaults to None.
-            ephemeral (bool, optional): Should this message be ephemeral. Defaults to False.
+            ephemeral (bool, optional): Whether this message be ephemeral. Defaults to False.
             channel (hikari.GuildTextChannel, optional): Channel to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
             channel_id (int, str, optional): Channel ID to send the message to. This will send as a regular message, not as an interaction response. Defaults to None.
-            build_components (bool, optional): Should this convert custom components to hikari components. Defaults to True.
+            build_components (bool, optional): Whether this convert custom components to hikari components. Defaults to True.
+            fetch_message (bool, optional): Whether to fetch the message through HTTP. Defaults to False.
             **kwargs: match what hikari expects for interaction.execute() or interaction.create_initial_response()
         """
 
@@ -268,7 +271,9 @@ class Response:
 
         self.responded = True
 
-        return await self.interaction.create_initial_response(
+
+
+        await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
             content,
             embed=embed,
@@ -277,6 +282,9 @@ class Response:
             role_mentions=False,
             **kwargs
         )
+
+        if fetch_message:
+            return await self.interaction.fetch_initial_response()
 
     async def send_modal(self, modal: 'modal.Modal'):
         """Send a modal response. This needs to be yielded."""
@@ -290,7 +298,7 @@ class Response:
         # we save the command options so we can re-execute the command correctly
         if modal.command_options:
             await bloxlink.redis.set(
-                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=3600
+                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=timedelta(hours=1).seconds
             )
 
         return modal.builder
@@ -648,7 +656,7 @@ class Prompt(Generic[T]):
         await bloxlink.redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",
             json.dumps(data),
-            ex=3600,
+            ex=timedelta(hours=1).seconds,
         )
 
     async def save_stateful_data(self, ex: int = 3600, **save_data):
@@ -675,7 +683,7 @@ class Prompt(Generic[T]):
             await bloxlink.redis.set(
                 f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
                 json.dumps(data),
-                ex=5 * 60,
+                ex=timedelta(hours=1).seconds,
             )
         else:
             await bloxlink.redis.delete(

@@ -85,7 +85,7 @@ class Button(Component):
             )
         else:
             current_action_row.add_interactive_button(
-                self.style,
+                hikari.ButtonStyle[self.style.name],
                 self.custom_id,
                 label=self.label,
                 # emoji=self.emoji,
@@ -210,7 +210,7 @@ class TextInput(Component):
             min_length=self.min_length or 1,
             max_length=self.max_length or 2000,
             required=self.required or False,
-            style=self.style or hikari.TextInputStyle.SHORT,
+            style=hikari.TextInputStyle[self.style.name] or hikari.TextInputStyle.SHORT,
             value=self.value
         )
 

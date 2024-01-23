@@ -225,7 +225,10 @@ class SetupPrompt(Prompt):
 
                 await self.save_stateful_data(nicknameTemplate_prefix=setup_nickname_prefix, nicknameTemplate_suffix=setup_nickname_suffix)
 
-                yield await self.response.send_first("Saved your response. Please click Next to continue.", ephemeral=True)
+                if setup_nickname:
+                    yield await self.response.send_first("Saved your response. Please click Next to continue.", ephemeral=True)
+                else:
+                    yield await self.response.send_first("Saved your response. Please select a nickname from the dropdown, then click Next.", ephemeral=True)
 
             case "nickname_skip":
                 await self.save_stateful_data(nicknameTemplate=None)

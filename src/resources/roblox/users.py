@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
+from datetime import timedelta
 from attrs import define, field
 
 from dateutil import parser
@@ -321,10 +322,10 @@ async def get_verification_link(user_id: int | str, guild_id: int | str = None, 
 
         # save where the user verified in
         # TODO: depreciated, remove
-        await redis.set(f"verifying-from:{user_id}", guild_id, ex=3600)
+        await redis.set(f"verifying-from:{user_id}", guild_id, ex=timedelta(hours=1).seconds)
 
         if affiliate_enabled:
-            await redis.set(f"affiliate-verifying-from:{user_id}", guild_id, ex=3600)
+            await redis.set(f"affiliate-verifying-from:{user_id}", guild_id, ex=timedelta(hours=1).seconds)
 
         if affiliate_enabled or premium_status.active:
             return VERIFY_URL_GUILD.format(guild_id=guild_id)

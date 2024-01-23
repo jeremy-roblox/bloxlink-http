@@ -6,6 +6,7 @@ import re
 from typing import Callable, Type, TypedDict
 from abc import ABC, abstractmethod
 import hikari
+from datetime import timedelta
 from attrs import define
 from typing_extensions import Unpack
 from resources.components import parse_custom_id
@@ -44,7 +45,7 @@ class Command:
     accepted_custom_ids: dict[str, Callable] = None
     autocomplete_handlers: dict[str, Callable] = None
     dm_enabled: bool = None
-    prompts: list[Type[Prompt]] = None
+    prompts: list[Type[Prompt]] = []
     developer_only: bool = False
     premium: bool = False
     pro_bypass: bool = False
@@ -362,7 +363,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         modal_data = {modal_component.custom_id: modal_component.value for modal_component in components}
 
         # save data from modal to redis
-        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=3600)
+        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=timedelta(hours=1).seconds)
 
         # iterate through commands and find where
         # they called the modal from, and then execute the function again
@@ -513,7 +514,7 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "accepted_custom_ids": command_args.get("accepted_custom_ids"),
         "autocomplete_handlers": command_args.get("autocomplete_handlers"),
         "dm_enabled": command_args.get("dm_enabled"),
-        "prompts": command_args.get("prompts"),
+        "prompts": command_args.get("prompts", []),
         "developer_only": command_args.get("developer_only", False),
         "premium": command_args.get("premium", False),
         "pro_bypass": command_args.get("pro_bypass", False),

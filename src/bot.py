@@ -1,6 +1,7 @@
 import logging
 import argparse
 from os import environ as env, listdir
+from datetime import timedelta
 
 import hikari
 import uvicorn
@@ -62,7 +63,7 @@ async def handle_start(_):
 
     # only sync commands once every hour unless the --sync-commands flag is passed
     if args.sync_commands or not await redis.get("synced_commands"):
-        await redis.set("synced_commands", "true", ex=3600)
+        await redis.set("synced_commands", "true", ex=timedelta(hours=1).seconds)
         await sync_commands(bot)
     else:
         logger.info("Skipping command sync. Run with --sync-commands or -s to force sync.")

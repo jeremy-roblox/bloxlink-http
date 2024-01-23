@@ -4,6 +4,7 @@ from resources.redis import redis
 import hikari
 from attrs import define
 from typing import Literal
+from datetime import timedelta
 
 from .constants import SKU_TIERS
 
@@ -127,7 +128,7 @@ async def get_premium_status(
                 has_discord_billing = bool(entitlements)
                 redis_discord_billing_tier = SKU_TIERS[entitlements[0].sku_id] if has_discord_billing else None
 
-                await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", ex=100)
+                await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", ex=timedelta(seconds=100).seconds)
 
             if has_discord_billing:
                 redis_discord_billing_tier = redis_discord_billing_tier.decode()

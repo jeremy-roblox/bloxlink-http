@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+from datetime import timedelta
 
 import hikari
 
@@ -80,7 +81,7 @@ class VerifyallCommand(GenericCommand):
             # to a value of 1 (queued), 2 (running), or 3 (cooldown) for scan
             # status, and then expiry is what determines the cooldown duration.
             # 24 hours by default.
-            await bloxlink.redis.set(cooldown_key, "1", ex=86400)
+            await bloxlink.redis.set(cooldown_key, "1", ex=timedelta(days=1).seconds)
 
             await ctx.response.send(content="Your server members will be updated shortly!")
         except (RuntimeError, TimeoutError) as ex:
