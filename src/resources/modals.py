@@ -99,7 +99,7 @@ def build_modal(title: str, components: list[TextInput], *, interaction: hikari.
         new_custom_id = get_custom_id(
             response.PromptCustomID,
             command_name=command_name,
-            subcommand_name=command_data.get("subcommand_name") or "",
+            subcommand_name="",
             prompt_name=prompt_data.get("prompt_name") or "",
             user_id=interaction.user.id,
             page_number=prompt_data.get("page_number") or 0,
@@ -122,7 +122,7 @@ def build_modal(title: str, components: list[TextInput], *, interaction: hikari.
                 min_length=component.min_length or 1,
                 max_length=component.max_length or 2000,
                 required=component.required or False,
-                style=component.style or hikari.TextInputStyle.SHORT,
+                style=hikari.TextInputStyle[component.style.name] or hikari.TextInputStyle.SHORT,
                 value=component.value
             )
 
@@ -131,5 +131,5 @@ def build_modal(title: str, components: list[TextInput], *, interaction: hikari.
     return Modal(
         builder=modal_builder,
         custom_id=new_custom_id,
-        command_options=command_data.get("options")
+        command_options=command_data.get("options") if command_data else None
     )

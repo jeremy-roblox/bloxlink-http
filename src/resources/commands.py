@@ -45,7 +45,7 @@ class Command:
     accepted_custom_ids: dict[str, Callable] = None
     autocomplete_handlers: dict[str, Callable] = None
     dm_enabled: bool = None
-    prompts: list[Type[Prompt]] = None
+    prompts: list[Type[Prompt]] = []
     developer_only: bool = False
     premium: bool = False
     pro_bypass: bool = False
@@ -514,7 +514,7 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
         "accepted_custom_ids": command_args.get("accepted_custom_ids"),
         "autocomplete_handlers": command_args.get("autocomplete_handlers"),
         "dm_enabled": command_args.get("dm_enabled"),
-        "prompts": command_args.get("prompts"),
+        "prompts": command_args.get("prompts", []),
         "developer_only": command_args.get("developer_only", False),
         "premium": command_args.get("premium", False),
         "pro_bypass": command_args.get("pro_bypass", False),
