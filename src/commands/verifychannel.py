@@ -7,13 +7,19 @@ import resources.binds as binds
 import resources.roblox.users as users
 import hikari
 
+
 async def verify_button_click(ctx: CommandContext):
     yield await ctx.response.defer(True)
 
     roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
-    message_response = await binds.apply_binds(
-        ctx.member, ctx.guild_id, roblox_account, moderate_user=True
-    )
+
+    try:
+        await binds.confirm_account(ctx.member, ctx.guild_id, ctx.response, roblox_account)
+
+    finally:
+        message_response = await binds.apply_binds(
+            ctx.member, ctx.guild_id, roblox_account, moderate_user=True
+        )
 
     if roblox_account:
         await ctx.response.send(
