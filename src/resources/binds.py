@@ -15,10 +15,10 @@ from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOT
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.api import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
 from resources.premium import get_premium_status
 from resources.api.components import Button
+from config import CONFIG
 
 if TYPE_CHECKING:
     from resources.response import Response
@@ -696,8 +696,8 @@ async def apply_binds(
     # Get user's bindings (includes verified + unverified roles) to apply + nickname templates.
     user_binds, user_binds_response = await fetch(
         "POST",
-        f"{BIND_API}/binds/{member_id}",
-        headers={"Authorization": BIND_API_AUTH},
+        f"{CONFIG.BIND_API}/binds/{member_id}",
+        headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "guild": {
                 "id": guild.id,
@@ -731,8 +731,8 @@ async def apply_binds(
     # Get the list of roles that the required bindings will give to the user.
     user_roles, user_roles_response = await fetch(
         "POST",
-        f"{BIND_API}/binds/roles",
-        headers={"Authorization": BIND_API_AUTH},
+        f"{CONFIG.BIND_API}/binds/roles",
+        headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "guild_id": guild.id,
             "user_roles": list(member_roles.keys()),
@@ -782,8 +782,8 @@ async def apply_binds(
         if chosen_nickname:
             chosen_nickname_http, nickname_response = await fetch(
                 "GET",
-                f"{BIND_API}/nickname/parse/",
-                headers={"Authorization": BIND_API_AUTH},
+                f"{CONFIG.BIND_API}/nickname/parse/",
+                headers={"Authorization": CONFIG.BIND_API_AUTH},
                 body={
                     "user_data": {"name": username, "nick": nickname, "id": member_id},
                     "guild_id": guild.id,

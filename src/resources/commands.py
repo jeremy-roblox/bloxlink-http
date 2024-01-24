@@ -17,9 +17,9 @@ from resources.exceptions import (
 )
 from resources.api.modals import ModalCustomID
 from resources.redis import redis
-from resources.response import Prompt, PromptCustomID, PromptPageData, Response
-from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.premium import get_premium_status
+from resources.response import Prompt, PromptCustomID, PromptPageData, Response
+from config import CONFIG  # pylint: disable=no-name-in-module
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -562,7 +562,7 @@ async def sync_commands(bot: hikari.RESTBot):
         commands.append(command)
 
     await bot.rest.set_application_commands(
-        application=DISCORD_APPLICATION_ID,
+        application=CONFIG.DISCORD_APPLICATION_ID,
         commands=commands,
     )
 

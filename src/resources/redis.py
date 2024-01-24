@@ -3,12 +3,7 @@ import logging
 import time
 from redis.asyncio import Redis  # pylint: disable=import-error
 
-from resources.secrets import (
-    REDIS_HOST,
-    REDIS_PASSWORD,
-    REDIS_PORT,
-    REDIS_URL
-)
+from config import CONFIG
 
 redis: Redis = None
 
@@ -17,16 +12,16 @@ def connect_redis():
 
     global redis
 
-    if REDIS_URL:
+    if CONFIG.REDIS_URL:
         redis = Redis.from_url(
-            url=REDIS_URL,
+            url=CONFIG.REDIS_URL,
             retry_on_timeout=True,
         )
     else:
         redis = Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            password=REDIS_PASSWORD,
+            host=CONFIG.REDIS_HOST,
+            port=CONFIG.REDIS_PORT,
+            password=CONFIG.REDIS_PASSWORD,
             retry_on_timeout=True,
         )
 

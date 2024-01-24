@@ -1,10 +1,11 @@
-from resources.bloxlink import instance as bloxlink
-from resources.secrets import DISCORD_APPLICATION_ID
-from resources.redis import redis
-import hikari
-from attrs import define
+
 from typing import Literal
 from datetime import timedelta
+import hikari
+from attrs import define
+from resources.bloxlink import instance as bloxlink
+from resources.redis import redis
+from config import CONFIG
 
 from .constants import SKU_TIERS
 
@@ -120,7 +121,7 @@ async def get_premium_status(
 
             if not redis_discord_billing_tier:
                 entitlements = await bloxlink.rest.fetch_entitlements(
-                    DISCORD_APPLICATION_ID,
+                    CONFIG.DISCORD_APPLICATION_ID,
                     guild=str(guild_id),
                     exclude_ended=True
                 )

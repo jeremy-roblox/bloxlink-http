@@ -10,15 +10,14 @@ from typing import TYPE_CHECKING, Callable, Coroutine, Optional
 
 import hikari
 import yuyo
-from attrs import define
+from attrs import define, Factory
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
 from typing_extensions import Unpack
 
 from resources.constants import DEFAULTS
 from resources.redis import RedisMessageCollector, redis
-from resources.secrets import MONGO_URL
-from resources.utils import default_field
+from config import CONFIG
 
 instance: "Bloxlink" = None
 
@@ -39,7 +38,7 @@ class UserData:
 
     id: int
     robloxID: str = None
-    robloxAccounts: dict = default_field({"accounts": [], "guilds": {}, "confirms": {}})
+    robloxAccounts: dict = Factory({"accounts": [], "guilds": {}, "confirms": {}})
 
 
 @define(slots=True)
@@ -47,7 +46,7 @@ class GuildData:
     """Representation of the stored settings for a guild"""
 
     id: int
-    binds: list = default_field([])  # FIXME
+    binds: list = Factory([])  # FIXME
 
     verifiedRoleEnabled: bool = True
     verifiedRoleName: str = "Verified"  # deprecated
@@ -67,7 +66,7 @@ class GuildData:
 
     nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
 
-    premium: dict = default_field({}) # deprecated
+    premium: dict = Factory({}) # deprecated
 
     affiliate: dict = None
 
@@ -88,7 +87,7 @@ class Bloxlink(yuyo.AsgiBot):
 
         super().__init__(*args, **kwargs)
         self.started_at = datetime.utcnow()
-        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
+        self.mongo: AsyncIOMotorClient = AsyncIOMotorClient(CONFIG.MONGO_URL)
         self.mongo.get_io_loop = asyncio.get_running_loop
 
         self.redis_messages: RedisMessageCollector = None
