@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Callable, Coroutine, Optional
 
 import hikari
 import yuyo
-from attrs import define, Factory
+from attrs import define, field
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
 from typing_extensions import Unpack
@@ -38,7 +38,7 @@ class UserData:
 
     id: int
     robloxID: str = None
-    robloxAccounts: dict = Factory({"accounts": [], "guilds": {}, "confirms": {}})
+    robloxAccounts: dict = field(factory=lambda: {"accounts": [], "guilds": {}, "confirms": {}})
 
 
 @define(slots=True)
@@ -46,7 +46,7 @@ class GuildData:
     """Representation of the stored settings for a guild"""
 
     id: int
-    binds: list = Factory([])  # FIXME
+    binds: list = field(factory=list)  # FIXME
 
     verifiedRoleEnabled: bool = True
     verifiedRoleName: str = "Verified"  # deprecated
@@ -66,7 +66,7 @@ class GuildData:
 
     nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
 
-    premium: dict = Factory({}) # deprecated
+    premium: dict = field(factory=dict) # deprecated
 
     affiliate: dict = None
 
