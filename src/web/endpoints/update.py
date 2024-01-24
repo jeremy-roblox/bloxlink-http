@@ -1,16 +1,15 @@
 import logging
 
-from attrs import define
+from attrs import define, field
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
 
-import resources.binds as binds
-import resources.api.roblox.users as users
+from resources import binds
+from resources.api.roblox import users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message
-from resources.utils import default_field
 
 from ..decorators import authenticate
 
@@ -50,7 +49,7 @@ class MinimalMember:
     guild_avatar: str = None
     permissions: int = None
     joined_at: str = None
-    roles: list = default_field([])
+    roles: list = field(factory=list)
     is_owner: bool = None
 
 

@@ -6,7 +6,7 @@ from typing import Literal, TYPE_CHECKING
 
 from datetime import timedelta
 import hikari
-from attrs import asdict, define
+from attrs import asdict, define, field
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
@@ -15,7 +15,7 @@ from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOT
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.api import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.utils import default_field, fetch
+from resources.utils import fetch
 from resources.premium import get_premium_status
 from resources.api.components import Button
 from config import CONFIG
@@ -53,12 +53,12 @@ class GuildBind:
     """
 
     nickname: str = None
-    roles: list = default_field(list())
-    removeRoles: list = default_field(list())
+    roles: list = field(factory=list)
+    removeRoles: list = field(factory=list)
 
     id: int = None
     type: ValidBindType = ValidBindType
-    bind: dict = default_field({"type": "", "id": None})
+    bind: dict = field(factory=lambda: {"type": "", "id": None})
 
     entity: RobloxEntity = None
 

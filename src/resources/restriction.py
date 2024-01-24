@@ -2,14 +2,13 @@ import logging
 from typing import Literal
 
 import hikari
-from attrs import define
+from attrs import define, field
 
 from resources.api.roblox import users
 from resources.bloxlink import UserData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR
 from resources.exceptions import UserNotVerified
-from resources.utils import default_field
 from resources.api import InteractiveMessage
 from resources.api.roblox.groups import RobloxGroup
 
@@ -21,7 +20,7 @@ class Restriction:
     removed: bool = False
     action: str | None = Literal["kick", "ban", "dm", None]
     restriction: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
-    metadata: dict = default_field({"unverified": True})
+    metadata: dict = field(factory=lambda: {"unverified": True})
 
     def prompt(self, guild_name: str) -> InteractiveMessage:
         """Return an Embed describing why the user was restricted.

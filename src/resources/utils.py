@@ -3,8 +3,6 @@ import logging
 from enum import Enum
 from json import JSONDecodeError, loads
 from typing import Iterable, Callable, TypeVar
-import copy
-from attrs import field
 
 import aiohttp
 from requests.utils import requote_uri
@@ -12,7 +10,7 @@ from requests.utils import requote_uri
 from resources.exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
 from config import CONFIG
 
-__all__ = ("fetch", "ReturnType", "default_field")
+__all__ = ("fetch", "ReturnType")
 
 session = None
 
@@ -183,10 +181,6 @@ async def fetch(
         logging.debug(f"URL {old_url} timed out", flush=True)
         raise RobloxDown() from None
 
-def default_field(obj: list | dict) -> field:
-    """Returns a default field for an object."""
-
-    return field(factory=lambda: copy.copy(obj))
 
 def find(predicate: Callable, iterable: Iterable[T]) -> T | None:
     """Finds the first element in an iterable that matches the predicate."""
