@@ -30,8 +30,8 @@ class GetInfoCommand(GenericCommand):
         except UserNotVerified:
             if target_user == ctx.member:
                 raise UserNotVerified("You are not verified with Bloxlink!") from None
-            else:
-                raise UserNotVerified("This user is not verified with Bloxlink!") from None
+
+            raise UserNotVerified("This user is not verified with Bloxlink!") from None
 
         info_embed = await users.format_embed(roblox_account, target_user)
 

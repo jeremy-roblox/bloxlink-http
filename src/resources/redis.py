@@ -10,7 +10,7 @@ redis: Redis = None
 def connect_redis():
     """Connect to Redis."""
 
-    global redis
+    global redis # pylint: disable=global-statement
 
     if CONFIG.REDIS_URL:
         redis = Redis.from_url(
