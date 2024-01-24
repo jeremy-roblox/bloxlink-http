@@ -44,21 +44,21 @@ def create_entity(
     """
     match category:
         case "asset":
-            from resources.roblox.assets import RobloxAsset  # pylint: disable=import-outside-toplevel
+            from resources.api.roblox.assets import RobloxAsset  # pylint: disable=import-outside-toplevel
 
             return RobloxAsset(entity_id)
 
         case "badge":
-            from resources.roblox.badges import RobloxBadge  # pylint: disable=import-outside-toplevel
+            from resources.api.roblox.badges import RobloxBadge  # pylint: disable=import-outside-toplevel
 
             return RobloxBadge(entity_id)
 
         case "gamepass":
-            from resources.roblox.gamepasses import RobloxGamepass  # pylint: disable=import-outside-toplevel
+            from resources.api.roblox.gamepasses import RobloxGamepass  # pylint: disable=import-outside-toplevel
 
             return RobloxGamepass(entity_id)
 
         case "group":
-            from resources.roblox.groups import RobloxGroup  # pylint: disable=import-outside-toplevel
+            from resources.api.roblox.groups import RobloxGroup  # pylint: disable=import-outside-toplevel
 
             return RobloxGroup(entity_id)

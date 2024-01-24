@@ -10,7 +10,7 @@ import aiohttp
 from requests.utils import requote_uri
 
 from resources.exceptions import RobloxAPIError, RobloxDown, RobloxNotFound
-from resources.secrets import PROXY_URL  # pylint: disable=no-name-in-module
+from config import CONFIG
 
 __all__ = ("fetch", "ReturnType", "default_field")
 
@@ -75,11 +75,11 @@ async def fetch(
     if not session:
         session = aiohttp.ClientSession()
 
-    if proxy and PROXY_URL and "roblox.com" in url:
+    if proxy and CONFIG.PROXY_URL and "roblox.com" in url:
         old_url = url
         new_json["url"] = url
         new_json["data"] = body or {}
-        url = PROXY_URL
+        url = CONFIG.PROXY_URL
         proxied = True
         method = "POST"
 

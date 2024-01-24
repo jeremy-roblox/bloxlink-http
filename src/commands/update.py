@@ -1,7 +1,7 @@
 import hikari
 
 import resources.binds as binds
-import resources.roblox.users as users
+import resources.api.roblox.users as users
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 

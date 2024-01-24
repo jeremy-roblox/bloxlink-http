@@ -5,21 +5,21 @@ import logging
 import re
 from typing import Callable, Type, TypedDict
 from abc import ABC, abstractmethod
-import hikari
 from datetime import timedelta
+import hikari
 from attrs import define
 from typing_extensions import Unpack
-from resources.components import parse_custom_id
+from resources.api.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
     BloxlinkForbidden, CancelCommand, PremiumRequired, UserNotVerified,
     RobloxNotFound, RobloxDown, Message, BindException
 )
-from resources.modals import ModalCustomID
+from resources.api.modals import ModalCustomID
 from resources.redis import redis
-from resources.response import Prompt, PromptCustomID, PromptPageData, Response
-from resources.secrets import DISCORD_APPLICATION_ID  # pylint: disable=no-name-in-module
 from resources.premium import get_premium_status
+from resources.response import Prompt, PromptCustomID, PromptPageData, Response
+from config import CONFIG
 
 command_name_pattern = re.compile("(.+)Command")
 
@@ -562,7 +562,7 @@ async def sync_commands(bot: hikari.RESTBot):
         commands.append(command)
 
     await bot.rest.set_application_commands(
-        application=DISCORD_APPLICATION_ID,
+        application=CONFIG.DISCORD_APPLICATION_ID,
         commands=commands,
     )
 

@@ -8,14 +8,14 @@ from attrs import define, field
 from dateutil import parser
 import hikari
 
-from resources.roblox import groups
+from resources.api.roblox import groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES, VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
 from resources.utils import ReturnType, fetch
-from resources.secrets import ROBLOX_INFO_SERVER
 from resources.premium import get_premium_status
 from resources.redis import redis
+from config import CONFIG
 
 
 @define(slots=True)
@@ -46,7 +46,6 @@ class RobloxAccount: # pylint: disable=too-many-instance-attributes
         includes: list | bool | None = None,
         *,
         cache: bool = True,
-        flag_check: bool = True,
     ):
         """Retrieve information about this user from Roblox. Requires a username or id to be set.
 
@@ -78,7 +77,7 @@ class RobloxAccount: # pylint: disable=too-many-instance-attributes
 
         user_json_data, user_data_response = await fetch(
             "GET",
-            f"{ROBLOX_INFO_SERVER}/roblox/info?{id_string}&{username_string}&include={includes}",
+            f"{CONFIG.ROBLOX_INFO_SERVER}/roblox/info?{id_string}&{username_string}&include={includes}",
             return_data=ReturnType.JSON,
         )
 
@@ -95,9 +94,6 @@ class RobloxAccount: # pylint: disable=too-many-instance-attributes
             self._data.update(user_json_data)
 
             await self.parse_groups(user_json_data.get("groups"))
-
-            if self.badges and self.groups and flag_check:
-                await self.parse_flags()
 
             self.parse_age()
 

@@ -6,18 +6,13 @@ from datetime import timedelta
 import hikari
 import uvicorn
 
+from config import CONFIG
 from resources.bloxlink import Bloxlink
-from resources.secrets import ( # pylint: disable=no-name-in-module
-    DISCORD_PUBLIC_KEY,
-    DISCORD_TOKEN,
-    SERVER_HOST,
-    SERVER_PORT,
-)
 
 # Make sure bot is accessible from most modules. We load the bot first before loading most modules.
 bot = Bloxlink(
-    public_key=DISCORD_PUBLIC_KEY,
-    token=DISCORD_TOKEN,
+    public_key=CONFIG.DISCORD_PUBLIC_KEY,
+    token=CONFIG.DISCORD_TOKEN,
     token_type=hikari.TokenType.BOT,
     asgi_managed=False,
 )
@@ -100,7 +95,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         webserver,
-        host=env.get("HOST", SERVER_HOST),
-        port=env.get("PORT", SERVER_PORT),
+        host=env.get("HOST", CONFIG.SERVER_HOST),
+        port=env.get("PORT", CONFIG.SERVER_PORT),
         log_config=None,
     )

@@ -6,7 +6,7 @@ from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
 
 import resources.binds as binds
-import resources.roblox.users as users
+import resources.api.roblox.users as users
 from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message

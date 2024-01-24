@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from attrs import define
 from resources import binds
-from resources.roblox import users
+from resources.api.roblox import users
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 
 
