@@ -3,7 +3,7 @@ from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
-from resources.utils import fetch
+from resources.fetch import fetch
 
 GROUP_API = "https://groups.roblox.com/v1/groups"
 ROBLOX_GROUP_REGEX = re.compile(r"roblox.com/groups/(\d+)/")

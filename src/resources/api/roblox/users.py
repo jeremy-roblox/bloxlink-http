@@ -8,11 +8,11 @@ from attrs import define, field
 from dateutil import parser
 import hikari
 
-from resources.api.roblox import groups
+import resources.api.roblox.groups as groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES, VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified
-from resources.utils import ReturnType, fetch
+from resources.fetch import fetch
 from resources.premium import get_premium_status
 from resources.redis import redis
 from config import CONFIG
@@ -22,7 +22,7 @@ from config import CONFIG
 class RobloxAccount: # pylint: disable=too-many-instance-attributes
     """Representation of a user on Roblox."""
 
-    id: str
+    id: str = field(converter=str)
     username: str = None
     banned: bool = None
     age_days: int = None
@@ -78,7 +78,7 @@ class RobloxAccount: # pylint: disable=too-many-instance-attributes
         user_json_data, user_data_response = await fetch(
             "GET",
             f"{CONFIG.ROBLOX_INFO_SERVER}/roblox/info?{id_string}&{username_string}&include={includes}",
-            return_data=ReturnType.JSON,
+            parse_as="JSON",
         )
 
         if user_data_response.status == 200:

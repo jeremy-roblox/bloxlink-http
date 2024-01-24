@@ -2,7 +2,7 @@ from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
-from resources.utils import fetch
+from resources.fetch import fetch
 
 BADGE_API = "https://badges.roblox.com/v1/badges"
 
