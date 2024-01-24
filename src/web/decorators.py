@@ -4,7 +4,7 @@ from functools import wraps
 from blacksheep import Request, unauthorized
 from blacksheep.server.normalization import ensure_response
 
-from config import CONFIG  # pylint: disable=no-name-in-module
+from config import CONFIG
 
 UNAUTHORIZED_RESPONSE = unauthorized("You are not authorized to use this endpoint.")
 

@@ -19,7 +19,7 @@ from resources.api.modals import ModalCustomID
 from resources.redis import redis
 from resources.premium import get_premium_status
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
-from config import CONFIG  # pylint: disable=no-name-in-module
+from config import CONFIG
 
 command_name_pattern = re.compile("(.+)Command")
 
