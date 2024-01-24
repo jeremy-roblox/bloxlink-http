@@ -4,8 +4,8 @@ from resources.binds import create_bind
 from resources.api.roblox.groups import get_group
 from resources.commands import CommandContext, GenericCommand
 from resources.response import Prompt, PromptPageData
-from resources.api.components import Button, TextSelectMenu, TextInput
-from resources.api.modals import build_modal
+from resources.ui.components import Button, TextSelectMenu, TextInput
+from resources.ui.modals import build_modal
 from resources.exceptions import RobloxNotFound
 from resources.constants import BROWN_COLOR, DEFAULTS
 from resources.utils import find

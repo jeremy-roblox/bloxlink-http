@@ -2,11 +2,11 @@ import json
 
 import hikari
 
-from resources.api.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.ui.components import component_author_validation, get_custom_id_data
 from resources.binds import GroupBind, GuildBind, delete_bind, get_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.api.components import component_author_validation, get_custom_id_data
 from resources.exceptions import RobloxAPIError
 from resources.pagination import Paginator
 

@@ -9,13 +9,13 @@ from datetime import timedelta
 import hikari
 from attrs import define
 from typing_extensions import Unpack
-from resources.api.components import parse_custom_id
+from resources.ui.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
     BloxlinkForbidden, CancelCommand, PremiumRequired, UserNotVerified,
     RobloxNotFound, RobloxDown, Message, BindException
 )
-from resources.api.modals import ModalCustomID
+from resources.ui.modals import ModalCustomID
 from resources.redis import redis
 from resources.premium import get_premium_status
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response

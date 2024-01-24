@@ -1,9 +1,9 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.api.components import Button, TextInput
+from resources.ui.components import Button, TextInput
+from resources.ui.modals import build_modal
 from resources.premium import get_premium_status
-from resources.api.modals import build_modal
 from resources import binds
 from resources.api.roblox import users
 

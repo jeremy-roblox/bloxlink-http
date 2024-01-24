@@ -2,7 +2,7 @@ from hikari import Embed
 
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.api.components import Button
+from resources.ui.components import Button
 
 
 @bloxlink.command(

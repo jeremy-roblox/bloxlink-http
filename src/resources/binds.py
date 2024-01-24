@@ -13,11 +13,11 @@ from resources.api.roblox import roblox_entity, users
 from resources.bloxlink import GuildData, instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
-from resources.api.embeds import InteractiveMessage
+from resources.ui.embeds import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.fetch import fetch
 from resources.premium import get_premium_status
-from resources.api.components import Button
+from resources.ui.components import Button
 from config import CONFIG
 
 if TYPE_CHECKING:

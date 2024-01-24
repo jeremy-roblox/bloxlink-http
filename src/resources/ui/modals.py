@@ -2,7 +2,7 @@ import json
 from typing import TypedDict
 from attrs import define, field
 import hikari
-from resources.api.components import TextInput, get_custom_id, BaseCustomID
+from resources.ui.components import TextInput, get_custom_id, BaseCustomID
 from resources.redis import redis
 from resources import response
 
