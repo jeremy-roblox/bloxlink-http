@@ -2,7 +2,7 @@ import re
 from attrs import define
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.roblox.roblox_entity import RobloxEntity
+from resources.api.roblox.roblox_entity import RobloxEntity
 from resources.utils import fetch
 
 GROUP_API = "https://groups.roblox.com/v1/groups"

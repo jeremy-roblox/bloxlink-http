@@ -1,11 +1,11 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.binds import create_bind
-from resources.roblox.groups import get_group
+from resources.api.roblox.groups import get_group
 from resources.commands import CommandContext, GenericCommand
 from resources.response import Prompt, PromptPageData
-from resources.models.components import Button, TextSelectMenu, TextInput
-from resources.models.modals import build_modal
+from resources.api.components import Button, TextSelectMenu, TextInput
+from resources.api.modals import build_modal
 from resources.exceptions import RobloxNotFound
 from resources.constants import BROWN_COLOR, DEFAULTS
 from resources.utils import find

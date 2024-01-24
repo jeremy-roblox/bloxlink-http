@@ -1,10 +1,10 @@
 import hikari
 
-from resources.models.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.api.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.binds import GroupBind, GuildBind, get_binds, join_bind_strings
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.models.components import component_author_validation, get_custom_id_data
+from resources.api.components import component_author_validation, get_custom_id_data
 from resources.constants import RED_COLOR, UNICODE_BLANK
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.pagination import Paginator

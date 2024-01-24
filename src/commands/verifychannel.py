@@ -1,12 +1,11 @@
+import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.models.components import Button, TextInput
+from resources.api.components import Button, TextInput
 from resources.premium import get_premium_status
-from resources.models.modals import build_modal
-import resources.binds as binds
-import resources.roblox.users as users
-import hikari
-
+from resources.api.modals import build_modal
+from resources import binds
+from resources.api.roblox import users
 
 async def verify_button_click(ctx: CommandContext):
     yield await ctx.response.defer(True)

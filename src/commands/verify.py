@@ -1,5 +1,5 @@
 from resources import binds
-from resources.roblox import users
+from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 

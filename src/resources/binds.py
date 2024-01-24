@@ -4,21 +4,21 @@ import re
 from collections import defaultdict
 from typing import Literal, TYPE_CHECKING
 
-import hikari
 from datetime import timedelta
+import hikari
 from attrs import asdict, define
 
 from resources import restriction
-from resources.roblox import roblox_entity, users
+from resources.api.roblox import roblox_entity, users
 from resources.bloxlink import GuildData, instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
-from resources.models import InteractiveMessage
-from resources.roblox.roblox_entity import RobloxEntity, create_entity
+from resources.api import InteractiveMessage
+from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.secrets import BIND_API, BIND_API_AUTH  # pylint: disable=E0611
 from resources.utils import default_field, fetch
 from resources.premium import get_premium_status
-from resources.models.components import Button
+from resources.api.components import Button
 
 if TYPE_CHECKING:
     from resources.response import Response

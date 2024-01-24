@@ -4,14 +4,14 @@ from typing import Literal
 import hikari
 from attrs import define
 
-from resources.roblox import users
+from resources.api.roblox import users
 from resources.bloxlink import UserData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR
 from resources.exceptions import UserNotVerified
 from resources.utils import default_field
-from resources.models import InteractiveMessage
-from resources.roblox.groups import RobloxGroup
+from resources.api import InteractiveMessage
+from resources.api.roblox.groups import RobloxGroup
 
 
 @define

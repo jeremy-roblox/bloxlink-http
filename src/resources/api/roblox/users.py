@@ -8,7 +8,7 @@ from attrs import define, field
 from dateutil import parser
 import hikari
 
-from resources.roblox import groups
+from resources.api.roblox import groups
 from resources.bloxlink import instance as bloxlink
 from resources.constants import ALL_USER_API_SCOPES, VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound, UserNotVerified

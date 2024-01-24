@@ -1,8 +1,8 @@
 import hikari
 from hikari.commands import CommandOption, OptionType
 
-from resources.roblox import users
-from resources.models.autocomplete import roblox_lookup_autocomplete
+from resources.api.roblox import users
+from resources.api.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.exceptions import RobloxNotFound

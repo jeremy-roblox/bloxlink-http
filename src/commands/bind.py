@@ -1,22 +1,22 @@
 from typing import Literal
 
-import hikari
 from abc import ABC
+import hikari
 from attrs import define, field
 from hikari.commands import CommandOption, OptionType
 
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.models.components import Button, RoleSelectMenu, TextSelectMenu
+from resources.api.components import Button, RoleSelectMenu, TextSelectMenu
 from resources.exceptions import BindConflictError, RobloxNotFound
 from resources.response import Prompt, PromptCustomID, PromptPageData
 
 # bind resource API
-from resources.roblox.assets import get_asset
-from resources.roblox.badges import get_badge
-from resources.roblox.gamepasses import get_gamepass
-from resources.roblox.groups import get_group
+from resources.api.roblox.assets import get_asset
+from resources.api.roblox.badges import get_badge
+from resources.api.roblox.gamepasses import get_gamepass
+from resources.api.roblox.groups import get_group
 
 
 @define

@@ -8,16 +8,16 @@ from datetime import timedelta
 import hikari
 from attrs import define, field
 
-import resources.models.components as Components
+import resources.api.components as Components
 from resources.bloxlink import instance as bloxlink
-from resources.models import InteractiveMessage
-import resources.models.modals as modal
+from resources.api import InteractiveMessage
+import resources.api.modals as modal
 
 from .exceptions import CancelCommand, PageNotFound
 
 
 if TYPE_CHECKING:
-    from resources.models.autocomplete import AutocompleteOption
+    from resources.api.autocomplete import AutocompleteOption
 
 
 @define(slots=True)
