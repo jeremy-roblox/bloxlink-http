@@ -45,6 +45,8 @@ class Restriction:
             await bloxlink.rest.ban_user(guild.id, user_id, reason=reason)
 
     async def dm_member(self, user_id: int, guild: hikari.Guild):
+        components = []
+
         embed = hikari.Embed()
         embed.title = "User Restricted"
         embed.color = RED_COLOR
@@ -64,12 +66,24 @@ class Restriction:
 
         if self.source not in {"banEvader", "disallowAlts"}:
             embed.add_field(name="Reason", value=self.reason)
+            embed.description += (
+                "\n\n> *Think this is in error? Try using the buttons below to switch your account, "
+                "or join our guild and use `/verify` there.*"
+            )
+
+            verification_url = await users.get_verification_link(user_id, guild.id)
+
+            button_row = bloxlink.rest.build_message_action_row()
+            button_row.add_link_button(verification_url, label="Verify with Bloxlink")
+            button_row.add_link_button(SERVER_INVITE, label="Join Bloxlink HQ")
+
+            components.append(button_row)
 
         try:
             # Only DM if the user is being kicked or banned. Reason is shown to user in guild otherwise.
             if self.action != "dm":
                 channel = await bloxlink.rest.create_dm_channel(user_id)
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, components=components)
 
         except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
             logging.warning(e)
