@@ -7,6 +7,7 @@ from attrs import define, field
 
 from dateutil import parser
 import hikari
+from attrs import define, field
 
 import resources.api.roblox.groups as groups
 from resources.bloxlink import instance as bloxlink
@@ -286,7 +287,7 @@ async def format_embed(roblox_account: RobloxAccount, user: hikari.User = None) 
     )
 
     embed.add_field(name="Username", value=f"@{roblox_account.username}", inline=True)
-    embed.add_field(name="ID", value=roblox_account.id, inline=True)
+    embed.add_field(name="ID", value=str(roblox_account.id), inline=True)
     embed.add_field(
         name="Description",
         value=roblox_account.description[:500] if roblox_account.description else "None provided",
@@ -325,6 +326,5 @@ async def get_verification_link(user_id: int | str, guild_id: int | str = None, 
 
         if affiliate_enabled or premium_status.active:
             return VERIFY_URL_GUILD.format(guild_id=guild_id)
-
 
     return VERIFY_URL
