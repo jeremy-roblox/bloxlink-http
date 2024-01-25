@@ -65,8 +65,10 @@ class GuildBind:
     entity: RobloxEntity = None
 
     def __attrs_post_init__(self):
+        # pylint: disable=no-member
         self.id = self.bind.get("id")
         self.type = self.bind.get("type")
+        # pylint: enable=no-member
         self.entity = create_entity(self.type, self.id)
 
     def to_dict(self) -> dict:
@@ -102,11 +104,13 @@ class GroupBind(GuildBind):
     guest: bool = None
 
     def __attrs_post_init__(self):
+        # pylint: disable=no-member
         self.min = self.bind.get("min", None)
         self.max = self.bind.get("max", None)
         self.roleset = self.bind.get("roleset", None)
         self.everyone = self.bind.get("everyone", None)
         self.guest = self.bind.get("guest", None)
+        # pylint: enable=no-member
 
         return super().__attrs_post_init__()
 
@@ -508,7 +512,9 @@ async def create_bind(
         if bind_count >= LIMITS["BINDS"]["MAX"]:
             raise BindException("You have reached the maximum number of binds for this server.")
 
-        if (bind_count >= LIMITS["BINDS"]["FREE"] and not premium_status.active) or (bind_count >= LIMITS["BINDS"]["PREMIUM"] and premium_status.active and premium_status.tier != "pro"):
+        if (bind_count >= LIMITS["BINDS"]["FREE"] and not premium_status.active) or (
+            bind_count >= LIMITS["BINDS"]["PREMIUM"] and premium_status.active and premium_status.tier != "pro"  # fmt: skip
+        ):
             raise PremiumRequired()
 
     guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
@@ -863,15 +869,19 @@ async def apply_binds(
                 url=await users.get_verification_link(
                     user_id=member_id,
                     guild_id=guild_id,
-                )
+                ),
             ),
             Button(
                 label="Stuck? See a Tutorial",
-                url="https://www.youtube.com/watch?v=SbDltmom1R8&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=1&ab_channel=Bloxlink"
-            )
+                url="https://www.youtube.com/watch?v=SbDltmom1R8&list=PLz7SOP-guESE1V6ywCCLc1IQWiLURSvBE&index=1&ab_channel=Bloxlink",
+            ),
         ]
 
-    return InteractiveMessage(content="To verify with Bloxlink, click the link below." if not roblox_account else None, embed=embed, action_rows=components)
+    return InteractiveMessage(
+        content="To verify with Bloxlink, click the link below." if not roblox_account else None,
+        embed=embed,
+        action_rows=components,
+    )
 
 
 async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, response: Response, roblox_account: users.RobloxAccount | None):
@@ -937,7 +947,7 @@ def json_binds_to_guild_binds(bind_list: list, category: ValidBindType = None, i
     id_filter_str = str(id_filter).lower() if id_filter else None
 
     if id_filter:
-        id_filter = None if id_filter_str == "none" or id_filter_str == "view binds" else str(id_filter)
+        id_filter = None if id_filter_str in {"none", "view binds"} else str(id_filter)
 
     for bind in bind_list:
         bind_data = bind.get("bind")
