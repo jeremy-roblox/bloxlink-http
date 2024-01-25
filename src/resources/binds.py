@@ -11,7 +11,7 @@ from attrs import asdict, define, field
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
-from resources.bloxlink import GuildData, instance as bloxlink
+from resources.bloxlink import GuildData, UserData, instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
@@ -618,8 +618,8 @@ async def _check_restrictions(member_data: dict, roblox_user: dict | None, guild
 
     restriction_data, restriction_response = await fetch(
         "POST",
-        f"{BIND_API}/restrictions/evaluate/{guild_id}",
-        headers={"Authorization": BIND_API_AUTH},
+        f"{CONFIG.BIND_API}/restrictions/evaluate/{guild_id}",
+        headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "member": member_data,
             "roblox_account": roblox_user,
@@ -679,8 +679,8 @@ async def _get_update_information(
     # Get user roles + nickname
     update_data, update_data_response = await fetch(
         "POST",
-        f"{BIND_API}/update/{guild_id}/{member_id}",
-        headers={"Authorization": BIND_API_AUTH},
+        f"{CONFIG.BIND_API}/update/{guild_id}/{member_id}",
+        headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "guild": guild_data,
             "member": member_data,
