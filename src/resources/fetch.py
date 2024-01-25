@@ -105,7 +105,7 @@ async def fetch(
                 try:
                     json = await response.json()
                 except aiohttp.client_exceptions.ContentTypeError as exc:
-                    logging.debug(url, await response.text(), flush=True)
+                    logging.debug(url, await response.text())
 
                     raise RobloxAPIError() from exc
 
