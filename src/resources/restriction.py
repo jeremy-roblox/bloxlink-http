@@ -9,7 +9,7 @@ from resources.bloxlink import UserData
 from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR
 from resources.exceptions import UserNotVerified
-from resources.ui import InteractiveMessage
+from resources.ui.embeds import InteractiveMessage
 from resources.api.roblox.groups import RobloxGroup
 
 

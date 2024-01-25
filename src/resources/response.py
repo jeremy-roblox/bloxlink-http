@@ -10,7 +10,7 @@ from attrs import define, field
 
 import resources.ui.components as Components
 from resources.bloxlink import instance as bloxlink
-from resources.ui import InteractiveMessage
+from resources.ui.embeds import InteractiveMessage
 import resources.ui.modals as modal
 
 from .exceptions import CancelCommand, PageNotFound
