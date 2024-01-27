@@ -40,7 +40,7 @@ async def fetch[T](
     parse_as: Literal["JSON", "BYTES", "TEXT"] | Type[T] = "JSON",
     raise_on_failure: bool = True,
     timeout: float = 10,
-) -> Union[Tuple[dict, ClientResponse], Tuple[str, ClientResponse], Tuple[bytes, ClientResponse], ClientResponse]:
+) -> Union[Tuple[dict, ClientResponse], Tuple[str, ClientResponse], Tuple[bytes, ClientResponse], Tuple[T, ClientResponse], ClientResponse]:
     """Make a REST request with the ability to proxy.
 
     Only Roblox URLs are proxied, all other requests to other domains are sent as is.
@@ -129,3 +129,15 @@ async def fetch[T](
     except asyncio.TimeoutError:
         logging.debug(f"URL {url} timed out")
         raise RobloxDown() from None
+
+async def fetch_typed[T](url: str, parse_as: Type[T], **kwargs) -> Tuple[T, ClientResponse]:
+    """Fetch data from a URL and parse it as a dataclass.
+
+    Args:
+        url (str): The URL to send the request to.
+        parse_as (Type[T]): The dataclass to parse the response as.
+
+    Returns:
+        T: The dataclass instance of the response.
+    """
+    return await fetch(url=url, parse_as=parse_as, **kwargs)
