@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiohttp import ClientResponse
 from attrs import fields
-from typing import Literal, TypeVar, Type, Union, Tuple
+from typing import Literal, Type, Union, Tuple
 from enum import IntEnum
 
 import aiohttp
@@ -15,7 +15,6 @@ __all__ = ("fetch", "StatusCodes")
 
 
 session = None
-T = TypeVar("T")
 
 class StatusCodes(IntEnum):
     """Status codes for requests"""
@@ -31,7 +30,7 @@ class StatusCodes(IntEnum):
     GATEWAY_TIMEOUT = 504
 
 
-async def fetch(
+async def fetch[T](
     method: str,
     url: str,
     *,

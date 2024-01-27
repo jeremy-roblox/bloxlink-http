@@ -1,8 +1,7 @@
-from typing import Iterable, Callable, TypeVar
+from typing import Iterable, Callable
 
-T = TypeVar("T")
 
-def find(predicate: Callable, iterable: Iterable[T]) -> T | None:
+def find[T](predicate: Callable, iterable: Iterable[T]) -> T | None:
     """Finds the first element in an iterable that matches the predicate."""
 
     for element in iterable:

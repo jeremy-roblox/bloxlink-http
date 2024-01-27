@@ -148,7 +148,7 @@ class GroupBind(GuildBind):
         return base_dict
 
 
-@define(slots=True)
+@define(slots=True, kw_only=True)
 class UpdateEndpointPayload:
     nickname: str | None
 

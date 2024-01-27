@@ -1,4 +1,4 @@
-from typing import Type, TypeVar, Literal
+from typing import Type, Literal
 from enum import Enum
 from abc import ABC, abstractmethod
 from attrs import fields, define, field
@@ -7,8 +7,6 @@ import hikari
 from resources.bloxlink import instance as bloxlink
 from resources import commands
 
-
-T = TypeVar('T')
 
 @define(slots=True, kw_only=True)
 class BaseCustomID:
@@ -539,7 +537,7 @@ def component_values_to_dict(interaction: hikari.ComponentInteraction):
             },
         }
 
-def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
+def parse_custom_id[T](T: Type[T], custom_id: str, **kwargs) -> T:
     """Parses a custom_id into T, discarding additional values in the string.
 
     Args:
@@ -592,7 +590,7 @@ def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
 #     # Return the dataclass instance
 #     return custom_id_instance
 
-def get_custom_id(T: Type[T], **kwargs) -> str:
+def get_custom_id[T](T: Type[T], **kwargs) -> str:
     """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.
 
     Args:
@@ -607,7 +605,7 @@ def get_custom_id(T: Type[T], **kwargs) -> str:
 
     return str(custom_id_instance)
 
-def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
+def set_custom_id_field[T](T: Type[T], custom_id: str, **kwargs) -> str:
     """Sets specific fields in a custom_id string and returns the updated custom_id.
 
     Args:

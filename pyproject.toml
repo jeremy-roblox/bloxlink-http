@@ -9,19 +9,20 @@ homepage = "https://blox.link/"
 repository = "https://github.com/bloxlink/bloxlink-http"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
+python = "<3.13, >=3.12"
 hikari = {git = "https://github.com/hikari-py/hikari.git", rev = "refs/pull/1803/merge"}
-hikari-yuyo = { version = "1.14.2", extras = ["asgi"] }
-motor = "2.3"
-hiredis = "^2.2.3"
-redis = ">=4.2.0"
+hikari-yuyo = { version = "1.19.1", extras = ["asgi"] }
+motor = "3.3.2"
+hiredis = "2.3.2"
+redis = "5.0.1"
 requests = "2.31.0"
-dnspython = "2.2.1"
+dnspython = "2.5.0"
 psutil = "5.9.0"
 python-dateutil = "2.8.2"
-blacksheep = "1.2.17"
-uvicorn = {extras = ["standard"], version = "^0.26.0"}
+blacksheep = "2.0.6"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
 python-dotenv = "^1.0.1"
+asgi_prometheus = "1.1.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"

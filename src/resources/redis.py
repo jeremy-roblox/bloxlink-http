@@ -16,6 +16,8 @@ def connect_redis():
         redis = Redis.from_url(
             url=CONFIG.REDIS_URL,
             retry_on_timeout=True,
+            decode_responses=True,
+            health_check_interval=30,
         )
     else:
         redis = Redis(
@@ -23,6 +25,8 @@ def connect_redis():
             port=CONFIG.REDIS_PORT,
             password=CONFIG.REDIS_PASSWORD,
             retry_on_timeout=True,
+            decode_responses=True,
+            health_check_interval=30,
         )
 
     # TODO: ping keepalive
