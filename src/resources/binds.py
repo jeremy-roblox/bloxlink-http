@@ -16,7 +16,7 @@ from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOT
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.fetch import fetch
+from resources.fetch import fetch, StatusCodes
 from resources.premium import get_premium_status
 from resources.ui.components import Button
 from config import CONFIG
@@ -156,18 +156,6 @@ class UpdateEndpointPayload:
     added_roles: list[str]
     removed_roles: list[str]
     missing_roles: list[str]
-
-    @classmethod
-    def from_payload(cls, payload: dict) -> "UpdateEndpointPayload":
-        roles = payload["roles"]
-
-        return cls(
-            nickname=payload.get("nickname"),
-            final_roles=roles["final"],
-            added_roles=roles["added"],
-            removed_roles=roles["removed"],
-            missing_roles=roles["missing"],
-        )
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
@@ -671,7 +659,7 @@ async def _check_restrictions(member_data: dict, roblox_user: dict | None, guild
     return output
 
 
-async def _get_update_information(
+async def calculate_bound_roles(
     guild_data: dict, member_data: dict, roblox_user: dict | None, is_restricted: bool
 ) -> UpdateEndpointPayload:
     guild_id = guild_data["id"]
@@ -687,13 +675,14 @@ async def _get_update_information(
             "roblox_account": roblox_user,
             "is_restricted": is_restricted,
         },
+        parse_as=UpdateEndpointPayload
     )
 
-    if update_data_response.status > 400:
+    if update_data_response.status != StatusCodes.OK:
         logger.error(f"API /update/{guild_id}/{member_id}", update_data)
         raise Message("Something went wrong internally when trying to update this user!")
 
-    return UpdateEndpointPayload.from_payload(update_data)
+    return update_data
 
 
 async def apply_binds(
@@ -811,13 +800,13 @@ async def apply_binds(
     # User won't see the response. Stop early. Bot tries to DM them before they are removed.
     if removed_user:
         embed.description = (
-            "Member was removed from this server as per this guild's settings.\n"
+            "Member was removed from this server as per this server's settings.\n"
             "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
         )
 
         return InteractiveMessage(embed=embed)
 
-    guild_data = {
+    guild_data_for_endpoint = {
         "id": guild.id,
         "roles": [
             {
@@ -830,8 +819,8 @@ async def apply_binds(
         ],
     }
 
-    update_payload = await _get_update_information(
-        guild_data, member_data, roblox_user, restriction_obj.restricted
+    update_payload = await calculate_bound_roles(
+        guild_data_for_endpoint, member_data, roblox_user, restriction_obj.restricted
     )
 
     # Convert all role IDs to real roles.
@@ -847,11 +836,10 @@ async def apply_binds(
         if role := guild.roles.get(int(role_id)):
             user_roles.append(role)
 
-    # Create missing roles if dynamicRoles
-    gd: GuildData = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
-    if update_payload.missing_roles and (gd.dynamicRoles is True or gd.dynamicRoles is None):
-        failed_creation = []
+    # Create missing roles if dynamicRoles is enabled
+    guild_data = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
 
+    if update_payload.missing_roles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
         for role in update_payload.missing_roles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
@@ -861,10 +849,8 @@ async def apply_binds(
                 user_roles.append(new_role)
 
             except hikari.ForbiddenError:
-                failed_creation.append(role)
-
-        if failed_creation:
-            warnings.append(f"Could not create these missing roles: `{', '.join(failed_creation)}`")
+                embed.description = "I don't have permission to create roles on this server."
+                return InteractiveMessage(embed=embed)
 
     # Apply nickname
     if update_payload.nickname:
