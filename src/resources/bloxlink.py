@@ -6,14 +6,13 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Callable, Coroutine, Optional
+from typing import TYPE_CHECKING, Callable, Coroutine, Optional, Unpack
 
 import hikari
 import yuyo
 from attrs import define, field
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
-from typing_extensions import Unpack
 
 from resources.constants import DEFAULTS
 from resources.redis import RedisMessageCollector, redis

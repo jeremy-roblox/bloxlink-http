@@ -3,12 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Callable, Type, TypedDict
+from typing import Callable, Type, TypedDict, Unpack
 from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
 from attrs import define
-from typing_extensions import Unpack
 from resources.ui.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
