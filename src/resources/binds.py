@@ -148,7 +148,7 @@ class GroupBind(GuildBind):
         return base_dict
 
 
-@define
+@define(slots=True)
 class UpdateEndpointPayload:
     nickname: str | None
 
@@ -736,13 +736,20 @@ async def apply_binds(
     role_ids = []
     member_id = None
     member_roles: dict = {}
-    username = ""
-    nickname = ""
-    avatar_url = ""
+    username = None
+    nickname = None
+    avatar_url = None
 
     embed = hikari.Embed()
     components = []
     warnings = []
+
+
+    added_roles = []
+    removed_roles = []
+    user_roles = []
+    applied_nickname = None
+
 
     # Get/Build necessary user information.
     if isinstance(member, hikari.Member):
@@ -768,7 +775,7 @@ async def apply_binds(
             member_roles[role.id] = {
                 "id": role.id,
                 "name": role.name,
-                "managed": bool(role.bot_id) and role.name != "@everyone",
+                "managed": role.name != "@everyone" or role.is_managed,
             }
 
     # set up some variables for queries
@@ -809,11 +816,6 @@ async def apply_binds(
         )
 
         return InteractiveMessage(embed=embed)
-
-    added_roles = []
-    removed_roles = []
-    user_roles = []
-    applied_nickname = None
 
     guild_data = {
         "id": guild.id,
