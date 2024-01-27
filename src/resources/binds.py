@@ -152,10 +152,10 @@ class GroupBind(GuildBind):
 class UpdateEndpointPayload:
     nickname: str | None
 
-    final_roles: list[str]
-    added_roles: list[str]
-    removed_roles: list[str]
-    missing_roles: list[str]
+    finalRoles: list[str]
+    addedRoles: list[str]
+    removedRoles: list[str]
+    missingRoles: list[str]
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
@@ -824,23 +824,23 @@ async def apply_binds(
     )
 
     # Convert all role IDs to real roles.
-    for role_id in update_payload.added_roles:
+    for role_id in update_payload.addedRoles:
         if role := guild.roles.get(int(role_id)):
             added_roles.append(role)
 
-    for role_id in update_payload.removed_roles:
+    for role_id in update_payload.removedRoles:
         if role := guild.roles.get(int(role_id)):
             removed_roles.append(role)
 
-    for role_id in update_payload.final_roles:
+    for role_id in update_payload.finalRoles:
         if role := guild.roles.get(int(role_id)):
             user_roles.append(role)
 
     # Create missing roles if dynamicRoles is enabled
     guild_data = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
 
-    if update_payload.missing_roles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
-        for role in update_payload.missing_roles:
+    if update_payload.missingRoles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
+        for role in update_payload.missingRoles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
                     guild_id, name=role, reason="Creating missing roles."

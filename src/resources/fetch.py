@@ -1,6 +1,8 @@
 import asyncio
 import logging
-from typing import Literal, TypeVar, Callable
+from aiohttp import ClientResponse
+from attrs import fields
+from typing import Literal, TypeVar, Type, Union, Tuple
 from enum import IntEnum
 
 import aiohttp
@@ -13,7 +15,7 @@ __all__ = ("fetch", "StatusCodes")
 
 
 session = None
-T = TypeVar("T", bound=Callable)
+T = TypeVar("T")
 
 class StatusCodes(IntEnum):
     """Status codes for requests"""
@@ -36,10 +38,10 @@ async def fetch(
     params: dict = None,
     headers: dict = None,
     body: dict = None,
-    parse_as: Literal["JSON", "BYTES", "TEXT"] | T = "JSON",
+    parse_as: Literal["JSON", "BYTES", "TEXT"] | Type[T] = "JSON",
     raise_on_failure: bool = True,
     timeout: float = 10,
-):
+) -> Union[Tuple[dict, ClientResponse], Tuple[str, ClientResponse], Tuple[bytes, ClientResponse], ClientResponse]:
     """Make a REST request with the ability to proxy.
 
     Only Roblox URLs are proxied, all other requests to other domains are sent as is.
@@ -50,7 +52,7 @@ async def fetch(
         params (dict, optional): Query parameters to append to the URL. Defaults to None.
         headers (dict, optional): Headers to use when sending the request. Defaults to None.
         body (dict, optional): Data to pass in the body of the request. Defaults to None.
-        parse_as (JSON | BYTES | TEXT, optional): Set what the expected type to return should be.
+        parse_as (JSON | BYTES | TEXT | Type[T], optional): Set what the expected type to return should be.
             Defaults to JSON.
         raise_on_failure (bool, optional): Whether an exception be raised if the request fails. Defaults to True.
         timeout (float, optional): How long should we wait for a request to succeed. Defaults to 10 seconds.
@@ -64,7 +66,8 @@ async def fetch(
         RobloxNotFound: Raised if raise_on_failure, and the status code is 404.
 
     Returns:
-        (dict, str, bytes): The requested data from the request, if any.
+        Tuple[dict, ClientResponse] | Tuple[str, ClientResponse] | Tuple[bytes, ClientResponse] | ClientResponse:
+        The requested data from the request, if any.
     """
     global session  # pylint: disable=global-statement
 
@@ -105,18 +108,22 @@ async def fetch(
 
                 if parse_as == "JSON":
                     try:
-                        json = await response.json()
+                        json_response = await response.json()
                     except aiohttp.client_exceptions.ContentTypeError as exc:
-                        logging.debug(url, await response.text())
+                        logging.debug(f"{url} {await response.text()}")
 
                         raise RobloxAPIError() from exc
 
-                    return json, response
+                    return json_response, response
 
                 if parse_as == "BYTES":
                     return await response.read(), response
 
-                return T(**(await response.json())), response
+                if isinstance(parse_as, type) and hasattr(parse_as, "__attrs_attrs__"):
+                    json_response = await response.json()
+                    # Filter only relevant fields before constructing the dataclass instance
+                    relevant_fields = {field.name: json_response[field.name] for field in fields(parse_as) if field.name in json_response}
+                    return parse_as(**relevant_fields), response
 
             return response
 
