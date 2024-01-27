@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Literal
+from typing import Literal, TypeVar, Callable
 from enum import IntEnum
 
 import aiohttp
@@ -13,6 +13,7 @@ __all__ = ("fetch", "StatusCodes")
 
 
 session = None
+T = TypeVar("T", bound=Callable)
 
 class StatusCodes(IntEnum):
     """Status codes for requests"""
@@ -35,7 +36,7 @@ async def fetch(
     params: dict = None,
     headers: dict = None,
     body: dict = None,
-    parse_as: Literal["JSON", "BYTES", "TEXT"] = "JSON",
+    parse_as: Literal["JSON", "BYTES", "TEXT"] | T = "JSON",
     raise_on_failure: bool = True,
     timeout: float = 10,
 ):
@@ -98,22 +99,24 @@ async def fetch(
 
                 raise RobloxAPIError(f"{url} failed with status {response.status} and body {await response.text()}")
 
-            if parse_as == "TEXT":
-                return await response.text(), response
+            if parse_as:
+                if parse_as == "TEXT":
+                    return await response.text(), response
 
-            if parse_as == "JSON":
-                try:
-                    json = await response.json()
-                except aiohttp.client_exceptions.ContentTypeError as exc:
-                    logging.debug(url, await response.text())
+                if parse_as == "JSON":
+                    try:
+                        json = await response.json()
+                    except aiohttp.client_exceptions.ContentTypeError as exc:
+                        logging.debug(url, await response.text())
 
-                    raise RobloxAPIError() from exc
+                        raise RobloxAPIError() from exc
 
-                return json, response
+                    return json, response
 
-            if parse_as == "BYTES":
-                return await response.read(), response
+                if parse_as == "BYTES":
+                    return await response.read(), response
 
+                return T(**(await response.json())), response
 
             return response
 
