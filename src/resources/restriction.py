@@ -8,7 +8,7 @@ from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR, SERVER_INVITE
 from resources.fetch import fetch_typed, StatusCodes
-from resources.exceptions import Message
+from resources.exceptions import Message, UserNotVerified
 from config import CONFIG
 
 
@@ -19,7 +19,7 @@ class RestrictionResponse:
     reason: str
     action: Literal["kick", "ban", "dm"]
     source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader"]
-    warnings: list[str]
+    # warnings: list[str]
 
 
 class RestrictedMember(TypedDict):
@@ -63,16 +63,21 @@ class Restriction:
         self.roblox_user = self.roblox_user or roblox_user
 
         if not self.roblox_user:
-            self.roblox_user = await users.get_user(self.user_id, guild_id=self.guild_id)
+            try:
+                self.roblox_user = await users.get_user(self.user_id, guild_id=self.guild_id)
+            except UserNotVerified:
+                pass
 
         if not self.member_data:
             member = await bloxlink.rest.fetch_member(self.guild_id, self.user_id)
             self.member_data: RestrictedMember = {"id": member.id, "roles": member.roles, "name": member.username, "nick": member.nickname}
 
+
         restriction_data, restriction_response = await fetch_typed(
             f"{CONFIG.BIND_API}/restrictions/evaluate/{self.guild_id}",
             RestrictionResponse,
             headers={"Authorization": CONFIG.BIND_API_AUTH},
+            method="POST",
             body={
                 "member": self.member_data,
                 "roblox_account": self.roblox_user,
@@ -86,7 +91,7 @@ class Restriction:
         self.reason = restriction_data.reason
         self.action = restriction_data.action
         self.source = restriction_data.source
-        self.warnings = restriction_data.warnings
+        # self.warnings = restriction_data.warnings
         self.unevaluated = restriction_data.unevaluated
 
         if self.unevaluated and roblox_user:
@@ -99,6 +104,8 @@ class Restriction:
         self._synced = True
 
     async def check_alts(self):
+        """Check if the user has alternate accounts in this server."""
+
         matches: list[int] = []
         roblox_accounts = await users.get_accounts(self.user_id)
 
@@ -116,6 +123,8 @@ class Restriction:
         self.alts = matches
 
     async def check_ban_evading(self):
+        """Check if the user is evading a ban in this server."""
+
         matches = []
         roblox_accounts = await users.get_accounts(self.user_id)
 

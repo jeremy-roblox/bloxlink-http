@@ -713,48 +713,46 @@ async def apply_binds(
     roblox_user = roblox_account.to_dict() if roblox_account else None
 
     # Check restrictions
-    if roblox_account:
-        restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_user, member_data=member_data)
-        await restriction_check.sync()
+    restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_user, member_data=member_data)
+    await restriction_check.sync()
 
-        # restriction_obj: restriction.Restriction = restriction_info["restriction"]
-        # warnings.extend(restriction_info["warnings"])
+    # restriction_obj: restriction.Restriction = restriction_info["restriction"]
+    # warnings.extend(restriction_info["warnings"])
 
-        removed_user = False
-        if restriction_check.restricted:
-            # Don't tell the user which account they're evading with.
-            if restriction_check.source == "banEvader":
-                warnings.append(
-                    f"({restriction_check.source}): User is evading a ban from a previous Discord account."
-                )
+    removed_user = False
+    if restriction_check.restricted:
+        # Don't tell the user which account they're evading with.
+        if restriction_check.source == "banEvader":
+            warnings.append(
+                f"({restriction_check.source}): User is evading a ban from a previous Discord account."
+            )
+        else:
+            warnings.append(f"({restriction_check.source}): {restriction_check.reason}")
+
+        # Remove the user if we're moderating.
+        if moderate_user:
+            try:
+                await restriction_check.moderate()
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                warnings.append("User could not be removed from the server.")
             else:
-                warnings.append(f"({restriction_check.source}): {restriction_check.reason}")
+                warnings.append("User was removed from the server.")
+                removed_user = True
 
-            # Remove the user if we're moderating.
-            if moderate_user:
-                try:
-                    await restriction_check.moderate()
-                except (hikari.ForbiddenError, hikari.NotFoundError):
-                    warnings.append("User could not be removed from the server.")
-                else:
-                    warnings.append("User was removed from the server.")
-                    removed_user = True
-
-            # User won't see the response. Stop early. Bot tries to DM them before they are removed.
-            if removed_user:
-                embed.description = (
-                    "Member was removed from this server as per this server's settings.\n"
-                    "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
-                )
-
-                return InteractiveMessage(embed=embed)
-
+        # User won't see the response. Stop early. Bot tries to DM them before they are removed.
+        if removed_user:
             embed.description = (
-                "Sorry, you are restricted from verifying in this server. Server admins: please run `/restriction view` to learn why."
+                "Member was removed from this server as per this server's settings.\n"
+                "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
             )
 
             return InteractiveMessage(embed=embed)
 
+        embed.description = (
+            "Sorry, you are restricted from verifying in this server. Server admins: please run `/restriction view` to learn why."
+        )
+
+        return InteractiveMessage(embed=embed)
 
 
     guild_data_for_endpoint = {
