@@ -234,6 +234,54 @@ async def get_user(
     return roblox_account
 
 
+async def get_accounts(user: hikari.User) -> list[RobloxAccount]:
+    """Get a user's linked Roblox accounts.
+
+    Args:
+        user (hikari.User): The user to get linked accounts for.
+
+    Returns:
+        list[RobloxAccount]: The linked Roblox accounts for this user.
+    """
+
+    user_id = str(user.id)
+    bloxlink_user = await bloxlink.fetch_user_data(user_id, "robloxID", "robloxAccounts")
+
+    account_ids = set()
+
+    if bloxlink_user.robloxID:
+        account_ids.add(bloxlink_user.robloxID)
+
+    guild_accounts = (bloxlink_user.robloxAccounts or {}).get("guilds") or {}
+
+    for guild_account_id in guild_accounts.values():
+        account_ids.add(guild_account_id)
+
+    accounts = [
+        RobloxAccount(id=account_id) for account_id in account_ids
+    ]
+
+    return accounts
+
+
+async def reverse_lookup(roblox_account: RobloxAccount, exclude_user_id: int | None = None) -> list[str]:
+    """Find Discord IDs linked to a roblox id.
+
+    Args:
+        roblox_account (RobloxAccount): The roblox account that will be matched against.
+        exclude_user_id (int | None, optional): Discord user ID that will not be included in the output.
+            Defaults to None.
+
+    Returns:
+        list[str]: All the discord IDs linked to this roblox_id.
+    """
+    cursor = bloxlink.mongo.bloxlink["users"].find(
+        {"$or": [{"robloxID": roblox_account.id}, {"robloxAccounts.accounts": roblox_account.id}]},
+        {"_id": 1},
+    )
+
+    return [x["_id"] async for x in cursor if str(exclude_user_id) != str(x["_id"])]
+
 async def get_user_from_string(target: str) -> RobloxAccount:
     """Get a RobloxAccount from a given target string (either an ID or username)
 

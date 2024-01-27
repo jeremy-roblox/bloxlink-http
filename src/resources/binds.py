@@ -601,66 +601,8 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
-async def _check_restrictions(member_data: dict, roblox_user: dict | None, guild_id: str | int) -> dict:
-    output = {"restriction": None, "warnings": []}
-
-    restriction_data, restriction_response = await fetch(
-        "POST",
-        f"{CONFIG.BIND_API}/restrictions/evaluate/{guild_id}",
-        headers={"Authorization": CONFIG.BIND_API_AUTH},
-        body={
-            "member": member_data,
-            "roblox_account": roblox_user,
-        },
-    )
-
-    if restriction_response.status > 400:
-        logger.error(f"API /restrictions/evaluate/{guild_id}", restriction_data)
-        raise Message("Something went wrong internally when trying to update this user!")
-
-    unevaluated_restrictions = restriction_data["unevaluated"]
-    restriction_obj = restriction.Restriction(
-        restricted=restriction_data["is_restricted"],
-        reason=restriction_data.get("reason"),
-        action=restriction_data.get("action"),
-        source=restriction_data.get("source"),
-    )
-
-    member_id = member_data["id"]
-
-    if unevaluated_restrictions and roblox_user:
-        bloxlink_user: UserData = await bloxlink.fetch_user_data(member_id, "robloxID", "robloxAccounts")
-
-        accounts = bloxlink_user.robloxAccounts["accounts"]
-        accounts.append(bloxlink_user.robloxID)
-        accounts = list(set(accounts))
-
-        if "disallowAlts" in unevaluated_restrictions:
-            had_alts = await restriction.check_for_alts(guild_id, member_id, accounts)
-
-            if had_alts:
-                output["warnings"].append(
-                    "This server does not allow alternate accounts. Your other accounts were kicked."
-                )
-
-        if "disallowBanEvaders" in unevaluated_restrictions:
-            ban_check = await restriction.check_for_ban_evasion(guild_id, member_id, accounts)
-
-            if ban_check["match"]:
-                match_id = ban_check["match_id"]
-                restriction_obj = restriction.Restriction(
-                    restricted=True,
-                    reason=f"User is evading a ban on user {match_id}.",
-                    action="ban",
-                    source="banEvader",
-                )
-
-    output["restriction"] = restriction_obj
-    return output
-
-
 async def calculate_bound_roles(
-    guild_data: dict, member_data: dict, roblox_user: dict | None, is_restricted: bool
+    guild_data: dict, member_data: dict, roblox_user: dict | None
 ) -> UpdateEndpointPayload:
     guild_id = guild_data["id"]
     member_id = member_data["id"]
@@ -673,7 +615,6 @@ async def calculate_bound_roles(
             "guild": guild_data,
             "member": member_data,
             "roblox_account": roblox_user,
-            "is_restricted": is_restricted,
         },
         parse_as=UpdateEndpointPayload
     )
@@ -772,39 +713,49 @@ async def apply_binds(
     roblox_user = roblox_account.to_dict() if roblox_account else None
 
     # Check restrictions
-    restriction_info = await _check_restrictions(member_data, roblox_user, guild.id)
+    if roblox_account:
+        restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_user, member_data=member_data)
+        await restriction_check.sync()
 
-    restriction_obj: restriction.Restriction = restriction_info["restriction"]
-    warnings.extend(restriction_info["warnings"])
+        # restriction_obj: restriction.Restriction = restriction_info["restriction"]
+        # warnings.extend(restriction_info["warnings"])
 
-    removed_user = False
-    if restriction_obj.restricted:
-        # Don't tell the user which account they're evading with.
-        if restriction_obj.source == "banEvader":
-            warnings.append(
-                f"({restriction_obj.source}): User is evading a ban from a previous Discord account."
-            )
-        else:
-            warnings.append(f"({restriction_obj.source}): {restriction_obj.reason}")
-
-        # Remove the user if we're moderating.
-        if moderate_user:
-            try:
-                await restriction_obj.moderate(user_id=member_id, guild=guild)
-            except (hikari.ForbiddenError, hikari.NotFoundError):
-                warnings.append("User could not be removed from the server.")
+        removed_user = False
+        if restriction_check.restricted:
+            # Don't tell the user which account they're evading with.
+            if restriction_check.source == "banEvader":
+                warnings.append(
+                    f"({restriction_check.source}): User is evading a ban from a previous Discord account."
+                )
             else:
-                warnings.append("User was removed from the server.")
-                removed_user = True
+                warnings.append(f"({restriction_check.source}): {restriction_check.reason}")
 
-    # User won't see the response. Stop early. Bot tries to DM them before they are removed.
-    if removed_user:
-        embed.description = (
-            "Member was removed from this server as per this server's settings.\n"
-            "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
-        )
+            # Remove the user if we're moderating.
+            if moderate_user:
+                try:
+                    await restriction_check.moderate()
+                except (hikari.ForbiddenError, hikari.NotFoundError):
+                    warnings.append("User could not be removed from the server.")
+                else:
+                    warnings.append("User was removed from the server.")
+                    removed_user = True
 
-        return InteractiveMessage(embed=embed)
+            # User won't see the response. Stop early. Bot tries to DM them before they are removed.
+            if removed_user:
+                embed.description = (
+                    "Member was removed from this server as per this server's settings.\n"
+                    "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
+                )
+
+                return InteractiveMessage(embed=embed)
+
+            embed.description = (
+                "Sorry, you are restricted from verifying in this server. Server admins: please run `/restriction view` to learn why."
+            )
+
+            return InteractiveMessage(embed=embed)
+
+
 
     guild_data_for_endpoint = {
         "id": guild.id,
@@ -820,7 +771,7 @@ async def apply_binds(
     }
 
     update_payload = await calculate_bound_roles(
-        guild_data_for_endpoint, member_data, roblox_user, restriction_obj.restricted
+        guild_data_for_endpoint, member_data, roblox_user
     )
 
     # Convert all role IDs to real roles.

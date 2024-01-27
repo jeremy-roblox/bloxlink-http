@@ -1,137 +1,210 @@
 import logging
-from typing import Literal
+from typing import Literal, TypedDict
 
 import hikari
-from attrs import define
+from attrs import define, field
 
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.constants import RED_COLOR, SERVER_INVITE
+from resources.fetch import fetch_typed, StatusCodes
+from resources.exceptions import Message
+from config import CONFIG
 
 
-@define
+@define(slots=True, kw_only=True)
+class RestrictionResponse:
+    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = field(factory=list)
+    is_restricted: bool
+    reason: str
+    action: Literal["kick", "ban", "dm"]
+    source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader"]
+    warnings: list[str]
+
+
+class RestrictedMember(TypedDict):
+    id: int
+    roles: dict[int, dict]
+    username: str
+    nickname: str
+
+
+@define(slots=True, kw_only=True)
 class Restriction:
     """Representation of how a restriction applies to a user, if at all."""
 
+    user_id: int
+    guild_id: int
+
     restricted: bool = False
-    reason: str | None = None
-    action: str | None = Literal["kick", "ban", "dm", None]
-    source: str | None = Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None]
+    reason: str = None
+    action: Literal["kick", "ban", "dm", None] = None
+    source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None] = None
+    warnings: list[str] = field(factory=list)
+    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = field(factory=list)
 
-    async def moderate(self, user_id: int, guild: hikari.Guild):
-        """Kick or Ban a user based on the determined restriction.
+    alts: list[int] = field(factory=list)
+    banned_discord_id: int = None
 
-        Args:
-            user_id (int): ID of the user to moderate.
-            guild (hikari.Guild): The guild that the user is verifying in.
-        """
+
+    member_data: RestrictedMember = None
+    roblox_user: users.RobloxAccount = None
+
+    _synced: bool = False
+
+
+    async def sync(self, member_data: RestrictedMember = None, roblox_user: users.RobloxAccount = None):
+        """Fetch restriction data from the API."""
+
+        if self._synced:
+            return
+
+        self.member_data = self.member_data or member_data
+        self.roblox_user = self.roblox_user or roblox_user
+
+        if not self.roblox_user:
+            self.roblox_user = await users.get_user(self.user_id, guild_id=self.guild_id)
+
+        if not self.member_data:
+            member = await bloxlink.rest.fetch_member(self.guild_id, self.user_id)
+            self.member_data: RestrictedMember = {"id": member.id, "roles": member.roles, "name": member.username, "nick": member.nickname}
+
+        restriction_data, restriction_response = await fetch_typed(
+            f"{CONFIG.BIND_API}/restrictions/evaluate/{self.guild_id}",
+            RestrictionResponse,
+            headers={"Authorization": CONFIG.BIND_API_AUTH},
+            body={
+                "member": self.member_data,
+                "roblox_account": self.roblox_user,
+            },
+        )
+
+        if restriction_response.status != StatusCodes.OK:
+            raise Message(f"Failed to fetch restriction data for {self.user_id} in {self.guild_id}")
+
+        self.restricted = restriction_data.is_restricted
+        self.reason = restriction_data.reason
+        self.action = restriction_data.action
+        self.source = restriction_data.source
+        self.warnings = restriction_data.warnings
+        self.unevaluated = restriction_data.unevaluated
+
+        if self.unevaluated and roblox_user:
+            if "disallowAlts" in self.unevaluated:
+                await self.check_alts()
+
+            if "disallowBanEvaders" in self.unevaluated:
+                await self.check_ban_evading()
+
+        self._synced = True
+
+    async def check_alts(self):
+        matches: list[int] = []
+        roblox_accounts = await users.get_accounts(self.user_id)
+
+        for account in roblox_accounts:
+            for user in await users.reverse_lookup(account, self.user_id):
+                member = await bloxlink.fetch_discord_member(self.guild_id, user, "id")
+
+                if member:
+                    matches.append(int(member.id))
+
+        if matches:
+            self.source = "disallowAlts"
+            self.reason = f"User has alternate accounts in this server: {', '.join(matches)}"
+
+        self.alts = matches
+
+    async def check_ban_evading(self):
+        matches = []
+        roblox_accounts = await users.get_accounts(self.user_id)
+
+        for account in roblox_accounts:
+            matches.append(await users.reverse_lookup(account, self.user_id))
+
+        for user in matches:
+            try:
+                await bloxlink.rest.fetch_ban(self.guild_id, user)
+            except (hikari.NotFoundError, hikari.ForbiddenError):
+                continue
+            else:
+                self.banned_discord_id = int(user.id)
+                self.restricted = True
+                self.source = "banEvader"
+                self.reason = f"User is evading a ban on user {user.id}."
+                self.action = "ban" # FIXME
+                break
+
+    async def moderate(self):
+        """Kick or Ban a user based on the determined restriction."""
 
         # Only DM users if they're being removed; reason will show in main guild otherwise.
-        if self.action in {"kick", "ban"}:
-            await self.dm_member(user_id, guild)
+        # if self.action in ("kick", "ban"):
+        #     await self.dm_user()
 
         reason = (
             f"({self.source}): {self.reason[:450]}"  # pylint: disable=unsubscriptable-object
             if self.reason
             else f"User was removed because they matched this server's {self.source} settings."
         )
-        if self.action == "kick":
-            await bloxlink.rest.kick_user(guild.id, user_id, reason=reason)
-        elif self.action == "ban":
-            await bloxlink.rest.ban_user(guild.id, user_id, reason=reason)
 
-    async def dm_member(self, user_id: int, guild: hikari.Guild):
-        components = []
+        actioning_users: list[int] = []
 
-        embed = hikari.Embed()
-        embed.title = "User Restricted"
-        embed.color = RED_COLOR
+        if self.banned_discord_id:
+            actioning_users.append(self.banned_discord_id)
 
-        reason_suffix = ""
-        match self.source:
-            # fmt:off
-            case "ageLimit":
-                reason_suffix = "this guild requires users to have a Roblox account older than a certain age"
-            case "groupLock":
-                reason_suffix = "this guild requires users to be in, or have a specific rank in, a Roblox group"
-            case "banEvader":
-                reason_suffix = "this guild does not allow ban evasion"
-            # fmt:on
+        if self.alts:
+            actioning_users.extend(self.alts)
 
-        embed.description = f"You could not verify in **{guild.name}** because {reason_suffix}."
+        for user_id in actioning_users:
+            if self.action == "kick":
+                await bloxlink.rest.kick_user(self.guild_id, user_id, reason=reason)
 
-        if self.source not in {"banEvader", "disallowAlts"}:
-            embed.add_field(name="Reason", value=self.reason)
-            embed.description += (
-                "\n\n> *Think this is in error? Try using the buttons below to switch your account, "
-                "or join our guild and use `/verify` there.*"
-            )
+            elif self.action == "ban":
+                await bloxlink.rest.ban_user(self.guild_id, user_id, reason=reason)
 
-            verification_url = await users.get_verification_link(user_id, guild.id)
+    async def dm_user(self):
+        # components = []
 
-            button_row = bloxlink.rest.build_message_action_row()
-            button_row.add_link_button(verification_url, label="Verify with Bloxlink")
-            button_row.add_link_button(SERVER_INVITE, label="Join Bloxlink HQ")
+        # embed = hikari.Embed()
+        # embed.title = "User Restricted"
+        # embed.color = RED_COLOR
 
-            components.append(button_row)
+        # reason_suffix = ""
+        # match self.source:
+        #     # fmt:off
+        #     case "ageLimit":
+        #         reason_suffix = "this server requires users to have a Roblox account older than a certain age"
+        #     case "groupLock":
+        #         reason_suffix = "this server requires users to be in, or have a specific rank in, a Roblox group"
+        #     case "banEvader":
+        #         reason_suffix = "this server does not allow ban evasion"
+        #     # fmt:on
 
-        try:
-            # Only DM if the user is being kicked or banned. Reason is shown to user in guild otherwise.
-            if self.action != "dm":
-                channel = await bloxlink.rest.create_dm_channel(user_id)
-                await channel.send(embed=embed, components=components)
+        # embed.description = f"You could not verify in **{guild.name}** because {reason_suffix}."
 
-        except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
-            logging.warning(e)
+        # if self.source not in {"banEvader", "disallowAlts"}:
+        #     embed.add_field(name="Reason", value=self.reason)
+        #     embed.description += (
+        #         "\n\n> *Think this is in error? Try using the buttons below to switch your account, "
+        #         "or join our guild and use `/verify` there.*"
+        #     )
 
+        #     verification_url = await users.get_verification_link(user_id, guild.id)
 
-async def check_for_alts(guild_id: str, user_id: int, roblox_users: list) -> bool:
-    matches = []
-    for account in roblox_users:
-        matches.extend(await bloxlink.reverse_lookup(account, user_id))
+        #     button_row = bloxlink.rest.build_message_action_row()
+        #     button_row.add_link_button(verification_url, label="Verify with Bloxlink")
+        #     button_row.add_link_button(SERVER_INVITE, label="Join Bloxlink HQ")
 
-    alts_found: bool = False
-    for user in matches:
-        # sanity check, make sure we don't falsely match the user as themselves.
-        if str(user_id) == user:
-            continue
+        #     components.append(button_row)
 
-        member = await bloxlink.fetch_discord_member(guild_id, user, "id")
+        # try:
+        #     # Only DM if the user is being kicked or banned. Reason is shown to user in guild otherwise.
+        #     if self.action != "dm":
+        #         channel = await bloxlink.rest.create_dm_channel(user_id)
+        #         await channel.send(embed=embed, components=components)
 
-        if member is not None:
-            # Always kick the matching alt users.
-            try:
-                await bloxlink.rest.kick_user(
-                    guild_id, user, reason=f"User is an alt of {user_id} and disallowAlts is enabled."
-                )
-                alts_found = True
+        # except (hikari.BadRequestError, hikari.ForbiddenError, hikari.NotFoundError) as e:
+        #     logging.warning(e)
 
-            except (hikari.NotFoundError, hikari.ForbiddenError):
-                pass
-
-    return alts_found
-
-
-async def check_for_ban_evasion(guild_id: str, user_id: int, roblox_users: list) -> dict:
-    matches = []
-    for account in roblox_users:
-        matches.extend(await bloxlink.reverse_lookup(account, user_id))
-
-    response = {"match": False}
-
-    for user in matches:
-        if str(user_id) == user:
-            continue
-
-        try:
-            await bloxlink.rest.fetch_ban(guild_id, user)
-        except hikari.NotFoundError:
-            continue
-        except hikari.ForbiddenError:
-            continue
-        else:
-            response["match_id"] = user
-            response["match"] = True
-            break
-
-    return response
+        raise NotImplementedError() # TODO
