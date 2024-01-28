@@ -11,12 +11,12 @@ from attrs import asdict, define, field
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
-from resources.bloxlink import GuildData, UserData, instance as bloxlink
+from resources.bloxlink import GuildData, instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.fetch import fetch, StatusCodes
+from resources.fetch import fetch_typed, StatusCodes
 from resources.premium import get_premium_status
 from resources.ui.components import Button
 from config import CONFIG
@@ -601,26 +601,21 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
-async def calculate_bound_roles(
-    guild_data: dict, member_data: dict, roblox_user: dict | None
-) -> UpdateEndpointPayload:
-    guild_id = guild_data["id"]
-    member_id = member_data["id"]
+async def calculate_bound_roles(guild: hikari.RESTGuild, member_data: dict, roblox_user: users.RobloxAccount = None) -> UpdateEndpointPayload:
     # Get user roles + nickname
-    update_data, update_data_response = await fetch(
-        "POST",
-        f"{CONFIG.BIND_API}/update/{guild_id}/{member_id}",
+    update_data, update_data_response = await fetch_typed(
+        f"{CONFIG.BIND_API}/update/{guild.id}/{member_data['id']}",
+        UpdateEndpointPayload,
+        method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
-            "guild": guild_data,
+            "roles": guild.roles,
             "member": member_data,
-            "roblox_account": roblox_user,
+            "roblox_account": roblox_user.to_dict() if roblox_user else None,
         },
-        parse_as=UpdateEndpointPayload
     )
 
     if update_data_response.status != StatusCodes.OK:
-        logger.error(f"API /update/{guild_id}/{member_id}", update_data)
         raise Message("Something went wrong internally when trying to update this user!")
 
     return update_data
@@ -710,10 +705,9 @@ async def apply_binds(
 
     # set up some variables for queries
     member_data = {"id": member_id, "roles": member_roles, "name": username, "nick": nickname}
-    roblox_user = roblox_account.to_dict() if roblox_account else None
 
     # Check restrictions
-    restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_user, member_data=member_data)
+    restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_account, member_data=member_data)
     await restriction_check.sync()
 
     # restriction_obj: restriction.Restriction = restriction_info["restriction"]
@@ -755,21 +749,8 @@ async def apply_binds(
         return InteractiveMessage(embed=embed)
 
 
-    guild_data_for_endpoint = {
-        "id": guild.id,
-        "roles": [
-            {
-                "id": r.id,
-                "name": r.name,
-                "managed": bool(r.bot_id) and r.name != "@everyone",
-                "position": r.position,
-            }
-            for r in guild.roles.values()
-        ],
-    }
-
     update_payload = await calculate_bound_roles(
-        guild_data_for_endpoint, member_data, roblox_user
+        guild.roles, member_data, roblox_account
     )
 
     # Convert all role IDs to real roles.
