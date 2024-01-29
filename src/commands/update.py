@@ -1,7 +1,7 @@
 import hikari
 
-import resources.binds as binds
-import resources.api.roblox.users as users
+from bot_utils import get_user_account
+from resources import binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.exceptions import Message
@@ -31,7 +31,7 @@ class UpdateCommand(GenericCommand):
                 message="Could not identify the user you were updating. Are they still in the server?",
             ) from None
 
-        roblox_account = await users.get_user_account(target_user, raise_errors=False)
+        roblox_account = await get_user_account(target_user, raise_errors=False)
 
         message_response = await binds.apply_binds(
             target_user, ctx.guild_id, roblox_account, update_embed_for_unverified=True, moderate_user=True

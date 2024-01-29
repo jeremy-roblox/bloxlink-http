@@ -5,6 +5,7 @@ import hikari
 from attrs import define, field
 from hikari.commands import CommandOption, OptionType
 
+from bot_utils import get_group
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
@@ -16,7 +17,6 @@ from resources.response import Prompt, PromptCustomID, PromptPageData
 from resources.api.roblox.assets import get_asset
 from resources.api.roblox.badges import get_badge
 from resources.api.roblox.gamepasses import get_gamepass
-from resources.api.roblox.groups import get_group
 
 
 @define

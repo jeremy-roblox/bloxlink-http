@@ -1,8 +1,8 @@
 from attrs import define
+from bot_utils import fetch
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
-from resources.fetch import fetch
 
 GAMEPASS_API = "https://economy.roblox.com/v1/game-pass"
 
@@ -39,7 +39,7 @@ async def get_gamepass(gamepass_id: str) -> RobloxGamepass:
         RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
 
     Returns:
-        RobloxGroup: A synced roblox gamepass.
+        RobloxGamepass: A synced roblox gamepass.
     """
     gamepass: RobloxGamepass = RobloxGamepass(id=gamepass_id)
 

@@ -1,8 +1,8 @@
 from attrs import define
+from bot_utils import fetch
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
-from resources.fetch import fetch
 
 ASSET_API = "https://economy.roblox.com/v2/assets"
 
@@ -39,7 +39,7 @@ async def get_asset(asset_id: str) -> RobloxAsset:
         RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
 
     Returns:
-        RobloxGroup: A synced roblox asset.
+        RobloxAsset: A synced roblox asset.
     """
     asset: RobloxAsset = RobloxAsset(id=asset_id)
 

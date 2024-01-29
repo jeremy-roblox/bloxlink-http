@@ -8,8 +8,6 @@ MODULES = [
     "web.endpoints",
 ]
 
-ALL_USER_API_SCOPES = ["groups", "badges"]
-
 DEFAULTS = {
     "nicknameTemplate": "{smart-name}"
 }

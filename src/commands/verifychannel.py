@@ -1,4 +1,5 @@
 import hikari
+from bot_utils import get_user_account
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, TextInput
@@ -10,7 +11,7 @@ from resources.api.roblox import users
 async def verify_button_click(ctx: CommandContext):
     yield await ctx.response.defer(True)
 
-    roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
+    roblox_account = await get_user_account(ctx.user, raise_errors=False)
 
     try:
         await binds.confirm_account(ctx.member, ctx.guild_id, ctx.response, roblox_account)

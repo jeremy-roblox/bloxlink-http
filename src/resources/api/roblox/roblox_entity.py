@@ -1,33 +1,7 @@
-from abc import ABC, abstractmethod
 from typing import Literal
-from attrs import define
+from bot_utils import RobloxEntity, RobloxGroup
 
 
-@define(slots=True)
-class RobloxEntity(ABC):
-    """Representation of an entity on Roblox.
-
-    Attributes:
-        id (str, optional): Roblox given ID of the entity.
-        name (str, optional): Name of the entity.
-        description (str, optional): The description of the entity (if any).
-        synced (bool): If this entity has been synced with Roblox or not. False by default.
-    """
-
-    id: str
-    name: str = None
-    description: str = None
-    synced: bool = False
-    url: str = None
-
-    @abstractmethod
-    async def sync(self):
-        """Sync a Roblox entity with the data from Roblox."""
-        raise NotImplementedError()
-
-    def __str__(self) -> str:
-        name = f"**{self.name}**" if self.name else "*(Unknown Roblox Entity)*"
-        return f"{name} ({self.id})"
 
 
 def create_entity(
@@ -59,6 +33,4 @@ def create_entity(
             return RobloxGamepass(entity_id)
 
         case "group":
-            from resources.api.roblox.groups import RobloxGroup  # pylint: disable=import-outside-toplevel
-
             return RobloxGroup(entity_id)

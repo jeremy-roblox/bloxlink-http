@@ -1,13 +1,11 @@
-import logging
-from typing import Literal, TypedDict
+from typing import Literal
 
 import hikari
 from attrs import define, field
+from bot_utils import MemberSerializable, fetch_typed, StatusCodes, get_user, RobloxUser, get_accounts, reverse_lookup
 
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
-from resources.constants import RED_COLOR, SERVER_INVITE
-from resources.fetch import fetch_typed, StatusCodes
 from resources.exceptions import Message, UserNotVerified
 from config import CONFIG
 
@@ -22,18 +20,10 @@ class RestrictionResponse:
     # warnings: list[str]
 
 
-class RestrictedMember(TypedDict):
-    id: int
-    roles: dict[int, dict]
-    username: str
-    nickname: str
-
-
 @define(slots=True, kw_only=True)
 class Restriction:
     """Representation of how a restriction applies to a user, if at all."""
 
-    user_id: int
     guild_id: int
 
     restricted: bool = False
@@ -46,46 +36,37 @@ class Restriction:
     alts: list[int] = field(factory=list)
     banned_discord_id: int = None
 
-
-    member_data: RestrictedMember = None
-    roblox_user: users.RobloxAccount = None
+    member: hikari.Member | MemberSerializable = None
+    roblox_user: RobloxUser = None
 
     _synced: bool = False
 
 
-    async def sync(self, member_data: RestrictedMember = None, roblox_user: users.RobloxAccount = None):
+    async def sync(self):
         """Fetch restriction data from the API."""
 
         if self._synced:
             return
 
-        self.member_data = self.member_data or member_data
-        self.roblox_user = self.roblox_user or roblox_user
-
         if not self.roblox_user:
             try:
-                self.roblox_user = await users.get_user(self.user_id, guild_id=self.guild_id)
+                self.roblox_user = await get_user(self.member.id, guild_id=self.guild_id)
             except UserNotVerified:
                 pass
 
-        if not self.member_data:
-            member = await bloxlink.rest.fetch_member(self.guild_id, self.user_id)
-            self.member_data: RestrictedMember = {"id": member.id, "roles": member.roles, "name": member.username, "nick": member.nickname}
-
-
         restriction_data, restriction_response = await fetch_typed(
-            f"{CONFIG.BIND_API}/restrictions/evaluate/{self.guild_id}",
+            f"{CONFIG.BIND_API_NEW}/restrictions/evaluate/{self.guild_id}/{self.member.id}",
             RestrictionResponse,
             headers={"Authorization": CONFIG.BIND_API_AUTH},
             method="POST",
             body={
-                "member": self.member_data,
-                "roblox_account": self.roblox_user,
+                "member": MemberSerializable.from_hikari(self.member).to_dict(),
+                "roblox_user": self.roblox_user.to_dict() if self.roblox_user else None,
             },
         )
 
         if restriction_response.status != StatusCodes.OK:
-            raise Message(f"Failed to fetch restriction data for {self.user_id} in {self.guild_id}")
+            raise Message(f"Failed to fetch restriction data for {self.member.id} in {self.guild_id}")
 
         self.restricted = restriction_data.is_restricted
         self.reason = restriction_data.reason
@@ -94,7 +75,7 @@ class Restriction:
         # self.warnings = restriction_data.warnings
         self.unevaluated = restriction_data.unevaluated
 
-        if self.unevaluated and roblox_user:
+        if self.unevaluated and self.roblox_user:
             if "disallowAlts" in self.unevaluated:
                 await self.check_alts()
 
@@ -107,10 +88,10 @@ class Restriction:
         """Check if the user has alternate accounts in this server."""
 
         matches: list[int] = []
-        roblox_accounts = await users.get_accounts(self.user_id)
+        roblox_accounts = await get_accounts(self.member.id)
 
         for account in roblox_accounts:
-            for user in await users.reverse_lookup(account, self.user_id):
+            for user in await reverse_lookup(account, self.member.id):
                 member = await bloxlink.fetch_discord_member(self.guild_id, user, "id")
 
                 if member:
@@ -126,10 +107,10 @@ class Restriction:
         """Check if the user is evading a ban in this server."""
 
         matches = []
-        roblox_accounts = await users.get_accounts(self.user_id)
+        roblox_accounts = await get_accounts(self.member.id)
 
         for account in roblox_accounts:
-            matches.append(await users.reverse_lookup(account, self.user_id))
+            matches.append(await reverse_lookup(account, self.member.id))
 
         for user in matches:
             try:

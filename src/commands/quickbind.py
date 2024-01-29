@@ -1,5 +1,6 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import GenericCommand
+from bot_utils.database import update_guild_data
 
 
 @bloxlink.command(
@@ -73,6 +74,6 @@ class QuickBindCommand(GenericCommand):
             # }
         ]
 
-        await bloxlink.update_guild_data(guild_id, binds=binds)
+        await update_guild_data(guild_id, binds=binds)
 
         await ctx.response.send("added binds")

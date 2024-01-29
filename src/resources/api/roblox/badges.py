@@ -1,8 +1,8 @@
 from attrs import define
+from bot_utils import fetch
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
-from resources.fetch import fetch
 
 BADGE_API = "https://badges.roblox.com/v1/badges"
 
@@ -39,7 +39,7 @@ async def get_badge(badge_id: str) -> RobloxBadge:
         RobloxNotFound: Raises RobloxNotFound when the Roblox API has an error.
 
     Returns:
-        RobloxGroup: A synced roblox badge.
+        RobloxBadge: A synced roblox badge.
     """
     badge: RobloxBadge = RobloxBadge(id=badge_id)
 

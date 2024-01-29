@@ -4,6 +4,7 @@ from attrs import define, field
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
+from bot_utils.database import fetch_guild_data
 
 from resources import binds
 from resources.api.roblox import users
@@ -100,7 +101,7 @@ class Update(APIController):
             user_data (FromJSON[MinimalMember]): Additional user data from the gateway.
         """
         user_data: MinimalMember = user_data.value
-        guild_data: GuildData = await bloxlink.fetch_guild_data(
+        guild_data: GuildData = await fetch_guild_data(
             guild_id, "autoRoles", "autoVerification", "highTrafficServer"
         )
 

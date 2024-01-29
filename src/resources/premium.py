@@ -3,6 +3,7 @@ from typing import Literal
 from datetime import timedelta
 import hikari
 from attrs import define
+from bot_utils.database import fetch_guild_data
 from resources.bloxlink import instance as bloxlink
 from resources.redis import redis
 from config import CONFIG
@@ -95,7 +96,7 @@ async def get_premium_status(
     """Returns a PremiumStatus object dictating whether the guild has premium."""
 
     if guild_id:
-        premium_data = (await bloxlink.fetch_guild_data(str(guild_id), "premium")).premium
+        premium_data = (await fetch_guild_data(str(guild_id), "premium")).premium
 
         if interaction:
             for entitlement in interaction.entitlements:

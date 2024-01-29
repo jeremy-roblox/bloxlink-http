@@ -8,6 +8,8 @@ from typing import Literal, TYPE_CHECKING
 from datetime import timedelta
 import hikari
 from attrs import asdict, define, field
+from bot_utils import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes
+from bot_utils.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data, update_guild_data
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
@@ -16,7 +18,6 @@ from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOT
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
 from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
-from resources.fetch import fetch_typed, StatusCodes
 from resources.premium import get_premium_status
 from resources.ui.components import Button
 from config import CONFIG
@@ -195,7 +196,7 @@ async def get_binds(
     """
 
     guild_id = str(guild_id)
-    guild_data: GuildData = await bloxlink.fetch_guild_data(
+    guild_data: GuildData = await fetch_guild_data(
         guild_id, "binds", "groupIDs", "roleBinds", "converted_binds"
     )
 
@@ -228,11 +229,11 @@ async def get_binds(
             # Prevent duplicates from being made. Can't use sets because dicts aren't hashable
             guild_data.binds.extend(bind for bind in old_binds if bind not in guild_data.binds)
 
-            await bloxlink.update_guild_data(guild_id, binds=guild_data.binds, converted_binds=True)
+            await update_guild_data(guild_id, binds=guild_data.binds, converted_binds=True)
             guild_data.converted_binds = True
 
     if POP_OLD_BINDS and guild_data.converted_binds:
-        await bloxlink.update_guild_data(guild_id, groupIDs=None, roleBinds=None, converted_binds=None)
+        await update_guild_data(guild_id, groupIDs=None, roleBinds=None, converted_binds=None)
 
     return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
@@ -533,7 +534,7 @@ async def create_bind(
 
         guild_binds.append(new_bind)
 
-        await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+        await update_guild_data(guild_id, binds=guild_binds)
 
         return
 
@@ -564,7 +565,7 @@ async def create_bind(
             existing_binds[0]["removeRoles"] = remove_roles
             guild_binds.append(existing_binds[0])
 
-        await bloxlink.update_guild_data(guild_id, binds=guild_binds)
+        await update_guild_data(guild_id, binds=guild_binds)
 
     else:
         # everything else
@@ -601,16 +602,16 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
-async def calculate_bound_roles(guild: hikari.RESTGuild, member_data: dict, roblox_user: users.RobloxAccount = None) -> UpdateEndpointPayload:
+async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointPayload:
     # Get user roles + nickname
     update_data, update_data_response = await fetch_typed(
-        f"{CONFIG.BIND_API}/update/{guild.id}/{member_data['id']}",
+        f"{CONFIG.BIND_API_NEW}/update/{guild.id}/{member.id}",
         UpdateEndpointPayload,
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
-            "roles": guild.roles,
-            "member": member_data,
+            "roles": GuildSerializable.from_hikari(guild).to_dict()["roles"],
+            "member": MemberSerializable.from_hikari(member).to_dict(),
             "roblox_account": roblox_user.to_dict() if roblox_user else None,
         },
     )
@@ -622,7 +623,7 @@ async def calculate_bound_roles(guild: hikari.RESTGuild, member_data: dict, robl
 
 
 async def apply_binds(
-    member: hikari.Member | dict,
+    member: hikari.Member | MemberSerializable,
     guild_id: hikari.Snowflake,
     roblox_account: users.RobloxAccount = None,
     *,
@@ -653,61 +654,23 @@ async def apply_binds(
         InteractiveMessage: The embed that will be shown to the user, may or may not include the components that
             will be shown, depending on if the user is restricted or not.
     """
+
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
     guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
 
-    role_ids = []
-    member_id = None
-    member_roles: dict = {}
-    username = None
-    nickname = None
-    avatar_url = None
-
     embed = hikari.Embed()
     components = []
     warnings = []
-
 
     added_roles = []
     removed_roles = []
     user_roles = []
     applied_nickname = None
 
-
-    # Get/Build necessary user information.
-    if isinstance(member, hikari.Member):
-        role_ids = member.role_ids
-        member_id = member.id
-        username = member.username
-        nickname = member.nickname
-        avatar_url = member.display_avatar_url.url
-
-    elif isinstance(member, dict):
-        role_ids = member.get("role_ids", [])
-        member_id = member.get("id")
-        username = member.get("username", None)
-
-        if not username:
-            username = member.get("name", "")
-
-        nickname = member.get("nickname", "")
-        avatar_url = member.get("avatar_url", "")
-
-    for member_role_id in role_ids:
-        if role := guild.roles.get(member_role_id):
-            member_roles[role.id] = {
-                "id": role.id,
-                "name": role.name,
-                "managed": role.name != "@everyone" or role.is_managed,
-            }
-
-    # set up some variables for queries
-    member_data = {"id": member_id, "roles": member_roles, "name": username, "nick": nickname}
-
     # Check restrictions
-    restriction_check = restriction.Restriction(user_id=member_id, guild_id=guild_id, roblox_user=roblox_account, member_data=member_data)
+    restriction_check = restriction.Restriction(member=member, guild_id=guild_id, roblox_user=roblox_account)
     await restriction_check.sync()
 
     # restriction_obj: restriction.Restriction = restriction_info["restriction"]
@@ -750,7 +713,9 @@ async def apply_binds(
 
 
     update_payload = await calculate_bound_roles(
-        guild.roles, member_data, roblox_account
+        guild=guild,
+        member=member,
+        roblox_user=roblox_account
     )
 
     # Convert all role IDs to real roles.
@@ -767,7 +732,7 @@ async def apply_binds(
             user_roles.append(role)
 
     # Create missing roles if dynamicRoles is enabled
-    guild_data = await bloxlink.fetch_guild_data(guild_id, "dynamicRoles")
+    guild_data = await fetch_guild_data(guild_id, "dynamicRoles")
 
     if update_payload.missingRoles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
         for role in update_payload.missingRoles:
@@ -784,12 +749,12 @@ async def apply_binds(
 
     # Apply nickname
     if update_payload.nickname:
-        if str(guild.owner_id) == str(member_id):
+        if str(guild.owner_id) == str(member.id):
             warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {update_payload.nickname}")  # fmt: skip
 
-        elif nickname != update_payload.nickname:
+        elif member.nickname != update_payload.nickname:
             try:
-                await bloxlink.rest.edit_member(guild_id, member_id, nickname=update_payload.nickname)
+                await bloxlink.rest.edit_member(guild_id, member.id, nickname=update_payload.nickname)
 
             except hikari.errors.ForbiddenError:
                 warnings.append(f"I don't have permission to change the nickname of this user.\n> Nickname: {update_payload.nickname}")  # fmt: skip
@@ -800,7 +765,7 @@ async def apply_binds(
     # Apply roles to user
     if added_roles or removed_roles:
         try:
-            await bloxlink.rest.edit_member(guild_id, member_id, roles=user_roles)
+            await bloxlink.rest.edit_member(guild_id, member.id, roles=user_roles)
         except hikari.ForbiddenError:
             raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
@@ -812,8 +777,8 @@ async def apply_binds(
             embed.title = "Member Unchanged"
 
         embed.set_author(
-            name=username,
-            icon=avatar_url or None,
+            name=member.username,
+            icon=member.avatar_url or None,
             url=roblox_account.profile_link if roblox_account else None,
         )
 
@@ -853,7 +818,7 @@ async def apply_binds(
             Button(
                 label="Verify with Bloxlink",
                 url=await users.get_verification_link(
-                    user_id=member_id,
+                    user_id=member.id,
                     guild_id=guild_id,
                 ),
             ),
@@ -876,13 +841,13 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
     if roblox_account:
         premium_status = await get_premium_status(guild_id=guild_id)
 
-        roblox_accounts = (await bloxlink.fetch_user_data(member.id, "robloxAccounts")).robloxAccounts
+        roblox_accounts = (await fetch_user_data(member.id, "robloxAccounts")).robloxAccounts
         user_confirms = roblox_accounts.get("confirms", {})
 
         if not premium_status.active and str(guild_id) not in user_confirms:
             user_confirms[str(guild_id)] = roblox_account.id
             roblox_accounts["confirms"] = user_confirms
-            await bloxlink.update_user_data(member.id, robloxAccounts=roblox_accounts)
+            await update_user_data(member.id, robloxAccounts=roblox_accounts)
 
             embed = hikari.Embed(
                 title="Select Account",
