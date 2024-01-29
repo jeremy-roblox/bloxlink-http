@@ -9,7 +9,7 @@ from datetime import timedelta
 import hikari
 from attrs import asdict, define, field
 from bot_utils import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes
-from bot_utils.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data, update_guild_data
+from bot_utils.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
@@ -605,14 +605,14 @@ async def delete_bind(
 async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointPayload:
     # Get user roles + nickname
     update_data, update_data_response = await fetch_typed(
-        f"{CONFIG.BIND_API_NEW}/update/{guild.id}/{member.id}",
+        f"{CONFIG.BIND_API_NEW}/binds/{guild.id}/{member.id}",
         UpdateEndpointPayload,
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "roles": GuildSerializable.from_hikari(guild).to_dict()["roles"],
             "member": MemberSerializable.from_hikari(member).to_dict(),
-            "roblox_account": roblox_user.to_dict() if roblox_user else None,
+            "roblox_user": roblox_user.to_dict() if roblox_user else None,
         },
     )
 
