@@ -1,5 +1,4 @@
-from attrs import define
-from bot_utils import fetch
+from bloxlink_lib import fetch
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
@@ -7,7 +6,6 @@ from resources.api.roblox.roblox_entity import RobloxEntity
 BADGE_API = "https://badges.roblox.com/v1/badges"
 
 
-@define(slots=True)
 class RobloxBadge(RobloxEntity):
     """Representation of a Badge on Roblox."""
 

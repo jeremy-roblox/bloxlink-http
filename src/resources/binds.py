@@ -7,17 +7,15 @@ from typing import Literal, TYPE_CHECKING
 
 from datetime import timedelta
 import hikari
-from attrs import asdict, define, field
-from bot_utils import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes
-from bot_utils.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds
+from bloxlink_lib.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
-from resources.bloxlink import GuildData, instance as bloxlink
+from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
 from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
-from resources.api.roblox.roblox_entity import RobloxEntity, create_entity
 from resources.premium import get_premium_status
 from resources.ui.components import Button
 from config import CONFIG
@@ -37,125 +35,13 @@ ValidBindType = Literal["group", "asset", "badge", "gamepass"]
 POP_OLD_BINDS: bool = False
 
 
-@define(slots=True)
-class GuildBind:
-    """Represents a binding from the database.
 
-    Post init it should be expected that the id, type, and entity types are not None.
-
-    Attributes:
-        nickname (str, optional): The nickname template to be applied to users. Defaults to None.
-        roles (list): The IDs of roles that should be given by this bind.
-        removeRole (list): The IDs of roles that should be removed when this bind is given.
-
-        id (int, optional): The ID of the entity for this binding. Defaults to None.
-        type (ValidBindType): The type of binding this is representing.
-        bind (dict): The raw data that the database stores for this binding.
-
-        entity (RobloxEntity, optional): The entity that this binding represents. Defaults to None.
-    """
-
-    nickname: str = None
-    roles: list = field(factory=list)
-    removeRoles: list = field(factory=list)
-
-    id: int = None
-    type: ValidBindType = ValidBindType
-    bind: dict = field(factory=lambda: {"type": "", "id": None})
-
-    entity: RobloxEntity = None
-
-    def __attrs_post_init__(self):
-        # pylint: disable=no-member
-        self.id = self.bind.get("id")
-        self.type = self.bind.get("type")
-        # pylint: enable=no-member
-        self.entity = create_entity(self.type, self.id)
-
-    def to_dict(self) -> dict:
-        """Convert this bind to a dict that can be saved in the database."""
-
-        return {
-            "roles": self.roles,
-            "removeRoles": self.removeRoles,
-            "nickname": self.nickname,
-            "bind": {"type": self.type, "id": self.id},
-        }
-
-
-class GroupBind(GuildBind):
-    """Represents additional attributes that only apply to group binds.
-
-    Except for min and max (which are used for ranges), only one attribute should be considered to be
-    not None at a time.
-
-    Attributes:
-        min (int, optional): The minimum rank that this bind applies to. Defaults to None.
-        max (int, optional): The maximum rank that this bind applies to. Defaults to None.
-        roleset (int, optional): The specific rank that this bind applies to. Defaults to None.
-            Can be negative (in legacy format) to signify that specific rank and higher.
-        everyone (bool, optional): Does this bind apply to everyone. Defaults to None.
-        guest (bool, optional): Does this bind apply to guests. Defaults to None.
-    """
-
-    min: int = None
-    max: int = None
-    roleset: int = None
-    everyone: bool = None
-    guest: bool = None
-
-    def __attrs_post_init__(self):
-        # pylint: disable=no-member
-        self.min = self.bind.get("min", None)
-        self.max = self.bind.get("max", None)
-        self.roleset = self.bind.get("roleset", None)
-        self.everyone = self.bind.get("everyone", None)
-        self.guest = self.bind.get("guest", None)
-        # pylint: enable=no-member
-
-        return super().__attrs_post_init__()
-
-    @property
-    def subtype(self) -> str:
-        """The specific type of this group bind.
-
-        Returns:
-            str: "linked_group" or "group_roles" depending on if there
-                are roles explicitly listed to be given or not.
-        """
-        if not self.roles or self.roles in ("undefined", "null"):
-            return "linked_group"
-
-        return "group_roles"
-
-    def to_dict(self) -> dict:
-        base_dict = super().to_dict()
-
-        if self.roleset is not None:
-            base_dict["bind"]["roleset"] = self.roleset
-
-        if self.min is not None:
-            base_dict["bind"]["min"] = self.min
-
-        if self.max is not None:
-            base_dict["bind"]["max"] = self.max
-
-        if self.guest is not None and self.guest:
-            base_dict["bind"]["guest"] = self.guest
-
-        if self.everyone is not None and self.everyone:
-            base_dict["bind"]["everyone"] = self.everyone
-
-        return base_dict
-
-
-@define(slots=True, kw_only=True)
 class UpdateEndpointPayload:
     nickname: str | None
 
     finalRoles: list[str]
-    addedRoles: list[str]
-    removedRoles: list[str]
+    addRoles: list[str]
+    removeRoles: list[str]
     missingRoles: list[str]
 
 
@@ -172,70 +58,6 @@ async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
     guild_data = await get_binds(guild_id)
 
     return len(guild_data) if not bind_id else sum(1 for b in guild_data if b.id == int(bind_id)) or 0
-
-
-async def get_binds(
-    guild_id: int | str,
-    bind_id: int | str = None,
-    category: ValidBindType | None = None,
-) -> list[GuildBind] | list[GuildData.binds]:
-    """Get the current guild binds.
-
-    Old binds will be included by default, but will not be saved in the database in the
-    new format unless the POP_OLD_BINDS flag is set to True. While it is False, old formatted binds will
-    be left as is.
-
-    Args:
-        guild_id (int | str): ID of the guild.
-        bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
-        category (ValidBindType | None, optional): Category to filter by.
-            Currently only works if return_dict is false.
-
-    Returns:
-        list[GuildBind]: Typed variants of the binds for the given guild ID.
-    """
-
-    guild_id = str(guild_id)
-    guild_data: GuildData = await fetch_guild_data(
-        guild_id, "binds", "groupIDs", "roleBinds", "converted_binds"
-    )
-
-    # Convert and save old bindings in the new format
-    if not guild_data.converted_binds and (
-        guild_data.groupIDs is not None or guild_data.roleBinds is not None
-    ):
-        old_binds = []
-        if guild_data.groupIDs:
-            old_binds.extend(convert_v3_binds_to_v4(guild_data.groupIDs, "group"))
-
-        if guild_data.roleBinds:
-            gamepasses = guild_data.roleBinds.get("gamePasses")
-            if gamepasses:
-                old_binds.extend(convert_v3_binds_to_v4(gamepasses, "gamepass"))
-
-            assets = guild_data.roleBinds.get("assets")
-            if assets:
-                old_binds.extend(convert_v3_binds_to_v4(assets, "asset"))
-
-            badges = guild_data.roleBinds.get("badges")
-            if badges:
-                old_binds.extend(convert_v3_binds_to_v4(badges, "badge"))
-
-            group_ranks = guild_data.roleBinds.get("groups")
-            if group_ranks:
-                old_binds.extend(convert_v3_binds_to_v4(group_ranks, "group"))
-
-        if old_binds:
-            # Prevent duplicates from being made. Can't use sets because dicts aren't hashable
-            guild_data.binds.extend(bind for bind in old_binds if bind not in guild_data.binds)
-
-            await update_guild_data(guild_id, binds=guild_data.binds, converted_binds=True)
-            guild_data.converted_binds = True
-
-    if POP_OLD_BINDS and guild_data.converted_binds:
-        await update_guild_data(guild_id, groupIDs=None, roleBinds=None, converted_binds=None)
-
-    return json_binds_to_guild_binds(guild_data.binds, category=category, id_filter=bind_id)
 
 
 def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
@@ -610,9 +432,9 @@ async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member |
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
-            "roles": GuildSerializable.from_hikari(guild).to_dict()["roles"],
-            "member": MemberSerializable.from_hikari(member).to_dict(),
-            "roblox_user": roblox_user.to_dict() if roblox_user else None,
+            "roles": GuildSerializable.from_hikari(guild).model_dump(by_alias=True)["roles"],
+            "member": MemberSerializable.from_hikari(member).model_dump(by_alias=True),
+            "roblox_user": roblox_user.model_dump(by_alias=True) if roblox_user else None,
         },
     )
 
@@ -719,11 +541,11 @@ async def apply_binds(
     )
 
     # Convert all role IDs to real roles.
-    for role_id in update_payload.addedRoles:
+    for role_id in update_payload.addRoles:
         if role := guild.roles.get(int(role_id)):
             added_roles.append(role)
 
-    for role_id in update_payload.removedRoles:
+    for role_id in update_payload.removeRoles:
         if role := guild.roles.get(int(role_id)):
             removed_roles.append(role)
 

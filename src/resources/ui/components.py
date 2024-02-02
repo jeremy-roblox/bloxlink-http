@@ -1,34 +1,28 @@
 from typing import Type, Literal
 from enum import Enum
 from abc import ABC, abstractmethod
-from attrs import fields, define, field
+from pydantic import Field
+from bloxlink_lib import BaseModelArbitraryTypes, BaseModel
 import hikari
 
 from resources.bloxlink import instance as bloxlink
 from resources import commands
 
 
-@define(slots=True, kw_only=True)
-class BaseCustomID:
+class BaseCustomID(BaseModel):
     """Base class for interactive custom IDs."""
 
     command_name: str
-    subcommand_name: str = field(default="")
-    type: Literal["command", "prompt"] = field(default="command")
-    user_id: int = field(converter=int)
+    subcommand_name: str = Field(default="")
+    type: Literal["command", "prompt"] = Field(default="command")
+    user_id: int
 
     def __str__(self):
-        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
+        field_values = [str(getattr(self, field_name)) for field_name in self.model_fields.keys()]
         return ":".join(field_values)
 
-    def to_dict(self) -> dict[str, str | int]:
-        """Converts the custom_id into a dict of values."""
 
-        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
-
-
-@define(slots=True, kw_only=True)
-class Component(ABC):
+class Component(BaseModelArbitraryTypes, ABC):
     """Abstract base class for components."""
 
     type: Literal[
@@ -47,7 +41,6 @@ class Component(ABC):
         raise NotImplementedError()
 
 
-@define(slots=True, kw_only=True)
 class Button(Component):
     """Base class for buttons."""
 
@@ -65,11 +58,12 @@ class Button(Component):
     is_disabled: bool = False
     emoji: hikari.Emoji = None
     url: str = None
-    type: hikari.ComponentType.BUTTON = hikari.ComponentType.BUTTON
+    type: hikari.ComponentType.BUTTON = Field(default=hikari.ComponentType.BUTTON)
 
-    def __attrs_post_init__(self):
+    def model_post_init(self, __context):
         if self.url:
             self.style = Button.ButtonStyle.LINK
+
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         current_action_row = action_rows[len(action_rows)-1]
@@ -93,8 +87,6 @@ class Button(Component):
 
         return action_rows
 
-
-@define(slots=True, kw_only=True)
 class SelectMenu(Component, ABC):
     """Abstract base class for select menus."""
 
@@ -106,12 +98,11 @@ class SelectMenu(Component, ABC):
     is_disabled: bool = False
 
 
-@define(slots=True, kw_only=True)
 class RoleSelectMenu(SelectMenu):
     """Base class for role select menus."""
 
     placeholder: str = "Select a role..."
-    type: hikari.ComponentType.ROLE_SELECT_MENU = hikari.ComponentType.ROLE_SELECT_MENU
+    type: hikari.ComponentType.ROLE_SELECT_MENU = Field(default=hikari.ComponentType.ROLE_SELECT_MENU)
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         # Role menus take up one full action row.
@@ -133,15 +124,13 @@ class RoleSelectMenu(SelectMenu):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class TextSelectMenu(SelectMenu):
     """Base class for text select menus."""
 
     options: list['Option']
-    type: hikari.ComponentType.TEXT_SELECT_MENU = hikari.ComponentType.TEXT_SELECT_MENU
+    type: hikari.ComponentType.TEXT_SELECT_MENU = Field(default=hikari.ComponentType.TEXT_SELECT_MENU)
 
-    @define(slots=True, kw_only=True)
-    class Option:
+    class Option(BaseModelArbitraryTypes):
         """Option for a text select menu."""
 
         label: str
@@ -177,7 +166,6 @@ class TextSelectMenu(SelectMenu):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class TextInput(Component):
     """Base class for modal text inputs."""
 
@@ -194,7 +182,7 @@ class TextInput(Component):
     max_length: int = None
     required: bool = False
     style: TextInputStyle = TextInputStyle.SHORT
-    type: hikari.ComponentType.TEXT_INPUT = hikari.ComponentType.TEXT_INPUT
+    type: hikari.ComponentType.TEXT_INPUT = Field(default=hikari.ComponentType.TEXT_INPUT)
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         # Text inputs take up one full action row.
@@ -215,7 +203,6 @@ class TextInput(Component):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class Separator(Component):
     """Used to build a new ActionRow for the next set of components."""
 

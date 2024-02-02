@@ -1,22 +1,20 @@
 import logging
 
-from attrs import define, field
+from pydantic import Field
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
-from bot_utils.database import fetch_guild_data
+from bloxlink_lib.database import fetch_guild_data
+from bloxlink_lib import GuildData, get_user_account, BaseModel
 
 from resources import binds
-from resources.api.roblox import users
-from resources.bloxlink import GuildData
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import BloxlinkForbidden, Message
 
 from ..decorators import authenticate
 
 
-@define
-class UpdateBody:
+class UpdateBody(BaseModel):
     """
     The expected content when a request from the gateway -> the server
     is made regarding updating a chunk of users.
@@ -35,8 +33,7 @@ class UpdateBody:
     is_done: bool = False
 
 
-@define
-class MinimalMember:
+class MinimalMember(BaseModel): # TODO: remove this
     id: str
     name: str
     discriminator: int = None
@@ -50,7 +47,7 @@ class MinimalMember:
     guild_avatar: str = None
     permissions: int = None
     joined_at: str = None
-    roles: list = field(factory=list)
+    roles: list = Field(default_factory=list)
     is_owner: bool = None
 
 
@@ -110,7 +107,7 @@ class Update(APIController):
 
         if guild_data.autoVerification or guild_data.autoRoles:
             # print(user_data)
-            roblox_account = await users.get_user_account(user_id, guild_id=guild_id, raise_errors=False)
+            roblox_account = await get_user_account(user_id, guild_id=guild_id, raise_errors=False)
             bot_response = await binds.apply_binds(
                 {
                     "id": user_id,
@@ -150,7 +147,7 @@ async def _update_users(content: UpdateBody):
         logging.debug(f"Updating member: {member['name']}")
 
         try:
-            roblox_account = await users.get_user_account(member["id"], guild_id=guild_id, raise_errors=False)
+            roblox_account = await get_user_account(member["id"], guild_id=guild_id, raise_errors=False)
             await binds.apply_binds(member, guild_id, roblox_account, moderate_user=True)
         except BloxlinkForbidden:
             # bloxlink doesn't have permissions to give roles... might be good to

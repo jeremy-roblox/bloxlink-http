@@ -1,5 +1,5 @@
 from typing import Literal
-from bot_utils import RobloxEntity, RobloxGroup
+from bloxlink_lib import RobloxEntity, RobloxGroup
 
 
 

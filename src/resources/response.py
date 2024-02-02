@@ -6,7 +6,8 @@ from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
 from datetime import timedelta
 
 import hikari
-from attrs import define, field
+from pydantic import Field
+from bloxlink_lib import BaseModel
 
 import resources.ui.components as Components
 from resources.bloxlink import instance as bloxlink
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
     from resources.ui.autocomplete import AutocompleteOption
 
 
-@define(slots=True)
 class PromptEmbed(InteractiveMessage):
     """Represents a prompt consisting of an embed & components for the message."""
 
@@ -28,31 +28,29 @@ class PromptEmbed(InteractiveMessage):
 
 
 
-@define(slots=True, kw_only=True)
+
 class PromptCustomID(Components.BaseCustomID):
     """Represents a custom ID for a prompt component."""
 
     prompt_name: str
-    page_number: int = field(converter=int)
+    page_number: int
     component_custom_id: str = None
-    prompt_message_id: int = field(converter=int)
+    prompt_message_id: int
 
-    def __attrs_post_init__(self):
+    def model_post_init(self, __context):
         self.type = "prompt"
 
 
-@define(slots=True)
-class PromptPageData:
+class PromptPageData(BaseModel):
     """Represents the data for a page of a prompt."""
 
     description: str
-    components: list[Components.Component] = field(default=list())
+    components: list[Components.Component] = Field(default_factory=list)
     title: str = None
-    fields: list["Field"] = field(default=list())
+    fields: list["Field"] = Field(default_factory=list)
     color: int = None
 
-    @define(slots=True)
-    class Field:
+    class Field(BaseModel): # TODO: RENAME THIS TO PromptField
         """Represents a field in a prompt embed."""
 
         name: str
@@ -60,8 +58,7 @@ class PromptPageData:
         inline: bool = False
 
 
-@define(slots=True)
-class Page:
+class Page(BaseModel):
     """Represents a page of a prompt."""
 
     func: Callable

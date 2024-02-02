@@ -7,7 +7,7 @@ from typing import Callable, Type, TypedDict, Unpack
 from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
-from attrs import define
+from bloxlink_lib import BaseModelArbitraryTypes
 from resources.ui.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
@@ -25,25 +25,22 @@ command_name_pattern = re.compile("(.+)Command")
 slash_commands: dict[str, Command] = {}
 
 
-
-
-@define(slots=True, kw_only=True)
-class Command:
+class Command(BaseModelArbitraryTypes):
     """Base representation of a slash command on Discord"""
 
     name: str
     fn: Callable = None  # None if it has sub commands
     category: str = "Miscellaneous"
-    permissions: hikari.Permissions = None
+    permissions: hikari.Permissions = hikari.Permissions.NONE
     defer: bool = False
     defer_with_ephemeral: bool = False
     description: str = None
-    options: list[hikari.commands.CommandOptions] = None
+    options: list[hikari.CommandOption] = None
     subcommands: dict[str, Callable] = None
     rest_subcommands: list[hikari.CommandOption] = None
     accepted_custom_ids: dict[str, Callable] = None
     autocomplete_handlers: dict[str, Callable] = None
-    dm_enabled: bool = None
+    dm_enabled: bool = False
     prompts: list[Type[Prompt]] = []
     developer_only: bool = False
     premium: bool = False
@@ -143,8 +140,7 @@ class NewCommandArgs(TypedDict, total=False):
     pro_bypass: bool
 
 
-@define(slots=True, kw_only=True)
-class CommandContext:
+class CommandContext(BaseModelArbitraryTypes):
     """Data related to a command that has been run.
 
     Attributes:
@@ -161,13 +157,13 @@ class CommandContext:
     """
 
     command_name: str
-    subcommand_name: str
+    subcommand_name: str | None
     command_id: int
     guild_id: int
     member: hikari.InteractionMember
     user: hikari.User
-    resolved: hikari.ResolvedOptionData
-    options: dict[str, str | int]
+    resolved: hikari.ResolvedOptionData | None
+    options: dict[str, str | int] | None
 
     interaction: hikari.CommandInteraction
 
@@ -480,10 +476,12 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
     """
     new_command_class = command()
 
-    command_name = command_name_pattern.search(command.__name__).group(1).lower()
+    command_name = command_args.get("name") or command_name_pattern.search(command.__name__).group(1).lower()
     command_fn = getattr(new_command_class, "__main__", None)  # None if it has sub commands
     subcommands: dict[str, Callable] = {}
     rest_subcommands: list[hikari.CommandOption] = []
+
+    command_args["description"] = new_command_class.__doc__
 
     for attr_name in dir(new_command_class):
         attr = getattr(new_command_class, attr_name)
@@ -499,31 +497,18 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
             )
             subcommands[attr_name] = attr
 
-    command_attrs: NewCommandArgs = {
-        "name": command_name,
-        "fn": command_fn,
-        "category": command_args.get("category", "Miscellaneous"),
-        "permissions": command_args.get("permissions", hikari.Permissions.NONE),
-        "defer": command_args.get("defer", False),
-        "defer_with_ephemeral": command_args.get("defer_with_ephemeral", False),
-        "description": new_command_class.__doc__,
-        "options": command_args.get("options"),
-        "subcommands": subcommands,
-        "rest_subcommands": rest_subcommands,
-        "accepted_custom_ids": command_args.get("accepted_custom_ids"),
-        "autocomplete_handlers": command_args.get("autocomplete_handlers"),
-        "dm_enabled": command_args.get("dm_enabled"),
-        "prompts": command_args.get("prompts", []),
-        "developer_only": command_args.get("developer_only", False),
-        "premium": command_args.get("premium", False),
-        "pro_bypass": command_args.get("pro_bypass", False),
-    }
-
-    slash_commands[command_name] = Command(**command_attrs)
+    slash_commands[command_name] = Command(
+        fn=command_fn,
+        name=command_name,
+        **command_args,
+    )
 
     for alias in command_args.get("aliases", []):
-        command_attrs["name"] = alias
-        slash_commands[alias] = Command(**command_attrs)
+        slash_commands[alias] = Command(
+            fn=command_fn,
+            name=alias,
+            **command_args,
+        )
 
         logging.info(f"Registered command alias {alias} of {command_name}")
 

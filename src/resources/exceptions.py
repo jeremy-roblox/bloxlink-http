@@ -1,4 +1,4 @@
-from bot_utils.exceptions import *
+from bloxlink_lib.exceptions import *
 
 class Message(BloxlinkException):
     """Generic exception to communicate some message to the user."""

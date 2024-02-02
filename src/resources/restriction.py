@@ -1,27 +1,24 @@
 from typing import Literal
 
 import hikari
-from attrs import define, field
-from bot_utils import MemberSerializable, fetch_typed, StatusCodes, get_user, RobloxUser, get_accounts, reverse_lookup
+from pydantic import Field
+from bloxlink_lib import MemberSerializable, fetch_typed, StatusCodes, get_user, RobloxUser, get_accounts, reverse_lookup, BaseModelArbitraryTypes, BaseModel
 
-from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import Message, UserNotVerified
 from config import CONFIG
 
 
-@define(slots=True, kw_only=True)
-class RestrictionResponse:
-    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = field(factory=list)
-    is_restricted: bool
-    reason: str
-    action: Literal["kick", "ban", "dm"]
-    source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader"]
+class RestrictionResponse(BaseModel):
+    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = Field(default_factory=list)
+    is_restricted: bool = False
+    reason: str | None
+    action: Literal["kick", "ban", "dm"] | None
+    source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader"] | None
     # warnings: list[str]
 
 
-@define(slots=True, kw_only=True)
-class Restriction:
+class Restriction(BaseModelArbitraryTypes):
     """Representation of how a restriction applies to a user, if at all."""
 
     guild_id: int
@@ -30,10 +27,10 @@ class Restriction:
     reason: str = None
     action: Literal["kick", "ban", "dm", None] = None
     source: Literal["ageLimit", "groupLock", "disallowAlts", "banEvader", None] = None
-    warnings: list[str] = field(factory=list)
-    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = field(factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    unevaluated: list[Literal["disallowAlts", "disallowBanEvaders"]] = Field(default_factory=list)
 
-    alts: list[int] = field(factory=list)
+    alts: list[int] = Field(default_factory=list)
     banned_discord_id: int = None
 
     member: hikari.Member | MemberSerializable = None
@@ -54,14 +51,18 @@ class Restriction:
             except UserNotVerified:
                 pass
 
+        print(self.roblox_user.model_dump(by_alias=True) if self.roblox_user else None)
+
+        RobloxUser(**self.roblox_user.model_dump(by_alias=True))
+
         restriction_data, restriction_response = await fetch_typed(
             f"{CONFIG.BIND_API_NEW}/restrictions/evaluate/{self.guild_id}/{self.member.id}",
             RestrictionResponse,
             headers={"Authorization": CONFIG.BIND_API_AUTH},
             method="POST",
             body={
-                "member": MemberSerializable.from_hikari(self.member).to_dict(),
-                "roblox_user": self.roblox_user.to_dict() if self.roblox_user else None,
+                "member": MemberSerializable.from_hikari(self.member).model_dump(),
+                "roblox_user": self.roblox_user.model_dump(by_alias=True) if self.roblox_user else None,
             },
         )
 

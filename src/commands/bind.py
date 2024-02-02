@@ -2,10 +2,9 @@ from typing import Literal
 
 from abc import ABC
 import hikari
-from attrs import define, field
 from hikari.commands import CommandOption, OptionType
 
-from bot_utils import get_group
+from bloxlink_lib import get_group
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
@@ -19,12 +18,11 @@ from resources.api.roblox.badges import get_badge
 from resources.api.roblox.gamepasses import get_gamepass
 
 
-@define
 class GenericBindPromptCustomID(PromptCustomID, ABC):
     """Custom ID for the GenericBindPrompt."""
 
-    entity_id: int = field(converter=int)
-    entity_type: str = field(converter=str)
+    entity_id: int
+    entity_type: str
 
 
 class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
@@ -215,11 +213,10 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
             await self.ack()
 
 
-@define
 class GroupPromptCustomID(PromptCustomID):
     """Custom ID for the GroupPrompt."""
 
-    group_id: int = field(converter=int)
+    group_id: int
 
 
 class GroupPrompt(Prompt[GroupPromptCustomID]):

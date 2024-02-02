@@ -1,5 +1,5 @@
 import hikari
-from bot_utils import get_user_account
+from bloxlink_lib import get_user_account
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, TextInput

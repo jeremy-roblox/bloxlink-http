@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from bot_utils import RobloxUser, get_user
-from bot_utils.database import fetch_guild_data
+from bloxlink_lib import RobloxUser, get_user
+from bloxlink_lib.database import fetch_guild_data
 import hikari
 
 from resources.constants import VERIFY_URL, VERIFY_URL_GUILD

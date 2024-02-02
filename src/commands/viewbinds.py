@@ -1,7 +1,9 @@
 import hikari
 
+from bloxlink_lib import GuildBind
+
 from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.binds import GroupBind, GuildBind, get_binds, join_bind_strings
+from resources.binds import get_binds, join_bind_strings
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import component_author_validation, get_custom_id_data
@@ -165,22 +167,22 @@ async def viewbinds_paginator_formatter(page_number: int, items: list, _guild_id
     return await build_page_embed(item_map, page_number, max_pages)
 
 
-async def _bind_string_gen(bind: GroupBind | GuildBind) -> str:
-    """Convert a GroupBind or GuildBind to a string format for the viewbind prompt.
+async def _bind_string_gen(bind: GuildBind) -> str:
+    """Convert a GuildBind to a string format for the viewbind prompt.
 
     Args:
-        bind (GroupBind | GuildBind): The binding to build a string for.
+        bind (GuildBind): The binding to build a string for.
 
     Returns:
         str: The formatted string for the viewbind prompt.
     """
+
     entity = bind.entity
+
     if not entity.synced:
         try:
             await entity.sync()
-        except RobloxAPIError:
-            pass
-        except RobloxNotFound:
+        except (RobloxAPIError, RobloxNotFound):
             pass
 
     name_id_string = str(entity)
@@ -191,7 +193,7 @@ async def _bind_string_gen(bind: GroupBind | GuildBind) -> str:
         role_string = ", ".join([f"<@&{role}>" for role in bind.roles])
         role_string = f"Role(s): {role_string}"
 
-    if isinstance(bind, GroupBind):
+    if bind.type == "group":
         if bind.subtype == "linked_group":
             # Role strings don't exist for linked groups.
             role_string = None
@@ -202,11 +204,11 @@ async def _bind_string_gen(bind: GroupBind | GuildBind) -> str:
     nickname_string = f"Nickname: `{bind.nickname}`" if bind.nickname else None
 
     remove_role_str = None
-    if bind.removeRoles and (bind.removeRoles != "null" or bind.removeRoles != "undefined"):
-        remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in bind.removeRoles])
+    if bind.remove_roles and (bind.remove_roles != "null" or bind.remove_roles != "undefined"):
+        remove_role_str = "Remove Roles:" + ", ".join([f"<@&{role}>" for role in bind.remove_roles])
 
     rank_string = None
-    if isinstance(bind, GroupBind):
+    if bind.type == "group":
         rank_string = _groupbind_rank_generator(bind)
 
     # Combine everything and remove the unused strings.
@@ -216,11 +218,11 @@ async def _bind_string_gen(bind: GroupBind | GuildBind) -> str:
     return join_bind_strings(output_list)
 
 
-def _groupbind_rank_generator(bind: GroupBind) -> str:
+def _groupbind_rank_generator(bind: GuildBind) -> str:
     """Handle the name determination of what rank string should be shown for a group binding.
 
     Args:
-        bind (GroupBind): Binding to build a rank string for.
+        bind (GuildBind): Binding to build a rank string for.
 
     Returns:
         str: The parsed rank string.
@@ -230,6 +232,9 @@ def _groupbind_rank_generator(bind: GroupBind) -> str:
 
     if bind.subtype == "linked_group":
         return None
+
+    if bind.type != "group":
+        raise ValueError("This function should only be used for group binds.")
 
     rank_string = ""
     group = bind.entity

@@ -2,8 +2,8 @@
 from typing import Literal
 from datetime import timedelta
 import hikari
-from attrs import define
-from bot_utils.database import fetch_guild_data
+from bloxlink_lib import BaseModel
+from bloxlink_lib.database import fetch_guild_data
 from resources.bloxlink import instance as bloxlink
 from resources.redis import redis
 from config import CONFIG
@@ -14,8 +14,7 @@ from .constants import SKU_TIERS
 __all__ = ("PremiumStatus", "get_premium_status")
 
 
-@define(slots=True, kw_only=True)
-class PremiumStatus:
+class PremiumStatus(BaseModel):
     """Represents the premium status of a guild or user."""
 
     active: bool = False

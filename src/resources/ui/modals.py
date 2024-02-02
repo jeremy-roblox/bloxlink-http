@@ -1,17 +1,17 @@
 import json
 from typing import TypedDict
-from attrs import define, field
+from pydantic import Field
 import hikari
+from bloxlink_lib import BaseModelArbitraryTypes
 from resources.ui.components import TextInput, get_custom_id, BaseCustomID
 from resources.redis import redis
 from resources import response
 
 
-@define(slots=True, kw_only=True)
 class ModalCustomID(BaseCustomID):
     """Represents a custom ID for a modal component."""
 
-    component_custom_id: str = field(default="")
+    component_custom_id: str = Field(default="")
 
 
 class ModalPromptArgs(TypedDict):
@@ -29,8 +29,7 @@ class ModalCommandArgs(TypedDict, total=False):
     subcommand_name: str
 
 
-@define
-class Modal:
+class Modal(BaseModelArbitraryTypes):
     """Represents a Discord Modal."""
 
     builder: hikari.impl.InteractionModalBuilder | None

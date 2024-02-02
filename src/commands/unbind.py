@@ -1,10 +1,11 @@
 import json
 
 import hikari
+from bloxlink_lib import GuildBind
 
 from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
 from resources.ui.components import component_author_validation, get_custom_id_data
-from resources.binds import GroupBind, GuildBind, delete_bind, get_binds
+from resources.binds import delete_bind, get_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.exceptions import RobloxAPIError
@@ -236,7 +237,7 @@ async def _component_generator(items: list, user_id: int | str, extra_custom_ids
             selection_menu.add_option(bind_name, str(bind.id))
             continue
 
-        bind: GroupBind
+        # bind: GroupBind
         bind_type = bind.subtype
 
         if bind_type == "linked_group":

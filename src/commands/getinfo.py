@@ -1,6 +1,6 @@
 from hikari.commands import CommandOption, OptionType
 
-from bot_utils import get_user_account
+from bloxlink_lib import get_user_account
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import UserNotVerified

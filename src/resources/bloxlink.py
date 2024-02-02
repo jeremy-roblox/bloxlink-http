@@ -6,15 +6,13 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Callable, Coroutine, Optional, Unpack
+from typing import TYPE_CHECKING, Coroutine, Optional, Unpack
 
 import hikari
 import yuyo
-from attrs import define, field
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
 
-from resources.constants import DEFAULTS
 from resources.redis import RedisMessageCollector, redis
 from config import CONFIG
 
@@ -24,56 +22,6 @@ instance: "Bloxlink" = None
 if TYPE_CHECKING:
     from resources.commands import NewCommandArgs
 
-
-@define(slots=True)
-class UserData:
-    """Representation of a User's data in Bloxlink
-
-    Attributes:
-        id (int): The Discord ID of the user.
-        robloxID (str): The roblox ID of the user's primary account.
-        robloxAccounts (dict): All of the user's linked accounts, and any guild specific verifications.
-    """
-
-    id: int
-    robloxID: str = None
-    robloxAccounts: dict = field(factory=lambda: {"accounts": [], "guilds": {}, "confirms": {}})
-
-
-@define(slots=True)
-class GuildData:
-    """Representation of the stored settings for a guild"""
-
-    id: int
-    binds: list = field(factory=list)  # FIXME
-
-    verifiedRoleEnabled: bool = True
-    verifiedRoleName: str = "Verified"  # deprecated
-    verifiedRole: str = None
-
-    unverifiedRoleEnabled: bool = True
-    unverifiedRoleName: str = "Unverified"  # deprecated
-    unverifiedRole: str = None
-
-    ageLimit: int = None
-    autoRoles: bool = None
-    autoVerification: bool = None
-    disallowAlts: bool = None
-    disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
-    dynamicRoles: bool = None
-    groupLock: dict = None
-    highTrafficServer: bool = None
-
-    nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
-
-    premium: dict = field(factory=dict) # deprecated
-
-    affiliate: dict = None
-
-    # Old bind fields.
-    roleBinds: dict = None
-    groupIDs: dict = None
-    converted_binds: bool = False
 
 
 class Bloxlink(yuyo.AsgiBot):

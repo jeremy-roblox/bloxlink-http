@@ -1,5 +1,4 @@
-from attrs import define
-from bot_utils import fetch
+from bloxlink_lib import fetch
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.api.roblox.roblox_entity import RobloxEntity
@@ -7,7 +6,6 @@ from resources.api.roblox.roblox_entity import RobloxEntity
 ASSET_API = "https://economy.roblox.com/v2/assets"
 
 
-@define(slots=True)
 class RobloxAsset(RobloxEntity):
     """Representation of an Asset on Roblox."""
 
