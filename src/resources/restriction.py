@@ -51,8 +51,6 @@ class Restriction(BaseModelArbitraryTypes):
             except UserNotVerified:
                 pass
 
-        print(self.roblox_user.model_dump(by_alias=True) if self.roblox_user else None)
-
         RobloxUser(**self.roblox_user.model_dump(by_alias=True))
 
         restriction_data, restriction_response = await fetch_typed(

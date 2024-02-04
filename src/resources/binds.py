@@ -7,8 +7,9 @@ from typing import Literal, TYPE_CHECKING
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel
 from bloxlink_lib.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
+from pydantic import Field
 
 from resources import restriction
 from resources.api.roblox import roblox_entity, users
@@ -36,13 +37,15 @@ POP_OLD_BINDS: bool = False
 
 
 
-class UpdateEndpointPayload:
+class UpdateEndpointResponse(BaseModel):
+    """The payload that is sent from the bind API when updating a user's roles and nickname."""
+
     nickname: str | None
 
-    finalRoles: list[str]
-    addRoles: list[str]
-    removeRoles: list[str]
-    missingRoles: list[str]
+    final_roles: list[str] = Field(alias="finalRoles")
+    add_roles: list[str] = Field(alias="addRoles")
+    remove_roles: list[str] = Field(alias="removeRoles")
+    missing_roles: list[str] = Field(alias="missingRoles")
 
 
 async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
@@ -424,15 +427,15 @@ async def delete_bind(
     await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
 
 
-async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointPayload:
+async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointResponse:
     # Get user roles + nickname
     update_data, update_data_response = await fetch_typed(
         f"{CONFIG.BIND_API_NEW}/binds/{guild.id}/{member.id}",
-        UpdateEndpointPayload,
+        UpdateEndpointResponse,
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
-            "roles": GuildSerializable.from_hikari(guild).model_dump(by_alias=True)["roles"],
+            "guild_roles": GuildSerializable.from_hikari(guild).model_dump(by_alias=True)["roles"],
             "member": MemberSerializable.from_hikari(member).model_dump(by_alias=True),
             "roblox_user": roblox_user.model_dump(by_alias=True) if roblox_user else None,
         },
@@ -541,23 +544,23 @@ async def apply_binds(
     )
 
     # Convert all role IDs to real roles.
-    for role_id in update_payload.addRoles:
+    for role_id in update_payload.add_roles:
         if role := guild.roles.get(int(role_id)):
             added_roles.append(role)
 
-    for role_id in update_payload.removeRoles:
+    for role_id in update_payload.remove_roles:
         if role := guild.roles.get(int(role_id)):
             removed_roles.append(role)
 
-    for role_id in update_payload.finalRoles:
+    for role_id in update_payload.final_roles:
         if role := guild.roles.get(int(role_id)):
             user_roles.append(role)
 
     # Create missing roles if dynamicRoles is enabled
     guild_data = await fetch_guild_data(guild_id, "dynamicRoles")
 
-    if update_payload.missingRoles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
-        for role in update_payload.missingRoles:
+    if update_payload.missing_roles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
+        for role in update_payload.missing_roles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
                     guild_id, name=role, reason="Creating missing roles."
@@ -585,11 +588,11 @@ async def apply_binds(
                 applied_nickname = update_payload.nickname
 
     # Apply roles to user
-    if added_roles or removed_roles:
-        try:
-            await bloxlink.rest.edit_member(guild_id, member.id, roles=user_roles)
-        except hikari.ForbiddenError:
-            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+    # if added_roles or removed_roles:
+    #     try:
+    #         await bloxlink.rest.edit_member(guild_id, member.id, roles=user_roles)
+    #     except hikari.ForbiddenError:
+    #         raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     # Build response embed
     if roblox_account or update_embed_for_unverified:

@@ -1,5 +1,5 @@
 import hikari
-from bloxlink_lib import get_group
+from bloxlink_lib import get_group, find
 from bloxlink_lib.database import fetch_guild_data, update_guild_data, update_guild_data
 from resources.bloxlink import instance as bloxlink
 from resources.binds import create_bind
@@ -9,7 +9,6 @@ from resources.ui.components import Button, TextSelectMenu, TextInput
 from resources.ui.modals import build_modal
 from resources.exceptions import RobloxNotFound
 from resources.constants import BROWN_COLOR, DEFAULTS
-from resources.utils import find
 
 
 SETUP_OPTIONS = {
