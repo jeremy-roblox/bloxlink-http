@@ -93,6 +93,15 @@ class QuickBindCommand(GenericCommand):
                     "id": None
                 }
             },
+            {
+                "roles": ["1203872460567609354"],
+                # "removeRoles": ["997690205177905233"],
+                "nickname": "{roblox-name}",
+                "criteria": {
+                    "type": "badge",
+                    "id": 2153913164
+                }
+            },
         ]
 
         await update_guild_data(guild_id, binds=binds)
