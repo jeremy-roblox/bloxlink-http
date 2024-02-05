@@ -1,7 +1,7 @@
-from bloxlink_lib import fetch
+from bloxlink_lib import fetch, RobloxEntity
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.api.roblox.roblox_entity import RobloxEntity
+
 
 ASSET_API = "https://economy.roblox.com/v2/assets"
 

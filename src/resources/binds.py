@@ -436,6 +436,7 @@ async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member |
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={
             "guild_roles": GuildSerializable.from_hikari(guild).model_dump(by_alias=True)["roles"],
+            "guild_name": guild.name,
             "member": MemberSerializable.from_hikari(member).model_dump(by_alias=True),
             "roblox_user": roblox_user.model_dump(by_alias=True) if roblox_user else None,
         },

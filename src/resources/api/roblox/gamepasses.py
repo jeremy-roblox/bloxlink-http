@@ -1,7 +1,6 @@
-from bloxlink_lib import fetch
+from bloxlink_lib import fetch, RobloxEntity
 
 from resources.exceptions import RobloxAPIError, RobloxNotFound
-from resources.api.roblox.roblox_entity import RobloxEntity
 
 GAMEPASS_API = "https://economy.roblox.com/v1/game-pass"
 
