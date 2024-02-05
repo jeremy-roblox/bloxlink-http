@@ -34,7 +34,7 @@ class Restriction(BaseModelArbitraryTypes):
     banned_discord_id: int = None
 
     member: hikari.Member | MemberSerializable = None
-    roblox_user: RobloxUser = None
+    roblox_user: RobloxUser | None = None
 
     _synced: bool = False
 
@@ -50,8 +50,6 @@ class Restriction(BaseModelArbitraryTypes):
                 self.roblox_user = await get_user(self.member.id, guild_id=self.guild_id)
             except UserNotVerified:
                 pass
-
-        RobloxUser(**self.roblox_user.model_dump(by_alias=True))
 
         restriction_data, restriction_response = await fetch_typed(
             f"{CONFIG.BIND_API_NEW}/restrictions/evaluate/{self.guild_id}/{self.member.id}",
