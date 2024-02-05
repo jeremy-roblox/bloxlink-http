@@ -7,15 +7,15 @@ from typing import Literal, TYPE_CHECKING
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity
 from bloxlink_lib.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
 from pydantic import Field
 
 from resources import restriction
-from resources.api.roblox import roblox_entity, users
+from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
-from resources.exceptions import BloxlinkException, BloxlinkForbidden, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
+from resources.exceptions import BloxlinkException, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
 from resources.ui.embeds import InteractiveMessage
 from resources.premium import get_premium_status
 from resources.ui.components import Button
@@ -162,7 +162,7 @@ async def convert_v4_binds_to_v3(items: list) -> dict:
         bind_type = sub_data["type"]
         bind_id = str(sub_data["id"])
 
-        bind_entity = roblox_entity.create_entity(bind_type, bind_id)
+        bind_entity = create_entity(bind_type, bind_id)
         try:
             await bind_entity.sync()
         except RobloxNotFound:

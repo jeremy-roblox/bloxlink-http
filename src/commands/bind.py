@@ -4,7 +4,7 @@ from abc import ABC
 import hikari
 from hikari.commands import CommandOption, OptionType
 
-from bloxlink_lib import get_group
+from bloxlink_lib import get_group, get_badge
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
@@ -14,7 +14,6 @@ from resources.response import Prompt, PromptCustomID, PromptPageData
 
 # bind resource API
 from resources.api.roblox.assets import get_asset
-from resources.api.roblox.badges import get_badge
 from resources.api.roblox.gamepasses import get_gamepass
 
 
