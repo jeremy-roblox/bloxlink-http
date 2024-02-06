@@ -372,7 +372,7 @@ requests = "^2.31.0"
 type = "git"
 url = "https://github.com/bloxlink/bloxlink-lib"
 reference = "HEAD"
-resolved_reference = "a8d6545c55a7f3c65bc5ec5200f972de1146be26"
+resolved_reference = "d827fb0bb4ffe4e3b2e7595761be549b90ac0c33"
 
 [[package]]
 name = "certifi"
@@ -925,46 +925,47 @@ files = [
 
 [[package]]
 name = "http-router"
-version = "4.0.0"
+version = "4.1.2"
 description = "A simple router system for HTTP applications"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "http-router-4.0.0.tar.gz", hash = "sha256:951a07415cff63b7db166d674ec16aa2ff317c9ba2b015839ced6bb2025529b9"},
-    {file = "http_router-4.0.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:5fefeccac68fa80ebc395e7fcd04e15275a71385ccd35c5d6a91e73dc13d6eda"},
-    {file = "http_router-4.0.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:f2a0d8bd95069e06a44ad5294c7c0108e45f9515b283492dbaa2ee6d9b7d3695"},
-    {file = "http_router-4.0.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:269140f29850bde54e21a88f8575cc954076d5d243e60ab40b765c8fb28675b1"},
-    {file = "http_router-4.0.0-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bebca9463c27c5d7779d92e530736003222227ce57f9d94b88d1935133435f5b"},
-    {file = "http_router-4.0.0-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:04c0d6db2f1d1708b98b1463518303216223dfe852c536dd2fd92c0bcec309f5"},
-    {file = "http_router-4.0.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:c97b39268762640e6ef3e24387c7a555b92b6433f8dc4b39f1836f94b5e03c0a"},
-    {file = "http_router-4.0.0-cp310-cp310-win_amd64.whl", hash = "sha256:8e129ad2f6241427696872bf233340007bce3632357e9701876ebb39c5bfb520"},
-    {file = "http_router-4.0.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:6a9b2c24ca79078ddcdb47ed3129739dd393cc040629d66d308bbb9922da0fae"},
-    {file = "http_router-4.0.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:4d8369ca6f7293c865a08657ae4ba57c31468ff68b9a31f01a5da02119e95255"},
-    {file = "http_router-4.0.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:21442761510f379f2ddec340d8c9126cd8f1425a662e36d16fe0b2410b7eb114"},
-    {file = "http_router-4.0.0-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2823cea519c1625d45f12fb5933c58543c6a2f5db17bcecf023fd3c35d4a495a"},
-    {file = "http_router-4.0.0-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:c274f6d98d79c15c4329b6825fa18f103f3f8278b35b657fdb0a21566d90a4b9"},
-    {file = "http_router-4.0.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:4a1209dd1431cf693c766f90fae158a6e51ee29675f9b5eda567f78d16cbfafe"},
-    {file = "http_router-4.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:4915a1076c8418a21ace39854582fda5fd3d101c35abf1d790e9b89e0db0b1df"},
-    {file = "http_router-4.0.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:7fe1d1046aaf48b0dbe78137207457a85ca3ebc40a912c804f4e7819c4ceccea"},
-    {file = "http_router-4.0.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8a71ba15e62cd837b0d5fc1d513fd249a37ee43da53a3a273f2f87dea23fe040"},
-    {file = "http_router-4.0.0-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6cbb9166901e69be8e9eb222187643826024f8c5a5840375471265fc122d5b22"},
-    {file = "http_router-4.0.0-cp37-cp37m-musllinux_1_1_aarch64.whl", hash = "sha256:823176acae736ff7770091e70abe284b329de51a23ac5f46e968550497a35d39"},
-    {file = "http_router-4.0.0-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:ea4f94d6e59d22fbcef3f3ab5f91a4be1190699663c3c60bc2cb5fee93e878cc"},
-    {file = "http_router-4.0.0-cp37-cp37m-win_amd64.whl", hash = "sha256:0612fe4fcd7bb9ef5494e4314e5cde34ac1592234df04b54145e7b1036d15bc5"},
-    {file = "http_router-4.0.0-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:557794904dd401257a63139e9a9090cec14b5df0696e6061878efbf87eddce01"},
-    {file = "http_router-4.0.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:bb2bc1749023aa52495926886e30739afe2e6245cd3b450761a103d95e7c2531"},
-    {file = "http_router-4.0.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9dab7f0d739fb20d6dc9b5f23e13aadfae712002eea06aca133e83fe09ee607f"},
-    {file = "http_router-4.0.0-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a1b86c8c9c230888abbb3a9fc2121baf9635dc86a76cdc69a4575eb574e7ea9f"},
-    {file = "http_router-4.0.0-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:c803dfc955e82419b61dc66faa83e62ef23d938ef9d875bb271ca87a4a642bc5"},
-    {file = "http_router-4.0.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:5b867a64d8ce3d2d5a2b04d338b0660eca7cb1a7dee7de5b45cc635c9075a79c"},
-    {file = "http_router-4.0.0-cp38-cp38-win_amd64.whl", hash = "sha256:80fd83527008378153a85c513ab5de84985b68d55172a5f5e5f583ebb11da7ef"},
-    {file = "http_router-4.0.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:0446a10b1afa3135aa0317338f47f1d9d936dd2b12603f3301bb3e7c83c3b8f7"},
-    {file = "http_router-4.0.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:778939a21f2951f07b0ba564609c2c42a8e871a3d78f9641032b9ded6c73804e"},
-    {file = "http_router-4.0.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9b6c85630c3e6f4b5cfe37879e654314e5f746012118921f7dd112d74c8f0ef6"},
-    {file = "http_router-4.0.0-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:478a9ba02956813861242ad86ae025db4d5d1c996f5967b8cc5260f42cdb7511"},
-    {file = "http_router-4.0.0-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:580eeecf7ff46b84f7d69c5bde89f6a5cd8a309afd65fa596ce867fc06d69f51"},
-    {file = "http_router-4.0.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:800d281bb93c3a437e11a5c6c540702e6cb351ddeeef8bc01defb309c6480278"},
-    {file = "http_router-4.0.0-cp39-cp39-win_amd64.whl", hash = "sha256:b321573bdcb01f54c78e924bda18575314b181d60e2459903b85ccd6ad8d1460"},
+    {file = "http-router-4.1.2.tar.gz", hash = "sha256:cc99cf800ccdcde68859183bab83aec54f49c6b110bf131b8cf1a7dea1cb860a"},
+    {file = "http_router-4.1.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:89334f2781aeb7c8066ba4baf1187c990b684584af89caad480ba371d7d9e69c"},
+    {file = "http_router-4.1.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:84dd3e43356f732771621c93c9ad7513f1be73a9d1144bfc58df7e82a83f4436"},
+    {file = "http_router-4.1.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d6f2f7a023ffea56543e29694f547357a2b9b33c77b08c355fcdcf91b486d0be"},
+    {file = "http_router-4.1.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:512ae57ea9b763c157ca54f9e2b159d88eca4d1075df7a18cb4a645eb05d34e7"},
+    {file = "http_router-4.1.2-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:8286e0cb64f5c36dcb2e792f45816f811e2ce402ccb48c62b06ef9e7988674e0"},
+    {file = "http_router-4.1.2-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:40060d329813d356784b7437d47b03c5d42718f91216a7df310325096eef8bbf"},
+    {file = "http_router-4.1.2-cp310-cp310-win_amd64.whl", hash = "sha256:af00ef3edb67956724cd3daa1c6f040e73cfff5f0afe46d7eb135d086c6b57fb"},
+    {file = "http_router-4.1.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:168dc4216845399a89db392d5d84d7738d4f4e9257d51e5014dbc85d9a51c4ef"},
+    {file = "http_router-4.1.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:e6a4174116339915bb83ce1801cfcc929947d79fa1d2b4cb090ee3ed1c955aae"},
+    {file = "http_router-4.1.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6f20377d2262e471bec8a0dfb9e4fa42a7b44434a491522bd716265fe597b352"},
+    {file = "http_router-4.1.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:aa0389259608c026d49b2db74d1da6fb31b6e2c12d3631e81eb926eea935f7ea"},
+    {file = "http_router-4.1.2-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:33b870b2f9b9a2a4691f9cc9c7ea0fe81c922a4ba5f423d6a0e91d97cf5492dc"},
+    {file = "http_router-4.1.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:b4376355d41debae8b6d9670377295cf6bb84944e9916c728012a1e2079edef2"},
+    {file = "http_router-4.1.2-cp311-cp311-win_amd64.whl", hash = "sha256:c8d6eede2db60ec31774e7cf5c78aa2d1bad6ac3117e0ee4a909aa684de1ad47"},
+    {file = "http_router-4.1.2-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:d8a0119a36e57f2a4d511e7958b1a7e22d522d7644d3d577788366f5ba18711d"},
+    {file = "http_router-4.1.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:9409d02ba3e72d6ef68dc30b9cf07ec03744856b12f9346635971b3de0e4e80b"},
+    {file = "http_router-4.1.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1d4e8a3108e50d7d185513f9b2b771a39698e765bb9bcaad52ea582e0ce23406"},
+    {file = "http_router-4.1.2-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:31a9492df53d7634db9106fc65f5a697a81344a8df8fa858b9e5ac862748ecc6"},
+    {file = "http_router-4.1.2-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:b21b7717a41286d89db6ec3e5609d0636a0f22bb1de82658f316aeca3d3feeba"},
+    {file = "http_router-4.1.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:392a974d225e698a43916070d936e69a98646bd1212ca1d582a4b825269c0c33"},
+    {file = "http_router-4.1.2-cp312-cp312-win_amd64.whl", hash = "sha256:ffb462ba4ea9fdfbe12c5946d2e9cb1e49244d824c85fde3228c3c78ae3040a4"},
+    {file = "http_router-4.1.2-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:cdf28854f05ff1b21a193cda6f5860d7983e6d68ac154410958f61bc97260a17"},
+    {file = "http_router-4.1.2-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:28d5b09c9162e2a419788b201829b44f199fb8ad84b17b3b6e56a48373aaba9a"},
+    {file = "http_router-4.1.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:67ecb93bbea33222f4a3b23c1f91d4c71cc51ff0446b9cc54b20ca260eb4ebf3"},
+    {file = "http_router-4.1.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:924a9b0a9131d0e45e4007abccc88051f3041db1d37d917ab973ab3483999f2d"},
+    {file = "http_router-4.1.2-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:58efaea2b318d14f7ff810e61511aaf3231e82f4e4dcf8ab67b532e3bfb03012"},
+    {file = "http_router-4.1.2-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:20da643b37fecd405cae8d5e697371e6c9b9d0f0ca0edba41bf171ef14fbc411"},
+    {file = "http_router-4.1.2-cp38-cp38-win_amd64.whl", hash = "sha256:b639bd95467954929ae5d1765b205aa9f68bdbc08b13b6732178302708ba0218"},
+    {file = "http_router-4.1.2-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:6b88c0959131d139f02adc07538d342905e1984cae308f5c63e2b11fbd655a47"},
+    {file = "http_router-4.1.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:0bd3c59427808596cf9ef79e11044810dc7bc36e3c78a9d788b7b2b647a3082f"},
+    {file = "http_router-4.1.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d3d799f951b9c9f62c170ed89a2293827c070690efd05dba8c1010dd501afe75"},
+    {file = "http_router-4.1.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b85904c993db689ee8725cd5e8bb991d0914bf32ca1ef8ee95c904897d4a8f2f"},
+    {file = "http_router-4.1.2-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:8783324904de078841f11e991fe34633f386b4009c091e47880ea1fc2ce35fbf"},
+    {file = "http_router-4.1.2-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:b44d897dfb7da07763eb525c02ebc34ac932944cb062c041db92f5761e5690b8"},
+    {file = "http_router-4.1.2-cp39-cp39-win_amd64.whl", hash = "sha256:12ddba636fded1d0a2c8a793748717ab37659642e509017385148c0a36b25faa"},
 ]
 
 [package.extras]
