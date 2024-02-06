@@ -4,16 +4,13 @@ from abc import ABC
 import hikari
 from hikari.commands import CommandOption, OptionType
 
-from bloxlink_lib import get_group, get_badge, get_gamepass
+from bloxlink_lib import get_group, get_badge, get_gamepass, get_catalog_asset
 from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, RoleSelectMenu, TextSelectMenu
 from resources.exceptions import BindConflictError, RobloxNotFound
 from resources.response import Prompt, PromptCustomID, PromptPageData
-
-# bind resource API
-from resources.api.roblox.assets import get_asset
 
 
 class GenericBindPromptCustomID(PromptCustomID, ABC):
@@ -784,7 +781,7 @@ class BindCommand(GenericCommand):
                 try:
                     match cmd_type:
                         case "asset":
-                            await get_asset(input_id)
+                            await get_catalog_asset(input_id)
                         case "badge":
                             await get_badge(input_id)
                         case "gamepass":
