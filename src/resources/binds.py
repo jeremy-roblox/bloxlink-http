@@ -557,10 +557,7 @@ async def apply_binds(
         if role := guild.roles.get(int(role_id)):
             user_roles.append(role)
 
-    # Create missing roles if dynamicRoles is enabled
-    guild_data = await fetch_guild_data(guild_id, "dynamicRoles")
-
-    if update_payload.missing_roles and guild_data.dynamicRoles in (True, None): # TODO: handle defaults in GuildData
+    if update_payload.missing_roles:
         for role in update_payload.missing_roles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
