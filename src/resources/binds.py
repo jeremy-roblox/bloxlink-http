@@ -7,8 +7,8 @@ from typing import Literal, TYPE_CHECKING
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity
-from bloxlink_lib.database import fetch_guild_data, fetch_user_data, update_user_data, update_guild_data
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity, count_binds
+from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data
 from pydantic import Field
 
 from resources import restriction
@@ -46,21 +46,6 @@ class UpdateEndpointResponse(BaseModel):
     add_roles: list[str] = Field(alias="addRoles")
     remove_roles: list[str] = Field(alias="removeRoles")
     missing_roles: list[str] = Field(alias="missingRoles")
-
-
-async def count_binds(guild_id: int | str, bind_id: int | str = None) -> int:
-    """Count the number of binds that this guild_id has created.
-
-    Args:
-        guild_id (int | str): ID of the guild.
-        bind_id (int | str, optional): ID of the entity to filter by when counting. Defaults to None.
-
-    Returns:
-        int: The number of bindings this guild has created.
-    """
-    guild_data = await get_binds(guild_id)
-
-    return len(guild_data) if not bind_id else sum(1 for b in guild_data if b.id == int(bind_id)) or 0
 
 
 def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
