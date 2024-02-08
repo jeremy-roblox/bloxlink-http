@@ -132,9 +132,7 @@ dmypy.json
 .DS_Store
 
 # bloxlink specific stuff
-slash_creator.py
 run.py
-src/config.py
 src/commands/cleanup.py
 archive/
 
