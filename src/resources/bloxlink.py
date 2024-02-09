@@ -141,12 +141,23 @@ class Bloxlink(yuyo.AsgiBot):
         add_roles: list = None,
         remove_roles: list = None,
         reason: str = "",
+        nickname: str = None,
     ) -> hikari.Member:
         """Adds or remove roles from a member."""
 
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 
-        return await self.rest.edit_member(user=member, guild=guild_id, roles=new_roles, reason=reason or "")
+        args = {
+            "user": member,
+            "guild": guild_id,
+            "roles": new_roles,
+            "reason": reason or "",
+        }
+
+        if nickname:
+            args["nickname"] = nickname
+
+        return await self.rest.edit_member(**args)
 
     async def fetch_roles(self, guild_id: str | int):
         """guild.fetch_roles() but returns a nice dictionary instead"""
