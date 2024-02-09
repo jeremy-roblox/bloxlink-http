@@ -435,7 +435,6 @@ async def apply_binds(
     roblox_account: users.RobloxAccount = None,
     *,
     moderate_user=False,
-    mention_roles=True,
     update_embed_for_unverified=False,
 ) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
@@ -449,7 +448,6 @@ async def apply_binds(
             or may not be their primary account, could be a guild-specific link. Defaults to None.
         moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
             ban evasion, alt detection) apply to this user. Defaults to False.
-        mention_roles (bool, optional): Should roles be mentioned in the reply embed. Defaults to True.
         update_embed_for_unverified (bool, optional): Should the embed be updated to show the roles added/removed
 
     Raises:
