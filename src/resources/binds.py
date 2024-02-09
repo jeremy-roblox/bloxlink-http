@@ -15,7 +15,7 @@ from resources import restriction
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
-from resources.exceptions import BloxlinkException, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired
+from resources.exceptions import BloxlinkException, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired, BloxlinkForbidden
 from resources.ui.embeds import InteractiveMessage
 from resources.premium import get_premium_status
 from resources.ui.components import Button
@@ -42,7 +42,6 @@ class UpdateEndpointResponse(BaseModel):
 
     nickname: str | None
 
-    final_roles: list[str] = Field(alias="finalRoles")
     add_roles: list[str] = Field(alias="addRoles")
     remove_roles: list[str] = Field(alias="removeRoles")
     missing_roles: list[str] = Field(alias="missingRoles")
@@ -538,10 +537,6 @@ async def apply_binds(
         if role := guild.roles.get(int(role_id)):
             removed_roles.append(role)
 
-    for role_id in update_payload.final_roles:
-        if role := guild.roles.get(int(role_id)):
-            user_roles.append(role)
-
     if update_payload.missing_roles:
         for role in update_payload.missing_roles:
             try:
@@ -571,11 +566,15 @@ async def apply_binds(
                 applied_nickname = update_payload.nickname
 
     # Apply roles to user
-    # if added_roles or removed_roles:
-    #     try:
-    #         await bloxlink.rest.edit_member(guild_id, member.id, roles=user_roles)
-    #     except hikari.ForbiddenError:
-    #         raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+    if added_roles or removed_roles:
+        try:
+            await bloxlink.edit_user_roles(member=member,
+                                           guild_id=guild_id,
+                                           add_roles=added_roles,
+                                           remove_roles=removed_roles,
+                                           nickname=applied_nickname)
+        except hikari.ForbiddenError:
+            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     # Build response embed
     if roblox_account or update_embed_for_unverified:
