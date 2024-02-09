@@ -133,7 +133,7 @@ class Bloxlink(yuyo.AsgiBot):
         )
         return res["data"]
 
-    async def edit_user_roles(
+    async def edit_user(
         self,
         member: hikari.Member,
         guild_id: str | int,
@@ -143,7 +143,7 @@ class Bloxlink(yuyo.AsgiBot):
         reason: str = "",
         nickname: str = None,
     ) -> hikari.Member:
-        """Adds or remove roles from a member."""
+        """Edits the guild-bound member."""
 
         new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
 

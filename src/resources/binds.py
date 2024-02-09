@@ -471,10 +471,9 @@ async def apply_binds(
     components = []
     warnings = []
 
-    added_roles = []
-    removed_roles = []
-    user_roles = []
-    applied_nickname = None
+    add_roles: list[int] = None
+    remove_roles: list[int] = None
+    nickname: str = None
 
     # Check restrictions
     restriction_check = restriction.Restriction(member=member, guild_id=guild_id, roblox_user=roblox_account)
@@ -505,18 +504,14 @@ async def apply_binds(
 
         # User won't see the response. Stop early. Bot tries to DM them before they are removed.
         if removed_user:
-            embed.description = (
+            return InteractiveMessage(embed_description=(
                 "Member was removed from this server as per this server's settings.\n"
                 "> *Admins, confused? Check the Discord audit log for the reason why this user was removed from the server.*"
-            )
+            ))
 
-            return InteractiveMessage(embed=embed)
-
-        embed.description = (
+        return InteractiveMessage(embed_description=(
             "Sorry, you are restricted from verifying in this server. Server admins: please run `/restriction view` to learn why."
-        )
-
-        return InteractiveMessage(embed=embed)
+        ))
 
 
     update_payload = await calculate_bound_roles(
@@ -525,57 +520,37 @@ async def apply_binds(
         roblox_user=roblox_account
     )
 
-    # Convert all role IDs to real roles.
-    for role_id in update_payload.add_roles:
-        if role := guild.roles.get(int(role_id)):
-            added_roles.append(role)
-
-    for role_id in update_payload.remove_roles:
-        if role := guild.roles.get(int(role_id)):
-            removed_roles.append(role)
+    add_roles = update_payload.add_roles
+    remove_roles = update_payload.remove_roles
+    nickname = update_payload.nickname
 
     if update_payload.missing_roles:
-        for role in update_payload.missing_roles:
+        for role_name in update_payload.missing_roles:
             try:
                 new_role: hikari.Role = await bloxlink.rest.create_role(
-                    guild_id, name=role, reason="Creating missing roles."
+                    guild_id, name=role_name, reason="Creating missing role"
                 )
-                added_roles.append(new_role)
-                user_roles.append(new_role)
+                add_roles.append(new_role.id)
 
             except hikari.ForbiddenError:
-                embed.description = "I don't have permission to create roles on this server."
-                return InteractiveMessage(embed=embed)
-
-    # Apply nickname
-    if update_payload.nickname:
-        if str(guild.owner_id) == str(member.id):
-            warnings.append(f"Since you're the owner of this server, I cannot set your nickname.\n> Nickname: {update_payload.nickname}")  # fmt: skip
-
-        elif member.nickname != update_payload.nickname:
-            try:
-                await bloxlink.rest.edit_member(guild_id, member.id, nickname=update_payload.nickname)
-
-            except hikari.errors.ForbiddenError:
-                warnings.append(f"I don't have permission to change the nickname of this user.\n> Nickname: {update_payload.nickname}")  # fmt: skip
-
-            else:
-                applied_nickname = update_payload.nickname
+                return InteractiveMessage(embed_description=(
+                    "I don't have permission to create roles on this server."
+                ))
 
     # Apply roles to user
-    if added_roles or removed_roles:
+    if add_roles or remove_roles or nickname != member.nickname:
         try:
-            await bloxlink.edit_user_roles(member=member,
-                                           guild_id=guild_id,
-                                           add_roles=added_roles,
-                                           remove_roles=removed_roles,
-                                           nickname=applied_nickname)
+            await bloxlink.edit_user(member=member,
+                                    guild_id=guild_id,
+                                    add_roles=add_roles,
+                                    remove_roles=remove_roles,
+                                    nickname=nickname if member.nickname != update_payload.nickname else None)
         except hikari.ForbiddenError:
             raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     # Build response embed
     if roblox_account or update_embed_for_unverified:
-        if added_roles or removed_roles or warnings or applied_nickname:
+        if add_roles or remove_roles or warnings or nickname:
             embed.title = "Member Updated"
         else:
             embed.title = "Member Unchanged"
@@ -586,32 +561,22 @@ async def apply_binds(
             url=roblox_account.profile_link if roblox_account else None,
         )
 
-        if added_roles:
+        if add_roles:
             embed.add_field(
                 name="Added Roles",
-                value=", ".join([r.mention if mention_roles else r.name for r in added_roles]),
+                value=", ".join(["<@&" + str(r) + ">" for r in add_roles]),
                 inline=True,
             )
 
-        if removed_roles:
+        if remove_roles:
             embed.add_field(
                 name="Removed Roles",
-                value=",".join([r.mention if mention_roles else r.name for r in removed_roles]),
+                value=",".join(["<@&" + str(r) + ">" for r in remove_roles]),
                 inline=True,
             )
 
-        if not added_roles and not removed_roles:
-            embed.add_field(
-                name="Roles",
-                value="Your roles are already up to date! If this is a mistake, please contact this "
-                "server's admins as they did not set up the bot correctly.",
-                inline=True,
-            )
-
-        if applied_nickname:
-            embed.add_field(name="Nickname", value=applied_nickname, inline=True)
-        else:
-            embed.add_field(name="Nickname", value="Your nickname is already up to date!", inline=True)
+        if nickname:
+            embed.add_field(name="Nickname", value=nickname, inline=True)
 
         if warnings:
             embed.add_field(name=f"Warning{'s' if len(warnings) >= 2 else ''}", value="\n".join(warnings))
