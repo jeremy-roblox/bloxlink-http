@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from collections import defaultdict
 from typing import Literal, TYPE_CHECKING
 
@@ -24,9 +23,7 @@ from config import CONFIG
 if TYPE_CHECKING:
     from resources.response import Response
 
-nickname_template_regex = re.compile(r"\{(.*?)\}")
-any_group_nickname = re.compile(r"\{group-rank-(.*?)\}")
-bracket_search = re.compile(r"\[(.*)\]")
+
 logger = logging.getLogger()
 
 
