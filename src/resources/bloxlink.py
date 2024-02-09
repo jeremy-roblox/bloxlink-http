@@ -138,21 +138,28 @@ class Bloxlink(yuyo.AsgiBot):
         member: hikari.Member,
         guild_id: str | int,
         *,
-        add_roles: list = None,
-        remove_roles: list = None,
+        add_roles: list[int] = None,
+        remove_roles: list[int] = None,
         reason: str = "",
         nickname: str = None,
     ) -> hikari.Member:
         """Edits the guild-bound member."""
 
-        new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
+        remove_roles = remove_roles or []
+        add_roles = add_roles or []
+        new_roles: list[int] = []
+
+        if add_roles or remove_roles:
+            new_roles = list(set([r for r in member.role_ids if r not in remove_roles] + add_roles))
 
         args = {
             "user": member,
             "guild": guild_id,
-            "roles": new_roles,
             "reason": reason or "",
         }
+
+        if new_roles:
+            args["roles"] = new_roles
 
         if nickname:
             args["nickname"] = nickname

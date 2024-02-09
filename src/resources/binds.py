@@ -39,9 +39,9 @@ class UpdateEndpointResponse(BaseModel):
 
     nickname: str | None
 
-    add_roles: list[str] = Field(alias="addRoles")
-    remove_roles: list[str] = Field(alias="removeRoles")
-    missing_roles: list[str] = Field(alias="missingRoles")
+    add_roles: list[int] = Field(alias="addRoles")
+    remove_roles: list[int] = Field(alias="removeRoles")
+    missing_roles: list[int] = Field(alias="missingRoles")
 
 
 def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
