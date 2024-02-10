@@ -500,6 +500,8 @@ def new_command(command: Callable, **command_args: Unpack[NewCommandArgs]):
     slash_commands[command_name] = Command(
         fn=command_fn,
         name=command_name,
+        rest_subcommands=rest_subcommands,
+        subcommands=subcommands,
         **command_args,
     )
 
