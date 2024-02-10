@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Unpack
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity, count_binds
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict
 from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data
 from pydantic import Field
 
@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger()
 
-
-ValidBindType = Literal["group", "asset", "badge", "gamepass"]
 
 # Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
 POP_OLD_BINDS: bool = False
@@ -231,7 +229,7 @@ async def convert_v4_binds_to_v3(items: list) -> dict:
 async def get_bind_desc(
     guild_id: int | str,
     bind_id: int | str = None,
-    bind_type: ValidBindType = None,
+    bind_type: VALID_BIND_TYPES = None,
 ) -> str:
     """Get a string-based representation of all bindings (matching the bind_id and bind_type).
 
@@ -261,13 +259,13 @@ async def get_bind_desc(
 
 async def create_bind(
     guild_id: int | str,
-    bind_type: ValidBindType,
+    bind_type: VALID_BIND_TYPES,
     bind_id: int,
     *,
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
-    **bind_data,
+    **bind_data: Unpack[BindCriteriaDict],
 ):
     """Creates a new guild bind. If it already exists, the roles will be appended to the existing entry.
 
@@ -301,81 +299,66 @@ async def create_bind(
         ):
             raise PremiumRequired()
 
-    guild_binds = [bind.to_dict() for bind in await get_binds(str(guild_id))]
+    guild_binds = await get_binds(str(guild_id))
+
+    new_bind = GuildBind(
+        roles=roles,
+        removeRoles=remove_roles,
+        nickname=nickname,
+        criteria={
+            "type": bind_type,
+            "id": bind_id,
+            **bind_data,
+        }
+    )
 
     # Check to see if there is a binding in place matching the given input
     existing_binds = []
 
     for bind in guild_binds:
-        b = bind["bind"]
-
-        if b["type"] != bind_type or b["id"] != bind_id:
-            continue
-
-        if len(bind_data) > 0:
-            bind_cond = (
-                (b.get("roleset") == bind_data.get("roleset") if "roleset" in bind_data else False)
-                or (b.get("min") == bind_data.get("min") if "min" in bind_data else False)
-                or (b.get("max") == bind_data.get("max") if "max" in bind_data else False)
-                or (b.get("guest") == bind_data.get("guest") if "guest" in bind_data else False)
-                or (b.get("everyone") == bind_data.get("everyone") if "everyone" in bind_data else False)
-            )
-
-            if not bind_cond:
-                continue
-
-        elif len(b) > 2 and len(bind_data) == 0:
-            continue
-
-        existing_binds.append(bind)
+        if bind == new_bind:
+            existing_binds.append(bind)
 
     if not existing_binds:
-        # Create the binding
-        new_bind = {
-            "roles": roles,
-            "removeRoles": remove_roles,
-            "nickname": nickname,
-            "bind": {"type": bind_type, "id": bind_id, **bind_data},
-        }
-
         guild_binds.append(new_bind)
 
-        await update_guild_data(guild_id, binds=guild_binds)
+        await update_guild_data(guild_id, binds=[b.model_dump() for b in guild_binds])
 
         return
 
-    if bind_id:
-        # group, badge, gamepass, and asset binds
-        if len(existing_binds) > 1:
-            # invalid bind. binds with IDs should only have one entry in the db.
-            raise BindConflictError(
-                "Binds with IDs should only have one entry. More than one duplicate was found."
-            )
+    # # merge the bind data
+    # if bind_id:
+    #     # group, badge, gamepass, and asset binds
+    #     if len(existing_binds) > 1:
+    #         # invalid bind. binds with IDs should only have one entry in the db.
+    #         raise BindConflictError(
+    #             "Binds with IDs should only have one entry. More than one duplicate was found."
+    #         )
 
-        if roles:
-            # Remove invalid guild roles
-            guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
-            existing_roles = set(existing_binds[0].get("roles", []) + roles)
+    #     if roles:
+    #         # Remove invalid guild roles
+    #         guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
+    #         existing_roles = set(existing_binds[0].get("roles", []) + roles)
 
-            # Moves binding to the end of the array, if we wanted order to stay could get the
-            # index, then remove, then insert again at that index.
-            guild_binds.remove(existing_binds[0])
+    #         # Moves binding to the end of the array, if we wanted order to stay could get the
+    #         # index, then remove, then insert again at that index.
+    #         guild_binds.remove(existing_binds[0])
 
-            existing_binds[0]["roles"] = list(guild_roles & existing_roles)
-            guild_binds.append(existing_binds[0])
+    #         existing_binds[0]["roles"] = list(guild_roles & existing_roles)
+    #         guild_binds.append(existing_binds[0])
 
-        if remove_roles:
-            # Override roles to remove rather than append.
-            guild_binds.remove(existing_binds[0])
+    #     if remove_roles:
+    #         # Override roles to remove rather than append.
+    #         guild_binds.remove(existing_binds[0])
 
-            existing_binds[0]["removeRoles"] = remove_roles
-            guild_binds.append(existing_binds[0])
+    #         existing_binds[0]["removeRoles"] = remove_roles
+    #         guild_binds.append(existing_binds[0])
 
-        await update_guild_data(guild_id, binds=guild_binds)
+    #     await update_guild_data(guild_id, binds=guild_binds)
 
-    else:
-        # everything else
-        raise BindException("No bind_id was passed when trying to make a bind.")
+    # else:
+    #     # everything else
+    #     raise BindException("No bind_id was passed when trying to make a bind.")
 
 
 async def delete_bind(
@@ -730,21 +713,20 @@ async def bind_description_generator(bind: GroupBind | GuildBind) -> str:
     Returns:
         str: The sentence description of this binding.
     """
-    if isinstance(bind, GroupBind):
+
+    if bind.type == "group":
         if bind.subtype == "linked_group":
             return "- _All users in **this** group receive the role matching their group rank name._"
 
     if not bind.entity.synced:
         try:
             await bind.entity.sync()
-        except RobloxNotFound:
-            pass
-        except RobloxAPIError:
+        except (RobloxNotFound, RobloxAPIError):
             pass
 
     roles = bind.roles if bind.roles else []
     role_str = ", ".join(f"<@&{val}>" for val in roles)
-    remove_roles = bind.removeRoles if bind.removeRoles else []
+    remove_roles = bind.remove_roles if bind.remove_roles else []
     remove_role_str = ", ".join(f"<@&{val}>" for val in remove_roles)
 
     prefix = _bind_desc_prefix_gen(bind)
@@ -757,7 +739,7 @@ async def bind_description_generator(bind: GroupBind | GuildBind) -> str:
     )
 
 
-def _bind_desc_prefix_gen(bind: GroupBind | GuildBind) -> str | None:
+def _bind_desc_prefix_gen(bind: GuildBind) -> str | None:
     """Generate the prefix string for a bind's description.
 
     Args:
@@ -766,35 +748,36 @@ def _bind_desc_prefix_gen(bind: GroupBind | GuildBind) -> str | None:
     Returns:
         str | None: The prefix if one should be set.
     """
-    if not isinstance(bind, GroupBind):
+
+    if bind.type != "group":
         return f"People who own the {bind.type}"
 
     prefix = None
-    if bind.min and bind.max:
+    if bind.criteria.group.min and bind.criteria.group.max:
         prefix = GROUP_RANK_CRITERIA_TEXT.get("rng")
 
-    elif bind.min:
+    elif bind.criteria.group.min:
         prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
 
-    elif bind.max:
+    elif bind.criteria.group.max:
         prefix = GROUP_RANK_CRITERIA_TEXT.get("lte")
 
-    elif bind.roleset:
-        if bind.roleset < 0:
+    elif bind.criteria.group.roleset:
+        if bind.criteria.group.roleset < 0:
             prefix = GROUP_RANK_CRITERIA_TEXT.get("gte")
         else:
             prefix = GROUP_RANK_CRITERIA_TEXT.get("equ")
 
-    elif bind.guest:
+    elif bind.criteria.group.guest:
         prefix = GROUP_RANK_CRITERIA_TEXT.get("gst")
 
-    elif bind.everyone:
+    elif bind.criteria.group.everyone:
         prefix = GROUP_RANK_CRITERIA_TEXT.get("all")
 
     return prefix
 
 
-def _bind_desc_content_gen(bind: GroupBind | GuildData) -> str | None:
+def _bind_desc_content_gen(bind: GuildData) -> str | None:
     """Generate the content string for a bind's description.
 
     This will be the content that describes the rolesets to be given,
@@ -808,24 +791,25 @@ def _bind_desc_content_gen(bind: GroupBind | GuildData) -> str | None:
             Roleset bindings like guest and everyone do not have content to display,
             as the given prefix string contains the content.
     """
-    if not isinstance(bind, GroupBind):
+
+    if bind.type != "group":
         return str(bind.entity).replace("**", "")
 
     group = bind.entity
-    content = None
+    content: str = None
 
-    if bind.min and bind.max:
-        min_str = group.roleset_name_string(bind.min, bold_name=False)
+    if bind.criteria.group.min and bind.criteria.group.max:
+        min_str = group.roleset_name_string(bind.criteria.group.min, bold_name=False)
         max_str = group.roleset_name_string(bind.max, bold_name=False)
         content = f"{min_str}** and **{max_str}"
 
-    elif bind.min:
-        content = group.roleset_name_string(bind.min, bold_name=False)
+    elif bind.criteria.group.min:
+        content = group.roleset_name_string(bind.criteria.group.min, bold_name=False)
 
-    elif bind.max:
-        content = group.roleset_name_string(bind.max, bold_name=False)
+    elif bind.criteria.group.max:
+        content = group.roleset_name_string(bind.crigeria.group.max, bold_name=False)
 
-    elif bind.roleset:
-        content = group.roleset_name_string(abs(bind.roleset), bold_name=False)
+    elif bind.criteria.group.roleset:
+        content = group.roleset_name_string(abs(bind.criteria.group.roleset), bold_name=False)
 
     return content
