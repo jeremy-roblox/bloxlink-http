@@ -234,6 +234,7 @@ async def create_bind(
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
+    dynamic_roles: bool = False,
     **criteria_data: Unpack[BindCriteriaDict],
 ):
     """Creates a new guild bind. If it already exists, the roles will be appended to the existing entry.
@@ -247,6 +248,7 @@ async def create_bind(
         bind_id (int): The ID of the entity this bind is for.
         roles (list[str], optional): Role IDs to be given to users for this bind. Defaults to None.
         remove_roles (list[str], optional): Role IDs to be removed from users for this bind. Defaults to None.
+        dynamic_roles (bool, optional): Whether the entire group is linked. Defaults to False.
         nickname (str, optional): The nickname template for this bind. Defaults to None.
 
     Raises:
@@ -256,6 +258,15 @@ async def create_bind(
     """
 
     bind_count = await count_binds(guild_id)
+    roles = roles or []
+    remove_roles = remove_roles or []
+
+    if dynamic_roles:
+        if bind_type == "group":
+            criteria_data["group"] = criteria_data.get("group", {})
+            criteria_data["group"]["dynamicRoles"] = True
+        else:
+            raise NotImplementedError("Dynamic roles are currently only supported for group binds.")
 
     if bind_count >= LIMITS["BINDS"]["FREE"]:
         premium_status = await get_premium_status(guild_id=guild_id)
@@ -291,7 +302,7 @@ async def create_bind(
     if not existing_binds:
         guild_binds.append(new_bind)
 
-        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True) for b in guild_binds])
+        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True, by_alias=True) for b in guild_binds])
 
         return
 
@@ -323,7 +334,7 @@ async def create_bind(
             existing_binds[0].remove_roles = remove_roles
             guild_binds.append(existing_binds[0])
 
-        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True) for b in guild_binds])
+        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True, by_alias=True) for b in guild_binds])
 
     else:
         # everything else (verified/unverified binds)
@@ -363,8 +374,8 @@ async def delete_bind(
 async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointResponse:
     # Get user roles + nickname
     update_data, update_data_response = await fetch_typed(
-        f"{CONFIG.BIND_API_NEW}/binds/{guild.id}/{member.id}",
         UpdateEndpointResponse,
+        f"{CONFIG.BIND_API_NEW}/binds/{guild.id}/{member.id}",
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={

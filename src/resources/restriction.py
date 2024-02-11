@@ -52,8 +52,8 @@ class Restriction(BaseModelArbitraryTypes):
                 pass
 
         restriction_data, restriction_response = await fetch_typed(
-            f"{CONFIG.BIND_API_NEW}/restrictions/evaluate/{self.guild_id}/{self.member.id}",
             RestrictionResponse,
+            f"{CONFIG.BIND_API_NEW}/restrictions/evaluate/{self.guild_id}/{self.member.id}",
             headers={"Authorization": CONFIG.BIND_API_AUTH},
             method="POST",
             body={

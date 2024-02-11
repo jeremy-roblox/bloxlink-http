@@ -146,6 +146,7 @@ class Response:
 
         if self.responded:
             if edit_original:
+                print(components)
                 return await self.interaction.edit_initial_response(
                     content, embed=embed, components=components
                 )
