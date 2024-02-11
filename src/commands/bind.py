@@ -4,8 +4,8 @@ from abc import ABC
 import hikari
 from hikari.commands import CommandOption, OptionType
 
-from bloxlink_lib import get_group, get_badge, get_gamepass, get_catalog_asset
-from resources.binds import bind_description_generator, create_bind, get_bind_desc, json_binds_to_guild_binds
+from bloxlink_lib import get_group, get_badge, get_gamepass, get_catalog_asset, GuildBind, build_binds_desc
+from resources.binds import create_bind
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, RoleSelectMenu, TextSelectMenu
@@ -37,7 +37,8 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
         fired_component_id: str | None,
     ):
         """Default page for the prompt. Shows users what binds they have made, and unsaved binds if any."""
-        new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
+
+        new_binds = [GuildBind(**b) for b in (await self.current_data(raise_exception=False)).get("pending_binds", [])]
 
         bind_type = self.custom_id.entity_type
 
@@ -56,19 +57,18 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
 
                 for bind in new_binds:
                     # Used to generically pass rank specifications to create_bind.
-                    bind_data: dict = bind["bind"].copy()
-                    bind_data.pop("id")
+                    bind_criteria = bind.criteria.model_dump()
 
                     # TODO: If no role exists in the bind, make one with the same name as the rank(??) and save.
                     # Maybe this should be done as part of the prior page, saves a request to roblox.
 
                     await create_bind(
                         interaction.guild_id,
-                        bind_type=bind_data.pop("type"),
+                        bind_type=bind.type,
                         bind_id=self.custom_id.entity_id,
-                        roles=bind["roles"],
-                        remove_roles=bind["removeRoles"],
-                        **bind_data,
+                        roles=bind.roles,
+                        remove_roles=bind.remove_roles,
+                        **bind_criteria,
                     )
 
                 # FIXME: Overriding the prompt in place instead of editing.
@@ -85,7 +85,7 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
 
             case _:
                 # Not spawned from a button press on the generated prompt. Builds a new prompt.
-                current_bind_desc = await get_bind_desc(
+                current_bind_desc = await build_binds_desc(
                     interaction.guild_id,
                     bind_id=self.custom_id.entity_id,
                     bind_type=bind_type,
@@ -102,11 +102,8 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
                 ]
 
                 if new_binds:
-                    # print(new_binds)
-                    typed_new_binds = json_binds_to_guild_binds(new_binds)
-                    # print(typed_new_binds)
                     unsaved_binds = "\n".join(
-                        [await bind_description_generator(bind) for bind in typed_new_binds]
+                        [str(bind) for bind in new_binds]
                     )
                     # print(unsaved_binds)
 
@@ -185,19 +182,19 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
 
         # TODO: Handle "create new role" logic. Can't exit the prompt with that set currently.
         if discord_role:
-            existing_pending_binds = current_data.get("pending_binds", [])
+            existing_pending_binds: list[GuildBind] = [GuildBind(**b) for b in current_data.get("pending_binds", [])]
             existing_pending_binds.append(
-                {
-                    "roles": discord_role,
-                    "removeRoles": [],
-                    "bind": {
+                GuildBind(
+                    roles=discord_role,
+                    remove_roles=[],
+                    criteria={
                         "type": bind_type,
                         "id": bind_id,
-                    },
-                },
+                    }
+                )
             )
 
-            await self.save_stateful_data(pending_binds=existing_pending_binds)
+            await self.save_stateful_data(pending_binds=[b.model_dump(by_alias=True) for b in existing_pending_binds])
             await self.response.send(
                 "Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.",
                 ephemeral=True,
@@ -231,7 +228,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
         fired_component_id: str | None,
     ):
         """Default page for the prompt. Shows users what binds they have made, and unsaved binds if any."""
-        new_binds = (await self.current_data(raise_exception=False)).get("pending_binds", [])
+        new_binds = [GuildBind(**b) for b in (await self.current_data(raise_exception=False)).get("pending_binds", [])]
 
         match fired_component_id:
             case "new_bind":
@@ -248,19 +245,18 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
                 for bind in new_binds:
                     # Used to generically pass rank specifications to create_bind.
-                    bind_data: dict = bind["bind"].copy()
-                    bind_data.pop("id")
+                    bind_criteria = bind.criteria.model_dump()
 
                     # TODO: If no role exists in the bind, make one with the same name as the rank(??) and save.
                     # Maybe this should be done as part of the prior page, saves a request to roblox.
 
                     await create_bind(
                         interaction.guild_id,
-                        bind_type=bind_data.pop("type"),
-                        bind_id=self.custom_id.group_id,
-                        roles=bind["roles"],
-                        remove_roles=bind["removeRoles"],
-                        **bind_data,
+                        bind_type=bind.type,
+                        bind_id=self.custom_id.entity_id,
+                        roles=bind.roles,
+                        remove_roles=bind.remove_roles,
+                        **bind_criteria,
                     )
 
                 # FIXME: Overriding the prompt in place instead of editing.
@@ -277,7 +273,11 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
             case _:
                 # Not spawned from a button press on the generated prompt. Builds a new prompt.
-                current_bind_desc = await get_bind_desc(interaction.guild_id, bind_id=self.custom_id.group_id)
+                current_bind_desc = await build_binds_desc(
+                    interaction.guild_id,
+                    bind_type="group",
+                    bind_id=self.custom_id.group_id,
+                )
 
                 await self.clear_data(
                     "discord_role", "group_rank"
@@ -293,10 +293,9 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
                 if new_binds:
                     # print(new_binds)
-                    typed_new_binds = json_binds_to_guild_binds(new_binds)
                     # print(typed_new_binds)
                     unsaved_binds = "\n".join(
-                        [await bind_description_generator(bind) for bind in typed_new_binds]
+                        [str(bind) for bind in new_binds]
                     )
                     # print(unsaved_binds)
 

@@ -538,8 +538,7 @@ def parse_custom_id[T](T: Type[T], custom_id: str, **kwargs) -> T:
     parts = custom_id.split(':')
 
     # Create an instance of the attrs dataclass with the custom_id values
-    #custom_id_instance = T(*parts[:len(fields(T))])
-    custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))}, **kwargs)
+    custom_id_instance = T(**{field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}, **kwargs)
 
     # Return the dataclass instance, discarding additional values
     return custom_id_instance
@@ -592,7 +591,7 @@ def get_custom_id[T](T: Type[T], **kwargs) -> str:
 
     return str(custom_id_instance)
 
-def set_custom_id_field[T](T: Type[T], custom_id: str, **kwargs) -> str:
+def set_custom_id_field[T: BaseModel](T: Type[T], custom_id: str, **kwargs) -> str:
     """Sets specific fields in a custom_id string and returns the updated custom_id.
 
     Args:
@@ -606,15 +605,17 @@ def set_custom_id_field[T](T: Type[T], custom_id: str, **kwargs) -> str:
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
 
+    print(T.model_fields_index(T))
+
     # Create an instance of the attrs dataclass with the default field values
-    custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))})
+    custom_id_instance = T(**{field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))})
 
     # Update specified fields with the provided keyword arguments
     for field_name, value in kwargs.items():
         setattr(custom_id_instance, field_name, value)
 
     # Retrieve the updated field values in the order specified by the dataclass
-    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T) if field.name != "_custom_id"]
+    field_values = [str(getattr(custom_id_instance, field_name)) for field_name in T.model_fields.keys() if field_name != "_custom_id"]
 
     # Create the updated custom_id string by joining the field values with colons
     updated_custom_id = ":".join(field_values)
