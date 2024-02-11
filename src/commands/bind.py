@@ -315,7 +315,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                         Button(
                             label="Create a new bind",
                             component_id="new_bind",
-                            is_disabled=False if len(new_binds) <= 5 else True,
+                            is_disabled=len(new_binds) >= 5,
                         ),
                         Button(
                             label="Publish",

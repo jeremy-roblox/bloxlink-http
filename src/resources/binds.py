@@ -282,7 +282,7 @@ async def create_bind(
     )
 
     # Check to see if there is a binding in place matching the given input
-    existing_binds = []
+    existing_binds: list[GuildBind] = []
 
     for bind in guild_binds:
         if bind == new_bind:
@@ -295,44 +295,44 @@ async def create_bind(
 
         return
 
-    # # merge the bind data
-    # if bind_id:
-    #     # group, badge, gamepass, and asset binds
-    #     if len(existing_binds) > 1:
-    #         # invalid bind. binds with IDs should only have one entry in the db.
-    #         raise BindConflictError(
-    #             "Binds with IDs should only have one entry. More than one duplicate was found."
-    #         )
+    # merge the bind data
+    if bind_id:
+        # group, badge, gamepass, and asset binds
+        if len(existing_binds) > 1:
+            # invalid bind. binds with IDs should only have one entry in the db.
+            raise BindConflictError(
+                "Binds with IDs should only have one entry. More than one duplicate was found."
+            )
 
-    #     if roles:
-    #         # Remove invalid guild roles
-    #         guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
-    #         existing_roles = set(existing_binds[0].get("roles", []) + roles)
+        if roles:
+            # Remove invalid guild roles
+            guild_roles = set((await bloxlink.fetch_roles(guild_id)).keys())
+            existing_roles = set(existing_binds[0].roles + roles)
 
-    #         # Moves binding to the end of the array, if we wanted order to stay could get the
-    #         # index, then remove, then insert again at that index.
-    #         guild_binds.remove(existing_binds[0])
+            # Moves binding to the end of the array, if we wanted order to stay could get the
+            # index, then remove, then insert again at that index.
+            guild_binds.remove(existing_binds[0])
 
-    #         existing_binds[0]["roles"] = list(guild_roles & existing_roles)
-    #         guild_binds.append(existing_binds[0])
+            existing_binds[0].roles = list(guild_roles & existing_roles)
+            guild_binds.append(existing_binds[0])
 
-    #     if remove_roles:
-    #         # Override roles to remove rather than append.
-    #         guild_binds.remove(existing_binds[0])
+        if remove_roles:
+            # Override roles to remove rather than append.
+            guild_binds.remove(existing_binds[0])
 
-    #         existing_binds[0]["removeRoles"] = remove_roles
-    #         guild_binds.append(existing_binds[0])
+            existing_binds[0].remove_roles = remove_roles
+            guild_binds.append(existing_binds[0])
 
-    #     await update_guild_data(guild_id, binds=guild_binds)
+        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True) for b in guild_binds])
 
-    # else:
-    #     # everything else
-    #     raise BindException("No bind_id was passed when trying to make a bind.")
+    else:
+        # everything else (verified/unverified binds)
+        raise NotImplementedError("This bind type is not yet supported.")
 
 
 async def delete_bind(
     guild_id: int | str,
-    bind_type: ValidBindType,
+    bind_type: VALID_BIND_TYPES,
     bind_id: int,
     **bind_data,
 ):
