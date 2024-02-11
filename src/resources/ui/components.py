@@ -605,8 +605,6 @@ def set_custom_id_field[T: BaseModel](T: Type[T], custom_id: str, **kwargs) -> s
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
 
-    print(T.model_fields_index(T))
-
     # Create an instance of the attrs dataclass with the default field values
     custom_id_instance = T(**{field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))})
 

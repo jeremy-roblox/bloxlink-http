@@ -185,7 +185,7 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
             existing_pending_binds: list[GuildBind] = [GuildBind(**b) for b in current_data.get("pending_binds", [])]
             existing_pending_binds.append(
                 GuildBind(
-                    roles=discord_role,
+                    roles=[discord_role],
                     remove_roles=[],
                     criteria={
                         "type": bind_type,
@@ -245,7 +245,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
 
                 for bind in new_binds:
                     # Used to generically pass rank specifications to create_bind.
-                    bind_criteria = bind.criteria.model_dump()
+                    bind_criteria = bind.criteria.model_dump(exclude_unset=True)
 
                     # TODO: If no role exists in the bind, make one with the same name as the rank(??) and save.
                     # Maybe this should be done as part of the prior page, saves a request to roblox.
@@ -253,7 +253,7 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     await create_bind(
                         interaction.guild_id,
                         bind_type=bind.type,
-                        bind_id=self.custom_id.entity_id,
+                        bind_id=self.custom_id.group_id,
                         roles=bind.roles,
                         remove_roles=bind.remove_roles,
                         **bind_criteria,
@@ -401,10 +401,10 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
                     component_id="group_rank",
                     options=[
                         TextSelectMenu.Option(
-                            label=roleset_name,
-                            value=roleset_id,
+                            label=str(roleset),
+                            value=str(roleset_id),
                         )
-                        for roleset_id, roleset_name in roblox_group.rolesets.items()
+                        for roleset_id, roleset in roblox_group.rolesets.items()
                         if roleset_id != 0
                     ],
                 ),
@@ -451,20 +451,22 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             roleset_db_string = "max"
 
         if discord_role and group_rank:
-            existing_pending_binds = current_data.get("pending_binds", [])
+            existing_pending_binds: list[GuildBind] = [GuildBind(**b) for b in current_data.get("pending_binds", [])]
             existing_pending_binds.append(
-                {
-                    "roles": [discord_role],
-                    "removeRoles": [],
-                    "bind": {
+                GuildBind(
+                    roles=[discord_role],
+                    remove_roles=[],
+                    criteria={
                         "type": "group",
                         "id": group_id,
-                        roleset_db_string: int(group_rank),
-                    },
-                },
+                        "group": {
+                            roleset_db_string: int(group_rank),
+                        }
+                    }
+                )
             )
 
-            await self.save_stateful_data(pending_binds=existing_pending_binds)
+            await self.save_stateful_data(pending_binds=[b.model_dump(by_alias=True, exclude_unset=True) for b in existing_pending_binds])
             await self.response.send(
                 "Bind added to your in-progress workflow. [Click here]() and click `Publish` to save your changes.",
                 ephemeral=True,

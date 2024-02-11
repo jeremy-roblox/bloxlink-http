@@ -234,7 +234,7 @@ async def create_bind(
     roles: list[str] = None,
     remove_roles: list[str] = None,
     nickname: str = None,
-    **bind_data: Unpack[BindCriteriaDict],
+    **criteria_data: Unpack[BindCriteriaDict],
 ):
     """Creates a new guild bind. If it already exists, the roles will be appended to the existing entry.
 
@@ -277,7 +277,7 @@ async def create_bind(
         criteria={
             "type": bind_type,
             "id": bind_id,
-            **bind_data,
+            **criteria_data,
         }
     )
 
@@ -291,7 +291,7 @@ async def create_bind(
     if not existing_binds:
         guild_binds.append(new_bind)
 
-        await update_guild_data(guild_id, binds=[b.model_dump() for b in guild_binds])
+        await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True) for b in guild_binds])
 
         return
 
