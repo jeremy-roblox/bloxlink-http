@@ -165,7 +165,7 @@ class CommandContext(BaseModelArbitraryTypes):
     resolved: hikari.ResolvedOptionData | None
     options: dict[str, str | int] | None
 
-    interaction: hikari.CommandInteraction
+    interaction: hikari.CommandInteraction | hikari.ModalInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction
 
     response: Response
 

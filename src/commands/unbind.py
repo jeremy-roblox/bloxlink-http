@@ -35,7 +35,7 @@ async def unbind_pagination_button(ctx: CommandContext):
     paginator = Paginator(
         guild_id,
         author_id,
-        source_cmd_name="unbind",
+        command_name="unbind",
         max_items=MAX_BINDS_PER_PAGE,
         items=bindings,
         page_number=page_number,
@@ -82,7 +82,7 @@ async def unbind_discard_binding(ctx: CommandContext):
     paginator = Paginator(
         guild_id,
         author_id,
-        source_cmd_name="unbind",
+        command_name="unbind",
         max_items=MAX_BINDS_PER_PAGE,
         items=bindings,
         custom_formatter=_embed_formatter,
@@ -170,7 +170,7 @@ class UnbindCommand(GenericCommand):
         paginator = Paginator(
             guild_id,
             user_id,
-            source_cmd_name="unbind",
+            command_name="unbind",
             max_items=MAX_BINDS_PER_PAGE,
             items=bindings,
             custom_formatter=_embed_formatter,

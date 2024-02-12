@@ -268,8 +268,6 @@ class Response:
 
         self.responded = True
 
-
-
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
             content,

@@ -21,7 +21,7 @@ async def bind_category_autocomplete(ctx: 'CommandContext'):
     guild_data = await get_binds(ctx.guild_id)
     bind_types = set(bind.type for bind in guild_data)
 
-    return ctx.response.send_autocomplete([AutocompleteOption(name=x, value=x) for x in bind_types])
+    return ctx.response.send_autocomplete([AutocompleteOption(name=x, value=x.lower()) for x in bind_types])
 
 
 async def bind_id_autocomplete(ctx: 'CommandContext'):
@@ -32,22 +32,22 @@ async def bind_id_autocomplete(ctx: 'CommandContext'):
 
     choices = [
         # base option
-        AutocompleteOption(name="View all your bindings", value="View binds")
+        AutocompleteOption(name="View all your bindings", value="view_binds")
     ]
 
     options = {o.name.lower(): o for o in interaction.options}
 
-    category_option = options.get("category")
-    id_option = options.get("id").value.lower() if options.get("id") else None
+    category_option = options["category"].value.lower().strip() if options.get("category") else None
+    id_option = options["id"].value.lower().strip() if options.get("id") else None
 
     # Only show more options if the category option has been set by the user.
     if category_option:
-        guild_data = await get_binds(interaction.guild_id, category=category_option.value)
+        guild_binds = await get_binds(interaction.guild_id, category=category_option)
 
         if id_option:
-            filtered_binds = set(bind.id for bind in guild_data if str(bind.id).startswith(id_option))
+            filtered_binds = filter(None, set(bind.criteria.id for bind in guild_binds if bind.criteria.id and str(bind.criteria.id) == id_option))
         else:
-            filtered_binds = set(bind.id for bind in guild_data)
+            filtered_binds = filter(None, set(bind.criteria.id for bind in guild_binds))
 
         for bind in filtered_binds:
             choices.append(AutocompleteOption(name=str(bind), value=str(bind)))
