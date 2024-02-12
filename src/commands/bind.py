@@ -23,6 +23,8 @@ class GenericBindPromptCustomID(PromptCustomID, ABC):
 class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
     """Generic prompt for binding Roblox entities to Discord roles."""
 
+    override_prompt_name = "GBP"
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args, **kwargs,
@@ -178,7 +180,7 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
                 new_role={"label": "Create new role", "component_id": "new_role"},
             )
 
-        discord_role = current_data["discord_role"]["values"] if current_data.get("discord_role") else None
+        discord_role = current_data["discord_role"]["values"][0] if current_data.get("discord_role") else None
 
         # TODO: Handle "create new role" logic. Can't exit the prompt with that set currently.
         if discord_role:
@@ -194,7 +196,7 @@ class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
                 )
             )
 
-            await self.save_stateful_data(pending_binds=[b.model_dump(by_alias=True) for b in existing_pending_binds])
+            await self.save_stateful_data(pending_binds=[b.model_dump(by_alias=True, exclude_unset=True) for b in existing_pending_binds])
             await self.response.send(
                 "Bind added to your in-progress workflow. Click `Publish` to save your changes.",
                 ephemeral=True,

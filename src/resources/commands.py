@@ -448,7 +448,7 @@ async def handle_component(interaction: hikari.ComponentInteraction, response: R
 
                 if (
                     parsed_custom_id.command_name == command.name
-                    and parsed_custom_id.prompt_name == command_prompt.__name__
+                    and parsed_custom_id.prompt_name in (command_prompt.override_prompt_name, command_prompt.__name__)
                 ):
                     new_prompt = await command_prompt.new_prompt(
                         prompt_instance=command_prompt,

@@ -146,7 +146,6 @@ class Response:
 
         if self.responded:
             if edit_original:
-                print(components)
                 return await self.interaction.edit_initial_response(
                     content, embed=embed, components=components
                 )
@@ -340,6 +339,8 @@ class Response:
 
 
 class Prompt(Generic[T]):
+    override_prompt_name: str = None
+
     def __init__(
         self,
         command_name: str,
@@ -353,7 +354,7 @@ class Prompt(Generic[T]):
         self.current_page: Page = None
         self.response = response
         self.command_name = command_name
-        self.prompt_name = self.__class__.__name__
+        self.prompt_name = self.override_prompt_name or self.__class__.__name__
         self.custom_id_format: Type[T] = custom_id_format
         self._pending_embed_changes = {}
         self.guild_id = response.interaction.guild_id
@@ -559,7 +560,7 @@ class Prompt(Generic[T]):
         logging.debug(hash_, "run_page() current page=", self.current_page_number, self.current_page.details.title)
 
         generator_or_coroutine = self.current_page.func(
-            self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None
+            self.response.interaction, self.custom_id.component_custom_id if self.custom_id and not changing_page else None
         )
 
         # if this is a programmatic page, we need to run it first
