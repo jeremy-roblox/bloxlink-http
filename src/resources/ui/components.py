@@ -1,7 +1,7 @@
-from typing import Type, Literal
+from typing import Type, Literal, Self
 from enum import Enum
 from abc import ABC, abstractmethod
-from pydantic import Field
+from pydantic import Field, field_validator
 from bloxlink_lib import BaseModelArbitraryTypes, BaseModel
 import hikari
 
@@ -13,14 +13,17 @@ class BaseCustomID(BaseModel):
     """Base class for interactive custom IDs."""
 
     command_name: str
-    subcommand_name: str = Field(default="")
-    type: Literal["command", "prompt"] = Field(default="command")
+    section: str = "" # used to differentiate between different sections of the same command
+    subcommand_name: str = ""
+    type: Literal["command", "prompt", "paginator"] = "command"
     user_id: int
 
     def __str__(self):
-        field_values = [str(getattr(self, field_name)) for field_name in self.model_fields.keys()]
+        field_values = [str(getattr(self, field_name) or "") for field_name in self.model_fields]
         return ":".join(field_values)
 
+    def __add__(self, other: Self) -> str:
+        return f"{str(self)}:{str(other)}"
 
 class Component(BaseModelArbitraryTypes, ABC):
     """Abstract base class for components."""
@@ -31,8 +34,13 @@ class Component(BaseModelArbitraryTypes, ABC):
         hikari.ComponentType.ROLE_SELECT_MENU,
         hikari.ComponentType.TEXT_INPUT,
     ] = None
-    custom_id: str = None # only None for prompt page initializations, it's set by the prompt handler
+    custom_id: str | BaseCustomID = None # only None for prompt page initializations, it's set by the prompt handler
     component_id: str = None # used for prompts
+
+    @field_validator("custom_id", mode="before")
+    @classmethod
+    def transform_custom_id(cls: Type[Self], custom_id: str | BaseCustomID) -> str:
+        return str(custom_id)
 
     @abstractmethod
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]) -> list[hikari.impl.MessageActionRowBuilder]:
@@ -127,7 +135,7 @@ class RoleSelectMenu(SelectMenu):
 class TextSelectMenu(SelectMenu):
     """Base class for text select menus."""
 
-    options: list['Option']
+    options: list['Option'] = Field(default_factory=list)
     type: hikari.ComponentType.TEXT_SELECT_MENU = Field(default=hikari.ComponentType.TEXT_SELECT_MENU)
 
     class Option(BaseModelArbitraryTypes):
@@ -457,13 +465,11 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def component_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
+def component_author_validation(parse_into: BaseCustomID=BaseCustomID, ephemeral: bool=True, defer: bool=True):
     """Handle same-author validation for components.
     Utilized to ensure that the author of the command is the only one who can press buttons.
 
     Args:
-        author_segment (int): The segment (as preferred by get_custom_id_data) where the original author's ID
-            will be located in. Defaults to 2.
         ephemeral (bool): Set if the response should be ephemeral or not. Default is true.
             A user mention will be included in the response if not ephemeral.
         defer (bool): Set if the response should be deferred by the handler. Default is true.
@@ -473,11 +479,10 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
         async def response_wrapper(ctx: commands.CommandContext):
             interaction = ctx.interaction
 
-            author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
+            parsed_custom_id = parse_custom_id(parse_into, interaction.custom_id)
 
             # Only accept input from the author of the command
-            # Presumes that the original author ID is the second value in the custom_id.
-            if str(interaction.member.id) != author_id:
+            if interaction.member.id != parsed_custom_id.user_id:
                 # Could just silently fail too... Can't defer before here or else the eph response
                 # fails to show up.
                 return (
@@ -488,15 +493,15 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
                     )
                     .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
                 )
-            else:
-                if defer:
-                    await interaction.create_initial_response(
-                        hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
-                        flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
-                    )
+
+            if defer:
+                await interaction.create_initial_response(
+                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                    flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
+                )
 
             # Trigger original method
-            return await func(commands.build_context(interaction))
+            return await func(commands.build_context(interaction), parsed_custom_id)
 
         return response_wrapper
 
@@ -536,9 +541,17 @@ def parse_custom_id[T](T: Type[T], custom_id: str, **kwargs) -> T:
     """
     # Split the custom_id into parts
     parts = custom_id.split(':')
+    print(parts)
+
+    attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
+    print(attrs_parts)
+
+    for field_name, value in dict(attrs_parts).items():
+        if value == "":
+            del attrs_parts[field_name]
 
     # Create an instance of the attrs dataclass with the custom_id values
-    custom_id_instance = T(**{field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}, **kwargs)
+    custom_id_instance = T(**attrs_parts, **kwargs)
 
     # Return the dataclass instance, discarding additional values
     return custom_id_instance
@@ -604,16 +617,25 @@ def set_custom_id_field[T: BaseModel](T: Type[T], custom_id: str, **kwargs) -> s
     """
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
+    print(parts)
+
+    attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
+
+    for field_name, value in dict(attrs_parts).items():
+        if value == "":
+            del attrs_parts[field_name]
+
+    print(attrs_parts)
 
     # Create an instance of the attrs dataclass with the default field values
-    custom_id_instance = T(**{field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))})
+    custom_id_instance = T(**attrs_parts)
 
     # Update specified fields with the provided keyword arguments
     for field_name, value in kwargs.items():
         setattr(custom_id_instance, field_name, value)
 
     # Retrieve the updated field values in the order specified by the dataclass
-    field_values = [str(getattr(custom_id_instance, field_name)) for field_name in T.model_fields.keys() if field_name != "_custom_id"]
+    field_values = [str(getattr(custom_id_instance, field_name) or "") for field_name in T.model_fields.keys() if field_name != "_custom_id"]
 
     # Create the updated custom_id string by joining the field values with colons
     updated_custom_id = ":".join(field_values)

@@ -156,9 +156,9 @@ class CommandContext(BaseModelArbitraryTypes):
         response (Response): Bloxlink's wrapper for handling initial response sending.
     """
 
-    command_name: str
+    command_name: str | None
     subcommand_name: str | None
-    command_id: int
+    command_id: int | None
     guild_id: int
     member: hikari.InteractionMember
     user: hikari.User

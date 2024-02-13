@@ -2,7 +2,7 @@ import json
 import uuid
 import logging
 import functools
-from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
+from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING, Any
 from datetime import timedelta
 
 import hikari
@@ -201,6 +201,7 @@ class Response:
         channel_id: str | int = None,
         build_components: bool = True,
         fetch_message=False,
+        edit_original: bool = False,
         **kwargs,
     ) -> hikari.Message | None:
         """Send this Response to discord. This function only sends via REST and ignores the initial webhook response.
@@ -267,6 +268,16 @@ class Response:
                                                   **kwargs)
 
         self.responded = True
+
+        if edit_original:
+            return await self.interaction.edit_initial_response(
+                content,
+                embed=embed,
+                components=components,
+                mentions_everyone=False,
+                role_mentions=False,
+                **kwargs
+            )
 
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
@@ -370,7 +381,7 @@ class Prompt(Generic[T]):
         interaction: hikari.ComponentInteraction | hikari.CommandInteraction,
         command_name: str,
         response: Response,
-        custom_id_data: dict = None,
+        custom_id_data: dict[str, Any] = None,
     ):
         """Return a new initialized Prompt"""
 
@@ -391,7 +402,7 @@ class Prompt(Generic[T]):
                 if prompt.start_with_fresh_data:
                     await prompt.clear_data()
 
-                prompt.custom_id: T = prompt.custom_id_format(
+                prompt.custom_id = prompt.custom_id_format(
                     command_name=command_name,
                     prompt_name=prompt.prompt_name,
                     page_number=0,

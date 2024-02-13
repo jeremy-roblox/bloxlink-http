@@ -606,3 +606,21 @@ async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, res
                 await message.delete()
             except (hikari.ForbiddenError, hikari.NotFoundError):
                 pass
+
+async def generate_binds_embed(items: list[GuildBind], embed: hikari.Embed):
+    """Syncs the entities of the given binds and adds them to the embed."""
+
+    bind_list: dict[str, list[str]] = {}
+
+    for bind in items:
+        await bind.entity.sync()
+
+        bind_entity = str(bind.entity)
+
+        if bind_entity not in bind_list:
+            bind_list[bind_entity] = []
+
+        bind_list[bind_entity].append(str(bind))
+
+    for bind_entity, bind_strings in bind_list.items():
+        embed.add_field(name=bind_entity, value="\n".join(bind_strings))
