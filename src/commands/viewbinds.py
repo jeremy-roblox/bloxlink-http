@@ -60,7 +60,7 @@ def viewbinds_item_filter(items: list[GuildBind]):
     return sorted(items, key=lambda item: item.criteria.id)
 
 
-@component_author_validation(parse_into=ViewbindsCustomID)
+@component_author_validation(parse_into=ViewbindsCustomID, defer=True)
 async def viewbinds_button(ctx: CommandContext, custom_id: ViewbindsCustomID):
     """Handle pagination left and right button presses."""
 
