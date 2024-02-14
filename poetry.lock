@@ -372,7 +372,7 @@ requests = "^2.31.0"
 type = "git"
 url = "https://github.com/bloxlink/bloxlink-lib"
 reference = "HEAD"
-resolved_reference = "fc706ba446682972bfb2e5adfe5d7808abf3545e"
+resolved_reference = "baa5508e89f44a0d67ba509fd80b3998d669f88a"
 
 [[package]]
 name = "certifi"
