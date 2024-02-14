@@ -468,6 +468,8 @@ class SetupPrompt(Prompt):
 
                 if not verified_role:
                     create_verified_role = True
+                else:
+                    verified_role = verified_role[1]
 
             if create_verified_role:
                 verified_role = await bloxlink.rest.create_role(self.guild_id, name="Verified")

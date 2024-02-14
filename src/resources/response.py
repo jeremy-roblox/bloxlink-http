@@ -33,9 +33,9 @@ class PromptCustomID(Components.CommandCustomID):
     """Represents a custom ID for a prompt component."""
 
     prompt_name: str
-    page_number: int
+    page_number: int = 0
     component_custom_id: str = None
-    prompt_message_id: int
+    prompt_message_id: int = None
 
     def model_post_init(self, __context):
         self.type = "prompt"
