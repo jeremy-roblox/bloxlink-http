@@ -3,12 +3,12 @@ from typing import TypedDict
 from pydantic import Field
 import hikari
 from bloxlink_lib import BaseModelArbitraryTypes
-from resources.ui.components import TextInput, get_custom_id, BaseCustomID
+from resources.ui.components import TextInput, get_custom_id, CommandCustomID
 from resources.redis import redis
 from resources import response
 
 
-class ModalCustomID(BaseCustomID):
+class ModalCustomID(CommandCustomID):
     """Represents a custom ID for a modal component."""
 
     component_custom_id: str = Field(default="")

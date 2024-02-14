@@ -1,10 +1,8 @@
-import json
-
 import hikari
 
 from bloxlink_lib import VALID_BIND_TYPES, GuildBind
 from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
-from resources.ui.components import component_author_validation, TextSelectMenu
+from resources.ui.components import component_author_validation, TextSelectMenu, BaseCustomID, parse_custom_id, Component
 from resources.binds import delete_bind, get_binds, generate_binds_embed
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
@@ -21,7 +19,99 @@ class UnbindCustomID(PaginatorCustomID):
     id: int | None = None
 
 
-@component_author_validation(parse_into=UnbindCustomID)
+class TextOptionValue(BaseCustomID):
+    """Represents the value for the text menu."""
+
+    type: VALID_BIND_TYPES
+    id: int | None = None
+    index: int
+
+
+
+async def embed_formatter(page_number: int, items: list[GuildBind], _guild_id: str | int, max_pages: int) -> hikari.Embed:
+    """Generates the embed for the page.
+
+    Args:
+        page_number (int): The page number of the page to build.
+        items (list): The bindings to show on the page.
+        _guild_id (str | int): Unused, the ID of the guild that the command was run in.
+        max_pages (int): The page number of the last page that can be built.
+
+    Returns:
+        hikari.Embed: The formatted embed.
+    """
+
+    embed = hikari.Embed(title="Remove a Binding")
+
+    if not items:
+        embed.description = (
+            "> You have no binds that match the options you passed. "
+            "Use `/bind` to make a new binding, or try again with different options."
+        )
+        return embed
+
+    embed.description = "Select which bind(s) you want to remove from the menu below!"
+
+    if max_pages > 1:
+        embed.description += (
+            "\n\n> Don't see the binding that you're looking for? "
+            "Use the buttons below to have the menu scroll to a new page."
+        )
+
+    await generate_binds_embed(items, embed)
+
+    embed.set_footer(f"Page {page_number + 1}/{max_pages}")
+
+    return embed
+
+
+async def component_generator(items: list[GuildBind], custom_id: UnbindCustomID) -> list[Component] | None:
+    """Generate the components for the paginator."""
+
+    text_menu = TextSelectMenu(
+        custom_id=UnbindCustomID(
+            command_name="unbind",
+            user_id=custom_id.user_id,
+            category=custom_id.category,
+            id=custom_id.id,
+            section="sel_discard"
+        ),
+        placeholder="Select which bind should be removed",
+        min_values=1,
+        max_values=len(items)
+    )
+
+    if not items:
+        return None
+
+    for i, bind in enumerate(items):
+        bind_type = bind.type.title()
+        bind_name = str(bind.entity).replace("**", "")
+
+        try:
+            await bind.entity.sync()
+        except RobloxAPIError:
+            pass
+
+        text_menu.options.append(
+            TextSelectMenu.Option(
+                label=bind.short_description.replace("**", "")[:100],
+                value=str(
+                    TextOptionValue(
+                        type=bind.type,
+                        id=bind.criteria.id,
+                        index=i,
+                    )
+                ),
+                description=f"{bind_type}: {bind_name}",
+            )
+        )
+
+    return [text_menu]
+
+
+
+@component_author_validation(parse_into=UnbindCustomID, defer=True)
 async def unbind_pagination_button(ctx: CommandContext, custom_id: UnbindCustomID):
     """Handle the left and right buttons for pagination."""
 
@@ -56,62 +146,60 @@ async def unbind_pagination_button(ctx: CommandContext, custom_id: UnbindCustomI
     embed = await paginator.embed
     components = await paginator.components
 
-    await ctx.response.send(embed=embed, components=components, edit_original=True) # TODO: send_first is not working
+    await ctx.response.send(embed=embed, components=components, edit_original=True)
 
 
-@component_author_validation(parse_into=UnbindCustomID, defer=False)
+@component_author_validation(parse_into=UnbindCustomID, defer=True)
 async def unbind_discard_binding(ctx: CommandContext, custom_id: UnbindCustomID):
     """Handles the removal of a binding from the list."""
 
+    response = ctx.response
+
     interaction = ctx.interaction
+    guild_id = interaction.guild_id
+    user_id = interaction.user.id
 
-    author_id = custom_id.user_id
     page_number = custom_id.page_number
-
     category = custom_id.category
     id_filter = custom_id.id
 
-    # await interaction.create_initial_response(
-    #     hikari.ResponseType.DEFERRED_MESSAGE_CREATE, flags=hikari.MessageFlag.EPHEMERAL
-    # )
+    guild_binds = await get_binds(interaction.guild_id, category=category, bind_id=id_filter)
 
-    # for item in interaction.values:
-    #     split = item.split(":", maxsplit=1)
+    selected_values = interaction.values
 
-    #     bind_id = int(split[0])
-    #     bind_data = json.loads(split[1]) if len(split) > 1 else {}
+    bind_deletions: list[GuildBind] = []
 
-    #     await delete_bind(interaction.guild_id, category, bind_id, **bind_data)
+    # We need to retrieve the page they were on and find the corresponding bind based on the index
+    paginator = Paginator(
+        guild_id,
+        user_id,
+        max_items=MAX_BINDS_PER_PAGE,
+        items=guild_binds,
+        page_number=page_number,
+        custom_formatter=embed_formatter,
+        component_generation=component_generator,
+        custom_id_format=UnbindCustomID(
+            command_name="unbind",
+            user_id=user_id,
+            category=category,
+            id=id_filter),
+        include_cancel_button=True,
+        item_filter=viewbinds_item_filter
+    )
 
-    # # Reset the prompt to page 0.
-    # guild_id = interaction.guild_id
-    # bindings = await get_binds(guild_id, category=category, bind_id=id_option)
+    for value in selected_values:
+        parsed_value = parse_custom_id(TextOptionValue, value)
+        bind = paginator.current_items[parsed_value.index]
 
-    # paginator = Paginator(
-    #     guild_id,
-    #     author_id,
-    #     command_name="unbind",
-    #     max_items=MAX_BINDS_PER_PAGE,
-    #     items=bindings,
-    #     custom_formatter=embed_formatter,
-    #     component_generation=component_generator,
-    #     custom_id_format=UnbindCustomID(
-    #         command_name="unbind",
-    #         user_id=author_id,
-    #         category=category,
-    #         id=id_filter),
-    #     include_cancel_button=True,
-    # )
+        if bind and bind.type != parsed_value.type:
+            # probably the wrong bind, error out
+            return await response.send_first("You selected a bind that doesn't match the type you're trying to unbind.", ephemeral=True)
 
-    # await bloxlink.rest.edit_message(
-    #     interaction.channel_id,
-    #     interaction.message.id,
-    #     embed=(await paginator.embed),
-    #     components=(await paginator.components),
-    # )
-    # await interaction.edit_initial_response("Your chosen bindings have been removed.")
+        bind_deletions.append(bind)
 
-    # return interaction.build_deferred_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+    await delete_bind(guild_id, *bind_deletions)
+
+    await response.send("Your chosen bindings have been removed.", ephemeral=True)
 
 
 @component_author_validation(parse_into=UnbindCustomID, defer=False)
@@ -119,21 +207,11 @@ async def unbind_cancel_button(ctx: CommandContext, _custom_id: UnbindCustomID):
     """Handle the cancel button press."""
 
     interaction = ctx.interaction
-
-    if interaction.message.flags & hikari.MessageFlag.EPHEMERAL == hikari.MessageFlag.EPHEMERAL:
-        await interaction.create_initial_response(
-            hikari.ResponseType.MESSAGE_UPDATE, content="Prompt cancelled.", components=[], embeds=[]
-        )
-
-        return interaction.build_response(hikari.ResponseType.MESSAGE_UPDATE)
+    response = ctx.response
 
     await bloxlink.rest.delete_message(interaction.channel_id, interaction.message)
 
-    return (
-        interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-        .set_content("Prompt cancelled.")
-        .set_flags(hikari.MessageFlag.EPHEMERAL)
-    )
+    return await response.send_first("Prompt cancelled.", ephemeral=True)
 
 
 def viewbinds_item_filter(items: list[GuildBind]):
@@ -205,79 +283,3 @@ class UnbindCommand(GenericCommand):
         components = await paginator.components
 
         await ctx.response.send(embed=embed, components=components)
-
-
-async def embed_formatter(page_number: int, items: list[GuildBind], _guild_id: str | int, max_pages: int):
-    """Generates the embed for the page.
-
-    Args:
-        page_number (int): The page number of the page to build.
-        items (list): The bindings to show on the page.
-        _guild_id (str | int): Unused, the ID of the guild that the command was run in.
-        max_pages (int): The page number of the last page that can be built.
-
-    Returns:
-        hikari.Embed: The formatted embed.
-    """
-
-    embed = hikari.Embed(title="Remove a Binding")
-
-    if not items:
-        embed.description = (
-            "> You have no binds that match the options you passed. "
-            "Use `/bind` to make a new binding, or try again with different options."
-        )
-        return embed
-
-    embed.description = "Select which bind(s) you want to remove from the menu below!"
-
-    if max_pages > 1:
-        embed.description += (
-            "\n\n> Don't see the binding that you're looking for? "
-            "Use the buttons below to have the menu scroll to a new page."
-        )
-
-    await generate_binds_embed(items, embed)
-
-    embed.set_footer(f"Page {page_number + 1}/{max_pages}")
-
-    return embed
-
-
-async def component_generator(items: list[GuildBind], custom_id: UnbindCustomID):
-    """Generate the components for the paginator."""
-
-    text_menu = TextSelectMenu(
-        custom_id=UnbindCustomID(
-            command_name="unbind",
-            user_id=custom_id.user_id,
-            category=custom_id.category,
-            id=custom_id.id,
-            section="sel_discard"
-        ),
-        placeholder="Select which bind should be removed",
-        min_values=1,
-        max_values=len(items)
-    )
-
-    if not items:
-        return None
-
-    for i, bind in enumerate(items):
-        bind_type = bind.type.title()
-        bind_name = str(bind.entity).replace("**", "")
-
-        try:
-            await bind.entity.sync()
-        except RobloxAPIError:
-            pass
-
-        text_menu.options.append(
-            TextSelectMenu.Option(
-                label=f"{bind.description_prefix} {bind.description_content}"[:100],
-                value=f"{bind.criteria.id}:{i}",
-                description=f"{bind_type}: {bind_name}",
-            )
-        )
-
-    return [text_menu]

@@ -12,18 +12,32 @@ from resources import commands
 class BaseCustomID(BaseModel):
     """Base class for interactive custom IDs."""
 
+    def __str__(self):
+        field_values: list[str] = []
+
+        for field_name in self.model_fields:
+            field_value = getattr(self, field_name)
+
+            if field_value is None:
+                field_values.append("")
+            else:
+                field_values.append(str(field_value))
+
+        return ":".join(field_values)
+
+    def __add__(self, other: Self) -> str:
+        return f"{str(self)}:{str(other)}"
+
+
+class CommandCustomID(BaseCustomID):
+    """Custom ID containing more information for commands."""
+
     command_name: str
     section: str = "" # used to differentiate between different sections of the same command
     subcommand_name: str = ""
     type: Literal["command", "prompt", "paginator"] = "command"
     user_id: int
 
-    def __str__(self):
-        field_values = [str(getattr(self, field_name) or "") for field_name in self.model_fields]
-        return ":".join(field_values)
-
-    def __add__(self, other: Self) -> str:
-        return f"{str(self)}:{str(other)}"
 
 class Component(BaseModelArbitraryTypes, ABC):
     """Abstract base class for components."""
@@ -34,12 +48,12 @@ class Component(BaseModelArbitraryTypes, ABC):
         hikari.ComponentType.ROLE_SELECT_MENU,
         hikari.ComponentType.TEXT_INPUT,
     ] = None
-    custom_id: str | BaseCustomID = None # only None for prompt page initializations, it's set by the prompt handler
+    custom_id: str | CommandCustomID = None # only None for prompt page initializations, it's set by the prompt handler
     component_id: str = None # used for prompts
 
     @field_validator("custom_id", mode="before")
     @classmethod
-    def transform_custom_id(cls: Type[Self], custom_id: str | BaseCustomID) -> str:
+    def transform_custom_id(cls: Type[Self], custom_id: str | CommandCustomID) -> str:
         return str(custom_id)
 
     @abstractmethod
@@ -465,7 +479,7 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def component_author_validation(parse_into: BaseCustomID=BaseCustomID, ephemeral: bool=True, defer: bool=True):
+def component_author_validation(parse_into: CommandCustomID=CommandCustomID, ephemeral: bool=True, defer: bool=True):
     """Handle same-author validation for components.
     Utilized to ensure that the author of the command is the only one who can press buttons.
 
@@ -478,30 +492,22 @@ def component_author_validation(parse_into: BaseCustomID=BaseCustomID, ephemeral
     def func_wrapper(func):
         async def response_wrapper(ctx: commands.CommandContext):
             interaction = ctx.interaction
-
             parsed_custom_id = parse_custom_id(parse_into, interaction.custom_id)
+
+            command_context = commands.build_context(interaction)
+            response = command_context.response
 
             # Only accept input from the author of the command
             if interaction.member.id != parsed_custom_id.user_id:
-                # Could just silently fail too... Can't defer before here or else the eph response
-                # fails to show up.
-                return (
-                    interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-                    .set_content(
-                        f"You {f'(<@{interaction.member.id}>) ' if not ephemeral else ''}"
-                        "are not the person who ran this command!"
-                    )
-                    .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
-                )
+                yield await response.send_first("You are not the person who ran this command.", ephemeral=True)
+                return
 
             if defer:
-                await interaction.create_initial_response(
-                    hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
-                    flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
-                )
+                yield await response.defer(ephemeral)
 
             # Trigger original method
-            return await func(commands.build_context(interaction), parsed_custom_id)
+            yield await func(command_context, parsed_custom_id)
+            return
 
         return response_wrapper
 

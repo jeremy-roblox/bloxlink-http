@@ -94,7 +94,7 @@ async def viewbinds_button(ctx: CommandContext, custom_id: ViewbindsCustomID):
     embed = await paginator.embed
     components = await paginator.components
 
-    await ctx.response.send(embed=embed, components=components, edit_original=True) # TODO: send_first is not working
+    await ctx.response.send(embed=embed, components=components, edit_original=True)
 
 
 @bloxlink.command(

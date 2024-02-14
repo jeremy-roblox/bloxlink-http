@@ -4,10 +4,10 @@ from typing import Any, Sequence, Coroutine, Literal
 import hikari
 
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
-from resources.ui.components import BaseCustomID, Component, Button, Separator, set_custom_id_field
+from resources.ui.components import CommandCustomID, Component, Button, Separator, set_custom_id_field
 
 
-class PaginatorCustomID(BaseCustomID):
+class PaginatorCustomID(CommandCustomID):
     """Represents the custom ID for the paginator"""
 
     page_number: int = 0
@@ -15,7 +15,7 @@ class PaginatorCustomID(BaseCustomID):
     def model_post_init(self, __context: Any) -> None:
         self.type = "paginator"
 
-class PaginatorCancelCustomID(BaseCustomID):
+class PaginatorCancelCustomID(CommandCustomID):
     """Represents the custom ID for the paginator cancel button"""
 
     type: Literal["cancel"] = "cancel"

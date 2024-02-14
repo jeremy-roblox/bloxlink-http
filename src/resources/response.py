@@ -29,7 +29,7 @@ class PromptEmbed(InteractiveMessage):
 
 
 
-class PromptCustomID(Components.BaseCustomID):
+class PromptCustomID(Components.CommandCustomID):
     """Represents a custom ID for a prompt component."""
 
     prompt_name: str

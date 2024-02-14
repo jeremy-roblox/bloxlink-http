@@ -42,7 +42,7 @@ class UpdateEndpointResponse(BaseModel):
     missing_roles: list[int] = Field(alias="missingRoles")
 
 
-def convert_v3_binds_to_v4(items: dict, bind_type: ValidBindType) -> list:
+def convert_v3_binds_to_v4(items: dict, bind_type: VALID_BIND_TYPES) -> list:
     """Convert old bindings to the new bind format.
 
     Args:
@@ -343,9 +343,7 @@ async def create_bind(
 
 async def delete_bind(
     guild_id: int | str,
-    bind_type: VALID_BIND_TYPES,
-    bind_id: int,
-    **bind_data,
+    *binds: tuple[GuildBind],
 ):
     """Remove a bind from the database.
 
@@ -358,17 +356,13 @@ async def delete_bind(
         bind_type (ValidBindType): The type of binding that is being removed.
         bind_id (int): The ID of the entity that this bind is for.
     """
-    subquery = {
-        "binds": {
-            "bind": {
-                "type": bind_type,
-                "id": int(bind_id),
-                **bind_data,
-            }
-        }
-    }
 
-    await bloxlink.mongo.bloxlink["guilds"].update_one({"_id": str(guild_id)}, {"$pull": subquery})
+    guild_binds = await get_binds(str(guild_id))
+
+    for bind in binds:
+        guild_binds.remove(bind)
+
+    await update_guild_data(guild_id, binds=[b.model_dump(exclude_unset=True, by_alias=True) for b in guild_binds])
 
 
 async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member | MemberSerializable, roblox_user: users.RobloxAccount = None) -> UpdateEndpointResponse:
