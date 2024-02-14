@@ -1,14 +1,14 @@
 import hikari
+from bloxlink_lib import get_group, find
+from bloxlink_lib.database import fetch_guild_data, update_guild_data, update_guild_data
 from resources.bloxlink import instance as bloxlink
 from resources.binds import create_bind
-from resources.api.roblox.groups import get_group
 from resources.commands import CommandContext, GenericCommand
 from resources.response import Prompt, PromptPageData
 from resources.ui.components import Button, TextSelectMenu, TextInput
 from resources.ui.modals import build_modal
 from resources.exceptions import RobloxNotFound
 from resources.constants import BROWN_COLOR, DEFAULTS
-from resources.utils import find
 
 
 SETUP_OPTIONS = {
@@ -127,7 +127,7 @@ class SetupPrompt(Prompt):
     async def nickname_page(self, interaction: hikari.ComponentInteraction | hikari.ModalInteraction, fired_component_id: str):
         """The second page of the prompt."""
 
-        guild_nickname = (await bloxlink.fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
+        guild_nickname = (await fetch_guild_data(self.guild_id, "nicknameTemplate")).nicknameTemplate
 
         setup_nickname = await self.current_data(key_name="nicknameTemplate", raise_exception=False) or guild_nickname
         setup_nickname_prefix = await self.current_data(key_name="nicknameTemplate_prefix", raise_exception=False) or ""
@@ -425,7 +425,7 @@ class SetupPrompt(Prompt):
         yield await self.response.defer()
 
         setup_data = await self.current_data()
-        guild_data = await bloxlink.fetch_guild_data(self.guild_id)
+        guild_data = await fetch_guild_data(self.guild_id)
 
         nickname_template = setup_data.get("nicknameTemplate") or guild_data.nicknameTemplate or DEFAULTS.get("nicknameTemplate")
         verified_role_name = setup_data.get("verifiedRoleName")
@@ -468,10 +468,12 @@ class SetupPrompt(Prompt):
 
                 if not verified_role:
                     create_verified_role = True
+                else:
+                    verified_role = verified_role[1]
 
             if create_verified_role:
                 verified_role = await bloxlink.rest.create_role(self.guild_id, name="Verified")
-                await bloxlink.update_guild_data(self.guild_id, verifiedRole=str(verified_role.id))
+                await update_guild_data(self.guild_id, verifiedRole=str(verified_role.id))
 
             to_change["verifiedRoleName"] = (
                 verified_role.name,
@@ -542,7 +544,7 @@ class SetupPrompt(Prompt):
                             pending_db_changes["verifiedRole"] = str(verified_role.id)
 
                 if pending_db_changes:
-                    await bloxlink.update_guild_data(self.guild_id, **pending_db_changes)
+                    await update_guild_data(self.guild_id, **pending_db_changes)
 
                 await self.response.send("Successfully saved the configuration to your server.")
                 await self.finish()

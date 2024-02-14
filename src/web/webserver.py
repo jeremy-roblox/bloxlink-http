@@ -1,5 +1,5 @@
 import logging
-from blacksheep import Application
+from blacksheep import Application, get
 from asgi_prometheus import PrometheusMiddleware
 # from prometheus_client import Counter, Histogram
 
@@ -14,7 +14,7 @@ async def after_start_print_routes(application: Application):
     logging.info(f"Routes registered: {dict(application.router.routes)}")
 
 
-@webserver.route("/")
+@get("/")
 async def root():
     """Returns a 200 OK when the webserver is live"""
 

@@ -2,11 +2,12 @@ import json
 import uuid
 import logging
 import functools
-from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING
+from typing import Callable, Generic, Type, TypeVar, TYPE_CHECKING, Any
 from datetime import timedelta
 
 import hikari
-from attrs import define, field
+from pydantic import Field
+from bloxlink_lib import BaseModel
 
 import resources.ui.components as Components
 from resources.bloxlink import instance as bloxlink
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
     from resources.ui.autocomplete import AutocompleteOption
 
 
-@define(slots=True)
 class PromptEmbed(InteractiveMessage):
     """Represents a prompt consisting of an embed & components for the message."""
 
@@ -28,31 +28,29 @@ class PromptEmbed(InteractiveMessage):
 
 
 
-@define(slots=True, kw_only=True)
-class PromptCustomID(Components.BaseCustomID):
+
+class PromptCustomID(Components.CommandCustomID):
     """Represents a custom ID for a prompt component."""
 
     prompt_name: str
-    page_number: int = field(converter=int)
+    page_number: int = 0
     component_custom_id: str = None
-    prompt_message_id: int = field(converter=int)
+    prompt_message_id: int = None
 
-    def __attrs_post_init__(self):
+    def model_post_init(self, __context):
         self.type = "prompt"
 
 
-@define(slots=True)
-class PromptPageData:
+class PromptPageData(BaseModel):
     """Represents the data for a page of a prompt."""
 
     description: str
-    components: list[Components.Component] = field(default=list())
+    components: list[Components.Component] = Field(default_factory=list)
     title: str = None
-    fields: list["Field"] = field(default=list())
+    fields: list["Field"] = Field(default_factory=list)
     color: int = None
 
-    @define(slots=True)
-    class Field:
+    class Field(BaseModel): # TODO: RENAME THIS TO PromptField
         """Represents a field in a prompt embed."""
 
         name: str
@@ -60,8 +58,7 @@ class PromptPageData:
         inline: bool = False
 
 
-@define(slots=True)
-class Page:
+class Page(BaseModel):
     """Represents a page of a prompt."""
 
     func: Callable
@@ -204,6 +201,7 @@ class Response:
         channel_id: str | int = None,
         build_components: bool = True,
         fetch_message=False,
+        edit_original: bool = False,
         **kwargs,
     ) -> hikari.Message | None:
         """Send this Response to discord. This function only sends via REST and ignores the initial webhook response.
@@ -271,7 +269,15 @@ class Response:
 
         self.responded = True
 
-
+        if edit_original:
+            return await self.interaction.edit_initial_response(
+                content,
+                embed=embed,
+                components=components,
+                mentions_everyone=False,
+                role_mentions=False,
+                **kwargs
+            )
 
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
@@ -342,6 +348,8 @@ class Response:
 
 
 class Prompt(Generic[T]):
+    override_prompt_name: str = None
+
     def __init__(
         self,
         command_name: str,
@@ -355,7 +363,7 @@ class Prompt(Generic[T]):
         self.current_page: Page = None
         self.response = response
         self.command_name = command_name
-        self.prompt_name = self.__class__.__name__
+        self.prompt_name = self.override_prompt_name or self.__class__.__name__
         self.custom_id_format: Type[T] = custom_id_format
         self._pending_embed_changes = {}
         self.guild_id = response.interaction.guild_id
@@ -373,7 +381,7 @@ class Prompt(Generic[T]):
         interaction: hikari.ComponentInteraction | hikari.CommandInteraction,
         command_name: str,
         response: Response,
-        custom_id_data: dict = None,
+        custom_id_data: dict[str, Any] = None,
     ):
         """Return a new initialized Prompt"""
 
@@ -394,7 +402,7 @@ class Prompt(Generic[T]):
                 if prompt.start_with_fresh_data:
                     await prompt.clear_data()
 
-                prompt.custom_id: T = prompt.custom_id_format(
+                prompt.custom_id = prompt.custom_id_format(
                     command_name=command_name,
                     prompt_name=prompt.prompt_name,
                     page_number=0,
@@ -561,7 +569,7 @@ class Prompt(Generic[T]):
         logging.debug(hash_, "run_page() current page=", self.current_page_number, self.current_page.details.title)
 
         generator_or_coroutine = self.current_page.func(
-            self.response.interaction, self.custom_id.component_custom_id if self.custom_id else None
+            self.response.interaction, self.custom_id.component_custom_id if self.custom_id and not changing_page else None
         )
 
         # if this is a programmatic page, we need to run it first

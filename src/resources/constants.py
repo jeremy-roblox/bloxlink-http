@@ -8,8 +8,6 @@ MODULES = [
     "web.endpoints",
 ]
 
-ALL_USER_API_SCOPES = ["groups", "badges"]
-
 DEFAULTS = {
     "nicknameTemplate": "{smart-name}"
 }
@@ -79,3 +77,5 @@ BOT_RELEASE: Literal["LOCAL", "MAIN", "PRO"] = env.get("BOT_RELEASE") or "LOCAL"
 
 VERIFY_URL_GUILD = "https://blox.link/dashboard/verifications/verify?page=username&guild={guild_id}"
 VERIFY_URL = "https://blox.link/dashboard/verifications"
+
+SERVER_INVITE = "https://blox.link/support"

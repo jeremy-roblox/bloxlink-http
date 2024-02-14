@@ -1,5 +1,6 @@
 from hikari.commands import CommandOption, OptionType
 
+from bloxlink_lib import get_user_account
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.exceptions import UserNotVerified
@@ -25,7 +26,7 @@ class GetInfoCommand(GenericCommand):
         target_user = list(ctx.resolved.users.values())[0] if ctx.resolved else ctx.member
 
         try:
-            roblox_account = await users.get_user_account(target_user)
+            roblox_account = await get_user_account(target_user)
 
         except UserNotVerified:
             if target_user == ctx.member:

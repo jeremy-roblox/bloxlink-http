@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
-from attrs import define
-from resources import binds
+from bloxlink_lib import get_binds, BaseModel
 from resources.api.roblox import users
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 
@@ -9,8 +8,7 @@ if TYPE_CHECKING:
     from resources.commands import CommandContext
 
 
-@define(slots=True)
-class AutocompleteOption:
+class AutocompleteOption(BaseModel):
     """Represents an autocomplete option."""
 
     name: str
@@ -20,10 +18,10 @@ class AutocompleteOption:
 async def bind_category_autocomplete(ctx: 'CommandContext'):
     """Autocomplete for a bind category input based upon the binds the user has."""
 
-    guild_data = await binds.get_binds(ctx.guild_id)
+    guild_data = await get_binds(ctx.guild_id)
     bind_types = set(bind.type for bind in guild_data)
 
-    return ctx.response.send_autocomplete([AutocompleteOption(x, x) for x in bind_types])
+    return ctx.response.send_autocomplete([AutocompleteOption(name=x, value=x.lower()) for x in bind_types])
 
 
 async def bind_id_autocomplete(ctx: 'CommandContext'):
@@ -34,25 +32,25 @@ async def bind_id_autocomplete(ctx: 'CommandContext'):
 
     choices = [
         # base option
-        AutocompleteOption("View all your bindings", "View binds")
+        AutocompleteOption(name="View all your bindings", value="view_binds")
     ]
 
     options = {o.name.lower(): o for o in interaction.options}
 
-    category_option = options.get("category")
-    id_option = options.get("id").value.lower() if options.get("id") else None
+    category_option = options["category"].value.lower().strip() if options.get("category") else None
+    id_option = options["id"].value.lower().strip() if options.get("id") else None
 
     # Only show more options if the category option has been set by the user.
     if category_option:
-        guild_data = await binds.get_binds(interaction.guild_id, category=category_option.value)
+        guild_binds = await get_binds(interaction.guild_id, category=category_option)
 
         if id_option:
-            filtered_binds = set(bind.id for bind in guild_data if str(bind.id).startswith(id_option))
+            filtered_binds = filter(None, set(bind.criteria.id for bind in guild_binds if bind.criteria.id and str(bind.criteria.id) == id_option))
         else:
-            filtered_binds = set(bind.id for bind in guild_data)
+            filtered_binds = filter(None, set(bind.criteria.id for bind in guild_binds))
 
         for bind in filtered_binds:
-            choices.append(AutocompleteOption(str(bind), str(bind)))
+            choices.append(AutocompleteOption(name=str(bind), value=str(bind)))
 
     return ctx.response.send_autocomplete(choices)
 

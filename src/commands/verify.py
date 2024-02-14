@@ -1,5 +1,5 @@
+from bloxlink_lib import get_user_account
 from resources import binds
-from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 
@@ -13,7 +13,7 @@ class VerifyCommand(GenericCommand):
     """Link your Roblox account to your Discord account and get your server roles."""
 
     async def __main__(self, ctx: CommandContext):
-        roblox_account = await users.get_user_account(ctx.user, raise_errors=False)
+        roblox_account = await get_user_account(ctx.user, raise_errors=False)
 
         try:
             await binds.confirm_account(ctx.member, ctx.guild_id, ctx.response, roblox_account)

@@ -1,27 +1,41 @@
 import math
+from typing import Any, Sequence, Coroutine, Literal
 
 import hikari
 
-from resources.bloxlink import instance as bloxlink
 from resources.constants import UNICODE_LEFT, UNICODE_RIGHT
+from resources.ui.components import CommandCustomID, Component, Button, Separator, set_custom_id_field
 
 
-class Paginator:
+class PaginatorCustomID(CommandCustomID):
+    """Represents the custom ID for the paginator"""
+
+    page_number: int = 0
+
+    def model_post_init(self, __context: Any) -> None:
+        self.type = "paginator"
+
+class PaginatorCancelCustomID(CommandCustomID):
+    """Represents the custom ID for the paginator cancel button"""
+
+    type: Literal["cancel"] = "cancel"
+
+
+class Paginator[T: PaginatorCustomID]:
     """Dynamically create prompts that may require more than one embed to cleanly show data."""
 
     def __init__(
         self,
-        guild_id,
-        user_id,
-        items: list,
-        source_cmd_name: str,
-        page_number=0,
-        max_items=10,
-        custom_formatter=None,
-        component_generation=None,
-        extra_custom_ids="",
-        item_filter=None,
-        include_cancel_button=False,
+        guild_id: int,
+        user_id: int,
+        items: Sequence[T],
+        page_number: int=0,
+        max_items: int=10,
+        custom_formatter: Coroutine | None=None,
+        component_generation: Coroutine | None=None,
+        custom_id_format: PaginatorCustomID = PaginatorCustomID,
+        item_filter: Coroutine | None = None,
+        include_cancel_button: bool=False,
     ):
         """Create a paginator handler.
 
@@ -29,7 +43,7 @@ class Paginator:
             guild_id: The ID of the guild where the command that required pagination was ran.
             user_id: The ID of the user who ran the command.
             items (list): The list of items that need to be paginated.
-            source_cmd_name (str): The name of the command. Used for component custom IDs.
+            command_name (str): The name of the command. Used for component custom IDs.
             page_number (int, optional): The current page number. Defaults to 0.
             max_items (int, optional): The maximum number of items per page. Defaults to 10.
             custom_formatter (Callable, optional): The formatter to use to style the embed. Defaults to None.
@@ -43,11 +57,11 @@ class Paginator:
             item_filter (Callable, optional): Callable used to filter the entire item list. Defaults to None.
             include_cancel_button (bool, optional): Optionally include a button to cancel this prompt. Defaults to False.
         """
+
         self.guild_id = guild_id
         self.user_id = user_id
 
         self.page_number = page_number
-        self.source_cmd_name = source_cmd_name
 
         self.items = items if not item_filter else item_filter(items)
         self.max_pages = math.ceil(len(self.items) / max_items)
@@ -56,80 +70,97 @@ class Paginator:
         self.custom_formatter = custom_formatter
         self.component_generation = component_generation
 
-        self.extra_custom_ids = extra_custom_ids
+        self.custom_id_format = custom_id_format
         self.include_cancel_button = include_cancel_button
 
-    def _get_current_items(self) -> list:
+    @property
+    def current_items(self) -> list[T]:
         """Get the items that apply to this page number."""
+
         offset = self.page_number * self.max_items
         max_items = (
             len(self.items) if (offset + self.max_items >= len(self.items)) else offset + self.max_items
         )
+
         return self.items[offset:max_items]
 
     @property
     async def embed(self) -> hikari.Embed:
         """The embed that will be displayed to the user."""
-        current_items = self._get_current_items()
 
         if self.custom_formatter:
-            embed = await self.custom_formatter(
-                self.page_number, current_items, self.guild_id, self.max_pages
+            embed: hikari.Embed = await self.custom_formatter(
+                self.page_number, self.current_items, self.guild_id, self.max_pages
             )
         else:
-            embed = hikari.Embed(title="Test Pagination", description=f"Page {self.page_number}")
+            embed = hikari.Embed(description="\n".join(str(item) for item in self.current_items))
+            embed.set_footer(f"Page {self.page_number + 1}/{self.max_pages or 1}")
 
         self._embed = embed
-        return self._embed
+
+        return embed
 
     @embed.setter
-    def embed(self, value):
+    def embed(self, value: hikari.Embed):
         self._embed = value
 
     @property
-    async def components(self) -> tuple:
-        """The components for this prompt as a tuple."""
-        button_row = bloxlink.rest.build_message_action_row()
+    async def components(self) -> list[Component]:
+        """The components for this prompt."""
 
-        # Previous button
-        button_row.add_interactive_button(
-            hikari.ButtonStyle.SECONDARY,
-            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number-1}:{self.extra_custom_ids}",
-            label=UNICODE_LEFT,
-            is_disabled=self.page_number <= 0,
-        )
-
-        # Next button
-        button_row.add_interactive_button(
-            hikari.ButtonStyle.SECONDARY,
-            f"{self.source_cmd_name}:page:{self.user_id}:{self.page_number+1}:{self.extra_custom_ids}",
-            label=UNICODE_RIGHT,
-            is_disabled=self.page_number + 1 >= self.max_pages,
-        )
+        components: list[Component] = [
+            Button(
+                custom_id = set_custom_id_field(
+                    self.custom_id_format.__class__,
+                    str(self.custom_id_format),
+                    page_number=self.page_number-1,
+                    section="page"
+                ),
+                label=UNICODE_LEFT,
+                is_disabled=self.page_number <= 0,
+                style=Button.ButtonStyle.SECONDARY
+            ),
+            Button(
+                custom_id = set_custom_id_field(
+                    self.custom_id_format.__class__,
+                    str(self.custom_id_format),
+                    page_number=self.page_number+1,
+                    section="page"
+                ),
+                label=UNICODE_RIGHT,
+                is_disabled=self.page_number + 1 >= self.max_pages,
+                style=Button.ButtonStyle.SECONDARY
+            ),
+        ]
 
         if self.include_cancel_button:
-            button_row.add_interactive_button(
-                hikari.ButtonStyle.SECONDARY, f"{self.source_cmd_name}:cancel:{self.user_id}", label="Cancel"
+            components.append(
+                Button(
+                    custom_id = set_custom_id_field(
+                        self.custom_id_format.__class__,
+                        str(self.custom_id_format),
+                        section="cancel"
+                    ),
+                    label="Cancel",
+                    style=Button.ButtonStyle.SECONDARY
+                ),
             )
 
-        component_output = []
+        components.append(Separator())
+
         if self.component_generation:
             generated_components = await self.component_generation(
-                self._get_current_items(),
-                self.user_id,
-                self.extra_custom_ids,
+                self.current_items,
+                self.custom_id_format,
             )
 
-            if isinstance(generated_components, (list, tuple)):
-                component_output.extend(generated_components)
-            else:
-                component_output.append(generated_components)
+            if generated_components:
+                components.extend(generated_components)
 
-        component_output.append(button_row)
-        self._components = tuple(component_output)
+        self._components = components
 
-        return self._components
+        return components
 
     @components.setter
-    def components(self, value):
+    def components(self, value: Sequence[Component]):
         self._components = value

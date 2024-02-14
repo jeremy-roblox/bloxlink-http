@@ -6,16 +6,13 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Callable, Coroutine, Optional
+from typing import TYPE_CHECKING, Coroutine, Optional, Unpack
 
 import hikari
 import yuyo
-from attrs import define, field
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
-from typing_extensions import Unpack
 
-from resources.constants import DEFAULTS
 from resources.redis import RedisMessageCollector, redis
 from config import CONFIG
 
@@ -25,55 +22,6 @@ instance: "Bloxlink" = None
 if TYPE_CHECKING:
     from resources.commands import NewCommandArgs
 
-
-@define(slots=True)
-class UserData:
-    """Representation of a User's data in Bloxlink
-
-    Attributes:
-        id (int): The Discord ID of the user.
-        robloxID (str): The roblox ID of the user's primary account.
-        robloxAccounts (dict): All of the user's linked accounts, and any guild specific verifications.
-    """
-
-    id: int
-    robloxID: str = None
-    robloxAccounts: dict = field(factory=lambda: {"accounts": [], "guilds": {}, "confirms": {}})
-
-
-@define(slots=True)
-class GuildData:
-    """Representation of the stored settings for a guild"""
-
-    id: int
-    binds: list = field(factory=list)  # FIXME
-
-    verifiedRoleEnabled: bool = True
-    verifiedRoleName: str = "Verified"  # deprecated
-    verifiedRole: str = None
-
-    unverifiedRoleEnabled: bool = True
-    unverifiedRoleName: str = "Unverified"  # deprecated
-    unverifiedRole: str = None
-
-    ageLimit: int = None
-    autoRoles: bool = None
-    autoVerification: bool = None
-    disallowAlts: bool = None
-    disallowBanEvaders: str = None  # Site sets it to "ban" when enabled. Null when disabled.
-    groupLock: dict = None
-    highTrafficServer: bool = None
-
-    nicknameTemplate: str = DEFAULTS.get("nicknameTemplate")
-
-    premium: dict = field(factory=dict) # deprecated
-
-    affiliate: dict = None
-
-    # Old bind fields.
-    roleBinds: dict = None
-    groupIDs: dict = None
-    converted_binds: bool = False
 
 
 class Bloxlink(yuyo.AsgiBot):
@@ -185,115 +133,38 @@ class Bloxlink(yuyo.AsgiBot):
         )
         return res["data"]
 
-    async def fetch_item(self, domain: str, constructor: Callable, item_id: str, *aspects) -> object:
-        """
-        Fetch an item from local cache, then redis, then database.
-        Will populate caches for later access
-        """
-        # TODO: Actually check redis and not just query mongodb.
-        # should check local cache but for now just fetch from redis
-        item = await self.mongo.bloxlink[domain].find_one({"_id": item_id}, {x: True for x in aspects}) or {
-            "_id": item_id
-        }
-
-        if item.get("_id"):
-            item.pop("_id")
-
-        item["id"] = item_id
-
-        return constructor(**item)
-
-    async def update_item(self, domain: str, item_id: str, **aspects) -> None:
-        """
-        Update an item's aspects in local cache, redis, and database.
-        """
-        # update redis cache
-        redis_aspects = dict(aspects)
-
-        unset_aspects = {}
-        set_aspects = {}
-        for key, val in aspects.items():
-            if val is None:
-                unset_aspects[key] = ""
-            else:
-                set_aspects[key] = val
-
-        # we don't save lists and dicts to redis
-        for aspect_name, aspect_value in dict(aspects).items():
-            if isinstance(aspect_value, (dict, list, bool)) or aspect_value is None:  # TODO: support bools
-                redis_aspects.pop(aspect_name)
-
-        if redis_aspects:
-            await self.redis.hmset(f"{domain}:{item_id}", redis_aspects)
-
-        # update database
-        await self.mongo.bloxlink[domain].update_one(
-            {"_id": item_id}, {"$set": set_aspects, "$unset": unset_aspects}, upsert=True
-        )
-
-    async def fetch_user_data(self, user: hikari.User | hikari.Member | str, *aspects) -> UserData:
-        """
-        Fetch a full user from local cache, then redis, then database.
-        Will populate caches for later access
-        """
-        if isinstance(user, (hikari.User, hikari.Member)):
-            user_id = str(user.id)
-        else:
-            user_id = str(user)
-
-        return await self.fetch_item("users", UserData, user_id, *aspects)
-
-    async def fetch_guild_data(self, guild: hikari.Guild | str, *aspects) -> GuildData:
-        """
-        Fetch a full guild from local cache, then redis, then database.
-        Will populate caches for later access
-        """
-
-        if isinstance(guild, hikari.Guild):
-            guild_id = str(guild.id)
-        else:
-            guild_id = str(guild)
-
-        return await self.fetch_item("guilds", GuildData, guild_id, *aspects)
-
-    async def update_user_data(self, user: hikari.User | hikari.Member, **aspects) -> None:
-        """Update a user's aspects in local cache, redis, and database."""
-
-        if isinstance(user, (hikari.User, hikari.Member)):
-            user_id = str(user.id)
-        else:
-            user_id = str(user)
-
-        return await self.update_item("users", user_id, **aspects)
-
-    async def update_guild_data(self, guild: hikari.Guild | str, **aspects) -> None:
-        """Update a guild's aspects in local cache, redis, and database."""
-
-        if isinstance(guild, hikari.Guild):
-            guild_id = str(guild.id)
-        else:
-            guild_id = str(guild)
-
-        for aspect_name, aspect in aspects.items():  # allow Discord objects to save by ID only
-            if hasattr(aspect, "id"):
-                aspects[aspect_name] = str(aspect.id)
-
-        return await self.update_item("guilds", guild_id, **aspects)
-
-    async def edit_user_roles(
+    async def edit_user(
         self,
         member: hikari.Member,
         guild_id: str | int,
         *,
-        add_roles: list = None,
-        remove_roles: list = None,
+        add_roles: list[int] = None,
+        remove_roles: list[int] = None,
         reason: str = "",
+        nickname: str = None,
     ) -> hikari.Member:
-        """Adds or remove roles from a member."""
+        """Edits the guild-bound member."""
 
-        new_roles = [r for r in member.roles if r not in remove_roles] + list(add_roles)
+        remove_roles = remove_roles or []
+        add_roles = add_roles or []
+        new_roles: list[int] = []
 
-        return await self.rest.edit_member(user=member, guild=guild_id, roles=new_roles, reason=reason or "")
+        if add_roles or remove_roles:
+            new_roles = list(set([r for r in member.role_ids if r not in remove_roles] + add_roles))
+
+        args = {
+            "user": member,
+            "guild": guild_id,
+            "reason": reason or "",
+        }
+
+        if new_roles:
+            args["roles"] = new_roles
+
+        if nickname:
+            args["nickname"] = nickname
+
+        return await self.rest.edit_member(**args)
 
     async def fetch_roles(self, guild_id: str | int):
         """guild.fetch_roles() but returns a nice dictionary instead"""

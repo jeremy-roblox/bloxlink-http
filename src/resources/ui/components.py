@@ -1,36 +1,45 @@
-from typing import Type, TypeVar, Literal
+from typing import Type, Literal, Self
 from enum import Enum
 from abc import ABC, abstractmethod
-from attrs import fields, define, field
+from pydantic import Field, field_validator
+from bloxlink_lib import BaseModelArbitraryTypes, BaseModel
 import hikari
 
 from resources.bloxlink import instance as bloxlink
 from resources import commands
 
 
-T = TypeVar('T')
-
-@define(slots=True, kw_only=True)
-class BaseCustomID:
+class BaseCustomID(BaseModel):
     """Base class for interactive custom IDs."""
 
-    command_name: str
-    subcommand_name: str = field(default="")
-    type: Literal["command", "prompt"] = field(default="command")
-    user_id: int = field(converter=int)
-
     def __str__(self):
-        field_values = [str(getattr(self, field.name)) for field in fields(self.__class__)]
+        field_values: list[str] = []
+
+        for field_name in self.model_fields:
+            field_value = getattr(self, field_name)
+
+            if field_value is None:
+                field_values.append("")
+            else:
+                field_values.append(str(field_value))
+
         return ":".join(field_values)
 
-    def to_dict(self) -> dict[str, str | int]:
-        """Converts the custom_id into a dict of values."""
-
-        return {field.name: getattr(self, field.name) for field in fields(self.__class__)}
+    def __add__(self, other: Self) -> str:
+        return f"{str(self)}:{str(other)}"
 
 
-@define(slots=True, kw_only=True)
-class Component(ABC):
+class CommandCustomID(BaseCustomID):
+    """Custom ID containing more information for commands."""
+
+    command_name: str
+    section: str = "" # used to differentiate between different sections of the same command
+    subcommand_name: str = ""
+    type: Literal["command", "prompt", "paginator"] = "command"
+    user_id: int
+
+
+class Component(BaseModelArbitraryTypes, ABC):
     """Abstract base class for components."""
 
     type: Literal[
@@ -39,8 +48,13 @@ class Component(ABC):
         hikari.ComponentType.ROLE_SELECT_MENU,
         hikari.ComponentType.TEXT_INPUT,
     ] = None
-    custom_id: str = None # only None for prompt page initializations, it's set by the prompt handler
+    custom_id: str | CommandCustomID = None # only None for prompt page initializations, it's set by the prompt handler
     component_id: str = None # used for prompts
+
+    @field_validator("custom_id", mode="before")
+    @classmethod
+    def transform_custom_id(cls: Type[Self], custom_id: str | CommandCustomID) -> str:
+        return str(custom_id)
 
     @abstractmethod
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]) -> list[hikari.impl.MessageActionRowBuilder]:
@@ -49,7 +63,6 @@ class Component(ABC):
         raise NotImplementedError()
 
 
-@define(slots=True, kw_only=True)
 class Button(Component):
     """Base class for buttons."""
 
@@ -67,11 +80,12 @@ class Button(Component):
     is_disabled: bool = False
     emoji: hikari.Emoji = None
     url: str = None
-    type: hikari.ComponentType.BUTTON = hikari.ComponentType.BUTTON
+    type: hikari.ComponentType.BUTTON = Field(default=hikari.ComponentType.BUTTON)
 
-    def __attrs_post_init__(self):
+    def model_post_init(self, __context):
         if self.url:
             self.style = Button.ButtonStyle.LINK
+
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         current_action_row = action_rows[len(action_rows)-1]
@@ -95,8 +109,6 @@ class Button(Component):
 
         return action_rows
 
-
-@define(slots=True, kw_only=True)
 class SelectMenu(Component, ABC):
     """Abstract base class for select menus."""
 
@@ -108,12 +120,11 @@ class SelectMenu(Component, ABC):
     is_disabled: bool = False
 
 
-@define(slots=True, kw_only=True)
 class RoleSelectMenu(SelectMenu):
     """Base class for role select menus."""
 
     placeholder: str = "Select a role..."
-    type: hikari.ComponentType.ROLE_SELECT_MENU = hikari.ComponentType.ROLE_SELECT_MENU
+    type: hikari.ComponentType.ROLE_SELECT_MENU = Field(default=hikari.ComponentType.ROLE_SELECT_MENU)
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         # Role menus take up one full action row.
@@ -135,15 +146,13 @@ class RoleSelectMenu(SelectMenu):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class TextSelectMenu(SelectMenu):
     """Base class for text select menus."""
 
-    options: list['Option']
-    type: hikari.ComponentType.TEXT_SELECT_MENU = hikari.ComponentType.TEXT_SELECT_MENU
+    options: list['Option'] = Field(default_factory=list)
+    type: hikari.ComponentType.TEXT_SELECT_MENU = Field(default=hikari.ComponentType.TEXT_SELECT_MENU)
 
-    @define(slots=True, kw_only=True)
-    class Option:
+    class Option(BaseModelArbitraryTypes):
         """Option for a text select menu."""
 
         label: str
@@ -179,7 +188,6 @@ class TextSelectMenu(SelectMenu):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class TextInput(Component):
     """Base class for modal text inputs."""
 
@@ -196,7 +204,7 @@ class TextInput(Component):
     max_length: int = None
     required: bool = False
     style: TextInputStyle = TextInputStyle.SHORT
-    type: hikari.ComponentType.TEXT_INPUT = hikari.ComponentType.TEXT_INPUT
+    type: hikari.ComponentType.TEXT_INPUT = Field(default=hikari.ComponentType.TEXT_INPUT)
 
     def build(self, action_rows:list[hikari.impl.MessageActionRowBuilder]):
         # Text inputs take up one full action row.
@@ -217,7 +225,6 @@ class TextInput(Component):
         return action_rows
 
 
-@define(slots=True, kw_only=True)
 class Separator(Component):
     """Used to build a new ActionRow for the next set of components."""
 
@@ -472,13 +479,11 @@ async def check_all_modified(message: hikari.Message, *custom_ids: tuple[str]) -
     return True
 
 
-def component_author_validation(author_segment: int = 2, ephemeral: bool = True, defer: bool = True):
+def component_author_validation(parse_into: CommandCustomID=CommandCustomID, ephemeral: bool=True, defer: bool=True):
     """Handle same-author validation for components.
     Utilized to ensure that the author of the command is the only one who can press buttons.
 
     Args:
-        author_segment (int): The segment (as preferred by get_custom_id_data) where the original author's ID
-            will be located in. Defaults to 2.
         ephemeral (bool): Set if the response should be ephemeral or not. Default is true.
             A user mention will be included in the response if not ephemeral.
         defer (bool): Set if the response should be deferred by the handler. Default is true.
@@ -487,31 +492,22 @@ def component_author_validation(author_segment: int = 2, ephemeral: bool = True,
     def func_wrapper(func):
         async def response_wrapper(ctx: commands.CommandContext):
             interaction = ctx.interaction
+            parsed_custom_id = parse_custom_id(parse_into, interaction.custom_id)
 
-            author_id = get_custom_id_data(interaction.custom_id, segment=author_segment)
+            command_context = commands.build_context(interaction)
+            response = command_context.response
 
             # Only accept input from the author of the command
-            # Presumes that the original author ID is the second value in the custom_id.
-            if str(interaction.member.id) != author_id:
-                # Could just silently fail too... Can't defer before here or else the eph response
-                # fails to show up.
-                return (
-                    interaction.build_response(hikari.ResponseType.MESSAGE_CREATE)
-                    .set_content(
-                        f"You {f'(<@{interaction.member.id}>) ' if not ephemeral else ''}"
-                        "are not the person who ran this command!"
-                    )
-                    .set_flags(hikari.MessageFlag.EPHEMERAL if ephemeral else None)
-                )
-            else:
-                if defer:
-                    await interaction.create_initial_response(
-                        hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
-                        flags=hikari.MessageFlag.EPHEMERAL if ephemeral else None,
-                    )
+            if interaction.member.id != parsed_custom_id.user_id:
+                yield await response.send_first("You are not the person who ran this command.", ephemeral=True)
+                return
+
+            if defer:
+                yield await response.defer(ephemeral)
 
             # Trigger original method
-            return await func(commands.build_context(interaction))
+            yield await func(command_context, parsed_custom_id)
+            return
 
         return response_wrapper
 
@@ -539,7 +535,7 @@ def component_values_to_dict(interaction: hikari.ComponentInteraction):
             },
         }
 
-def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
+def parse_custom_id[T](T: Type[T], custom_id: str, **kwargs) -> T:
     """Parses a custom_id into T, discarding additional values in the string.
 
     Args:
@@ -551,10 +547,17 @@ def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
     """
     # Split the custom_id into parts
     parts = custom_id.split(':')
+    print(parts)
+
+    attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
+    print(attrs_parts)
+
+    for field_name, value in dict(attrs_parts).items():
+        if value == "":
+            del attrs_parts[field_name]
 
     # Create an instance of the attrs dataclass with the custom_id values
-    #custom_id_instance = T(*parts[:len(fields(T))])
-    custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))}, **kwargs)
+    custom_id_instance = T(**attrs_parts, **kwargs)
 
     # Return the dataclass instance, discarding additional values
     return custom_id_instance
@@ -592,7 +595,7 @@ def parse_custom_id(T: Type[T], custom_id: str, **kwargs) -> T:
 #     # Return the dataclass instance
 #     return custom_id_instance
 
-def get_custom_id(T: Type[T], **kwargs) -> str:
+def get_custom_id[T](T: Type[T], **kwargs) -> str:
     """Constructs a custom_id string from keyword arguments based on the attrs dataclass structure.
 
     Args:
@@ -607,7 +610,7 @@ def get_custom_id(T: Type[T], **kwargs) -> str:
 
     return str(custom_id_instance)
 
-def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
+def set_custom_id_field[T: BaseModel](T: Type[T], custom_id: str, **kwargs) -> str:
     """Sets specific fields in a custom_id string and returns the updated custom_id.
 
     Args:
@@ -620,16 +623,25 @@ def set_custom_id_field(T: Type[T], custom_id: str, **kwargs) -> str:
     """
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
+    print(parts)
+
+    attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
+
+    for field_name, value in dict(attrs_parts).items():
+        if value == "":
+            del attrs_parts[field_name]
+
+    print(attrs_parts)
 
     # Create an instance of the attrs dataclass with the default field values
-    custom_id_instance = T(**{field.name: parts[index] for index, field in enumerate(fields(T))})
+    custom_id_instance = T(**attrs_parts)
 
     # Update specified fields with the provided keyword arguments
     for field_name, value in kwargs.items():
         setattr(custom_id_instance, field_name, value)
 
     # Retrieve the updated field values in the order specified by the dataclass
-    field_values = [str(getattr(custom_id_instance, field.name)) for field in fields(T) if field.name != "_custom_id"]
+    field_values = [str(getattr(custom_id_instance, field_name) or "") for field_name in T.model_fields.keys() if field_name != "_custom_id"]
 
     # Create the updated custom_id string by joining the field values with colons
     updated_custom_id = ":".join(field_values)
