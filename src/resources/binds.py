@@ -6,15 +6,15 @@ from typing import TYPE_CHECKING, Unpack
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, GuildData, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict
 from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data
 from pydantic import Field
 
 from resources import restriction
 from resources.api.roblox import users
 from resources.bloxlink import instance as bloxlink
-from resources.constants import GROUP_RANK_CRITERIA_TEXT, REPLY_CONT, REPLY_EMOTE, LIMITS, ORANGE_COLOR
-from resources.exceptions import BloxlinkException, Message, RobloxAPIError, RobloxNotFound, BindConflictError, BindException, PremiumRequired, BloxlinkForbidden
+from resources.constants import LIMITS, ORANGE_COLOR
+from resources.exceptions import Message, RobloxNotFound, BindConflictError, BindException, PremiumRequired, BloxlinkForbidden
 from resources.ui.embeds import InteractiveMessage
 from resources.premium import get_premium_status
 from resources.ui.components import Button
@@ -39,7 +39,7 @@ class UpdateEndpointResponse(BaseModel):
 
     add_roles: list[int] = Field(alias="addRoles")
     remove_roles: list[int] = Field(alias="removeRoles")
-    missing_roles: list[int] = Field(alias="missingRoles")
+    missing_roles: list[str] = Field(alias="missingRoles")
 
 
 def convert_v3_binds_to_v4(items: dict, bind_type: VALID_BIND_TYPES) -> list:
@@ -501,10 +501,11 @@ async def apply_binds(
                                     remove_roles=remove_roles,
                                     nickname=nickname if member.nickname != update_payload.nickname else None)
         except hikari.ForbiddenError:
-            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+            if CONFIG.BOT_RELEASE != "LOCAL":
+                raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     # Build response embed
-    if roblox_account or update_embed_for_unverified:
+    if roblox_account or update_embed_for_unverified or CONFIG.BOT_RELEASE == "LOCAL":
         if add_roles or remove_roles or warnings or nickname:
             embed.title = "Member Updated"
         else:

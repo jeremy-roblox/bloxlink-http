@@ -372,7 +372,7 @@ requests = "^2.31.0"
 type = "git"
 url = "https://github.com/bloxlink/bloxlink-lib"
 reference = "HEAD"
-resolved_reference = "baa5508e89f44a0d67ba509fd80b3998d669f88a"
+resolved_reference = "2717b53e99a2845ffe9c0ecd20a804845989041e"
 
 [[package]]
 name = "certifi"
@@ -778,7 +778,7 @@ speedups = ["aiohttp[speedups] (>=3.9,<4.0)", "ciso8601 (>=2.3,<3.0)", "orjson (
 type = "git"
 url = "https://github.com/hikari-py/hikari.git"
 reference = "refs/pull/1803/merge"
-resolved_reference = "3a79c5f612b8a6c7f076361bcc5ae62bdc61c1da"
+resolved_reference = "ec4bc8e902ab29fb6ed9aaa857449d5290cc01b7"
 
 [[package]]
 name = "hikari-yuyo"
@@ -1309,13 +1309,13 @@ test = ["appdirs (==1.4.4)", "covdefaults (>=2.3)", "pytest (>=7.4.3)", "pytest-
 
 [[package]]
 name = "prometheus-client"
-version = "0.19.0"
+version = "0.20.0"
 description = "Python client for the Prometheus monitoring system."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "prometheus_client-0.19.0-py3-none-any.whl", hash = "sha256:c88b1e6ecf6b41cd8fb5731c7ae919bf66df6ec6fafa555cd6c0e16ca169ae92"},
-    {file = "prometheus_client-0.19.0.tar.gz", hash = "sha256:4585b0d1223148c27a225b10dbec5ae9bc4c81a99a3fa80774fa6209935324e1"},
+    {file = "prometheus_client-0.20.0-py3-none-any.whl", hash = "sha256:cde524a85bce83ca359cc837f28b8c0db5cac7aa653a588fd7e84ba061c329e7"},
+    {file = "prometheus_client-0.20.0.tar.gz", hash = "sha256:287629d00b147a32dcb2be0b9df905da599b2d82f80377083ec8463309a4bb89"},
 ]
 
 [package.extras]
