@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import hikari
 import uvicorn
-from bloxlink_lib import load_module
+from bloxlink_lib import load_modules
 
 from config import CONFIG
 from resources.bloxlink import Bloxlink
@@ -81,18 +81,7 @@ if __name__ == "__main__":
     for interaction_type in (hikari.CommandInteraction, hikari.ComponentInteraction, hikari.AutocompleteInteraction, hikari.ModalInteraction):
         bot.interaction_server.set_listener(interaction_type, handle_interaction)
 
-    for directory in MODULES:
-        files = [
-            name
-            for name in listdir("src/" + directory.replace(".", "/"))
-            if name[:1] != "." and name[:2] != "__" and name != "_DS_Store"
-        ]
-
-        for filename in [f.replace(".py", "") for f in files]:
-            if filename in ("bot", "__init__"):
-                continue
-
-            load_module(f"{directory.replace('/','.')}.{filename}")
+    load_modules(MODULES, "src/")
 
     uvicorn.run(
         webserver,
