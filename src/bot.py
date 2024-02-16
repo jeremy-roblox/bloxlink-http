@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import hikari
 import uvicorn
+from bloxlink_lib import load_module
 
 from config import CONFIG
 from resources.bloxlink import Bloxlink
@@ -91,7 +92,7 @@ if __name__ == "__main__":
             if filename in ("bot", "__init__"):
                 continue
 
-            bot.load_module(f"{directory.replace('/','.')}.{filename}")
+            load_module(f"{directory.replace('/','.')}.{filename}")
 
     uvicorn.run(
         webserver,

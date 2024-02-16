@@ -212,40 +212,6 @@ class Bloxlink(yuyo.AsgiBot):
         return [x["_id"] async for x in cursor if str(origin_id) != str(x["_id"])]
 
     @staticmethod
-    def load_module(import_name: str) -> None:
-        """Utility function to import python modules.
-
-        Args:
-            import_name (str): Name of the module to import
-        """
-
-        logging.info(f"Attempting to load module {import_name}")
-
-        try:
-            module = importlib.import_module(import_name)
-
-        except (ImportError, ModuleNotFoundError) as e:
-            logging.error(f"Failed to import {import_name}: {e}")
-            raise e
-
-        except Exception as e:
-            logging.error(f"Module {import_name} errored: {e}")
-            raise e
-
-        if hasattr(module, "__setup__"):
-            try:
-                if iscoroutinefunction(module.__setup__):
-                    asyncio.run(module.__setup__())
-                else:
-                    module.__setup__()
-
-            except Exception as e:
-                logging.error(f"Module {import_name} errored: {e}")
-                raise e
-
-        logging.info(f"Loaded module {import_name}")
-
-    @staticmethod
     def command(**command_attrs: "Unpack[NewCommandArgs]"):
         """Decorator to register a command."""
 
