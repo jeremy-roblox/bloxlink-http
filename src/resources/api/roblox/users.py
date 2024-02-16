@@ -59,6 +59,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None) -> 
     Returns:
         hikari.Embed: Embed with information about a roblox account.
     """
+
     await roblox_account.sync()
 
     embed = hikari.Embed(
