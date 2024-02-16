@@ -1,6 +1,6 @@
 import hikari
 from bloxlink_lib import get_group, find
-from bloxlink_lib.database import fetch_guild_data, update_guild_data, update_guild_data
+from bloxlink_lib.database import fetch_guild_data, update_guild_data
 from resources.bloxlink import instance as bloxlink
 from resources.binds import create_bind
 from resources.commands import CommandContext, GenericCommand

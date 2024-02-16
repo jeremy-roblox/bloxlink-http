@@ -166,9 +166,10 @@ class Bloxlink(yuyo.AsgiBot):
 
         return await self.rest.edit_member(**args)
 
-    async def fetch_roles(self, guild_id: str | int):
-        """guild.fetch_roles() but returns a nice dictionary instead"""
-        return {str(role.id): role for role in await self.rest.fetch_roles(guild_id)}
+    async def fetch_roles(self, guild_id: str | int, key_as_role_name: bool = False) -> dict[str, hikari.Role]:
+        """guild.fetch_roles() but returns a dictionary instead"""
+
+        return {str(role.name if key_as_role_name else role.id): role for role in await self.rest.fetch_roles(guild_id)}
 
     async def role_ids_to_names(self, guild_id: int, roles: list) -> str:
         """Get the names of roles based on the role ID.

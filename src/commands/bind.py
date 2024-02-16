@@ -20,6 +20,7 @@ class GenericBindPromptCustomID(PromptCustomID, ABC):
     entity_type: str
 
 
+
 class GenericBindPrompt(Prompt[GenericBindPromptCustomID]):
     """Generic prompt for binding Roblox entities to Discord roles."""
 
@@ -730,13 +731,93 @@ class GroupPrompt(Prompt[GroupPromptCustomID]):
             await self.ack()
 
 
+class GroupRolesConfirmationPrompt(Prompt[GroupPromptCustomID]):
+    """Ask if the bot can create roles that match their rolesets."""
+
+    override_prompt_name = "GRCP"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args, **kwargs,
+            custom_id_format=GroupPromptCustomID,
+        )
+
+    @Prompt.page(
+        PromptPageData(
+            title="Role Creation Confirmation",
+            description=("Would you like Bloxlink to create Discord roles for each of your group's roles?\n\n**Please note, even if you "
+                         "choose 'no', the bind will still be created.**"),
+            components=[
+                Button(
+                    label="Yes",
+                    component_id="yes",
+                    style=Button.ButtonStyle.SUCCESS,
+                ),
+                Button(
+                    label="No",
+                    component_id="no",
+                    style=Button.ButtonStyle.DANGER,
+                ),
+                Button(
+                    label="Cancel",
+                    component_id="cancel",
+                    style=Button.ButtonStyle.SECONDARY,
+                ),
+            ],
+        )
+
+    )
+    async def role_create_confirmation(
+        self,
+        interaction: hikari.CommandInteraction | hikari.ComponentInteraction,
+        fired_component_id: str,
+    ):
+        """Default page for the prompt. Ask if the bot can create groupset roles."""
+
+        guild_id = interaction.guild_id
+
+        yield await self.response.defer()
+
+        if fired_component_id:
+            group = await get_group(self.custom_id.group_id)
+
+            if fired_component_id == "yes":
+                guild_roles = await bloxlink.fetch_roles(guild_id, key_as_role_name=True)
+
+                for roleset in reversed(group.rolesets.values()):
+                    if roleset.name not in guild_roles:
+                        await bloxlink.rest.create_role(
+                            guild_id,
+                            name=roleset.name,
+                        )
+
+            if fired_component_id != "cancel":
+                try:
+                    await create_bind(guild_id, bind_type="group", bind_id=self.custom_id.group_id, dynamic_roles=True)
+                except BindConflictError:
+                    await self.response.send(
+                        f"You already have a group binding for group [{group.name}](<{group.url}>). No changes were made.",
+                        edit_original=True
+                    )
+                    return
+
+                await self.response.send(
+                    f"Your group binding for group [{group.name}](<{group.url}>) has been saved. "
+                    "When people join your server, they will receive a Discord role that corresponds to their group rank. ",
+                    edit_original=True
+                )
+            else:
+                await self.response.send("No changes were made.", edit_original=True)
+
+
+
 @bloxlink.command(
     category="Administration",
     defer=True,
     defer_with_ephemeral=False,
     permissions=hikari.Permissions.MANAGE_GUILD,
     dm_enabled=False,
-    prompts=[GroupPrompt, GenericBindPrompt],
+    prompts=[GroupPrompt, GenericBindPrompt, GroupRolesConfirmationPrompt],
 )
 class BindCommand(GenericCommand):
     """bind Discord role(s) to Roblox entities"""
@@ -773,7 +854,7 @@ class BindCommand(GenericCommand):
         bind_mode = ctx.options["bind_mode"]
 
         try:
-            group = await get_group(group_id)
+            await get_group(group_id)
         except RobloxNotFound:
             # Can't be ephemeral sadly bc of the defer state for the command.
             return await ctx.response.send_first(
@@ -789,20 +870,11 @@ class BindCommand(GenericCommand):
             )
 
         elif bind_mode == "entire_group":
-            # Isn't interactive - just makes the binding and tells the user if it worked or not.
-            # TODO: ask if the bot can create roles that match their group rolesets
-
-            try:
-                await create_bind(ctx.guild_id, bind_type="group", bind_id=group_id, dynamic_roles=True)
-            except BindConflictError:
-                await ctx.response.send(
-                    f"You already have a group binding for group [{group.name}](<{group.url}>). No changes were made."
-                )
-                return
-
-            await ctx.response.send(
-                f"Your group binding for group [{group.name}](<{group.url}>) has been saved. "
-                "When people join your server, they will receive a Discord role that corresponds to their group rank. "
+            await ctx.response.send_prompt(
+                GroupRolesConfirmationPrompt,
+                custom_id_data={
+                    "group_id": group_id,
+                },
             )
 
     @bloxlink.subcommand(
