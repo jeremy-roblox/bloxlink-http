@@ -75,7 +75,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None) -> 
     )
 
     if roblox_account.avatar:
-        embed.set_thumbnail(roblox_account.avatar)
+        embed.set_thumbnail(roblox_account.avatar_url)
 
     return embed
 
