@@ -1,6 +1,6 @@
-import logging
 import argparse
-from os import environ as env, listdir
+import logging
+from os import environ as env
 from datetime import timedelta
 
 import hikari
@@ -24,10 +24,6 @@ from resources.constants import MODULES, BOT_RELEASE
 from resources.redis import redis
 from web.webserver import webserver
 
-
-# Initialize logging and argument parsing
-logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -62,11 +58,11 @@ async def handle_start(_):
         await redis.set("synced_commands", "true", ex=timedelta(hours=1).seconds)
         await sync_commands(bot)
     else:
-        logger.info("Skipping command sync. Run with --sync-commands or -s to force sync.")
+        logging.info("Skipping command sync. Run with --sync-commands or -s to force sync.")
 
     if BOT_RELEASE == "LOCAL" and args.clear_redis:
         await redis.flushall()
-        logger.info("Cleared redis. Run with --clear-redis or -c to force clear.")
+        logging.info("Cleared redis. Run with --clear-redis or -c to force clear.")
 
 
 @webserver.on_stop

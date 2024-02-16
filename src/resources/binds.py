@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Unpack
 
@@ -23,8 +22,6 @@ from config import CONFIG
 if TYPE_CHECKING:
     from resources.response import Response
 
-
-logger = logging.getLogger()
 
 
 # Set to True to remove the old bind fields from the database (groupIDs and roleBinds)
