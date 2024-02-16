@@ -45,7 +45,7 @@ class Command(BaseModelArbitraryTypes):
     developer_only: bool = False
     premium: bool = False
     pro_bypass: bool = False
-
+    guild_ids: list[int] = [] # if empty, it's global
 
     async def assert_premium(self, interaction: hikari.CommandInteraction):
         if self.premium or BOT_RELEASE == "PRO":
@@ -138,6 +138,7 @@ class NewCommandArgs(TypedDict, total=False):
     developer_only: bool
     premium: bool
     pro_bypass: bool
+    guild_ids: list[int]
 
 
 class CommandContext(BaseModelArbitraryTypes):
@@ -525,6 +526,7 @@ async def sync_commands(bot: hikari.RESTBot):
     """
 
     commands: list[hikari.PartialCommand] = []
+    guild_commands: dict[int, list[hikari.PartialCommand]] = {}
 
     for new_command_data in slash_commands.values():
         command: hikari.api.SlashCommandBuilder = bot.rest.slash_command_builder(
@@ -545,14 +547,31 @@ async def sync_commands(bot: hikari.RESTBot):
         if new_command_data.dm_enabled is not None:
             command.set_is_dm_enabled(new_command_data.dm_enabled)
 
-        commands.append(command)
+        if not new_command_data.guild_ids:
+            commands.append(command)
+        else:
+            for guild_id in new_command_data.guild_ids:
+                guild_commands[guild_id] = guild_commands.get(guild_id, [])
+                guild_commands[guild_id].append(command)
 
     await bot.rest.set_application_commands(
         application=CONFIG.DISCORD_APPLICATION_ID,
         commands=commands,
     )
 
+    if guild_commands:
+        for guild_id, commands in guild_commands.items():
+            await bot.rest.set_application_commands(
+                application=CONFIG.DISCORD_APPLICATION_ID,
+                commands=commands,
+                guild=guild_id
+            )
+
+
     logging.info(f"Registered {len(slash_commands)} slash commands.")
+
+    if guild_commands:
+        logging.info(f"Registered commands for {len(guild_commands)} guilds.")
 
 
 def build_context(

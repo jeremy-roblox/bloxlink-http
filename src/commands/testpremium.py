@@ -1,10 +1,12 @@
 import hikari
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
+from resources.constants import DEVELOPER_GUILDS
 
 
 @bloxlink.command(
     developer_only=True,
+    guild_ids=DEVELOPER_GUILDS
 )
 class TestPremiumCommand(GenericCommand):
     """adds/remove premium from server"""

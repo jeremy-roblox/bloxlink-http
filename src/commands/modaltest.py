@@ -1,11 +1,13 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import TextInput
+from resources.constants import DEVELOPER_GUILDS
 
 
 @bloxlink.command(
     category="Miscellaneous",
-    developer_only=True
+    developer_only=True,
+    guild_ids=DEVELOPER_GUILDS
 )
 class ModalTestCommand(GenericCommand):
     """test modals"""

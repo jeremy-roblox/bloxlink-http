@@ -1,5 +1,6 @@
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
+from resources.constants import DEVELOPER_GUILDS
 import hikari
 
 
@@ -8,6 +9,7 @@ import hikari
     developer_only=True,
     defer=True,
     defer_with_ephemeral=True,
+    guild_ids=DEVELOPER_GUILDS
 )
 class RolesCleanupCommand(GenericCommand):
     """clean up any roles without a color"""
