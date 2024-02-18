@@ -81,7 +81,7 @@ class Bloxlink(yuyo.AsgiBot):
         except RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
         except asyncio.TimeoutError:
-            future = self.redis_messages._futures.get(reply_channel, None)
+            future = self.redis_messages._futures.get(reply_channel)
 
             if future:
                 return (self.redis_messages._futures.pop(reply_channel))[3]
