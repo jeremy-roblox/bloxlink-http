@@ -21,6 +21,14 @@ class Config(BLOXLINK_CONFIG):
     SERVER_AUTH: str
     #############################
 
+    def model_post_init(self, __context):
+        if self.BOT_RELEASE != "LOCAL":
+            if self.SHARD_COUNT < 1:
+                raise ValueError("SHARD_COUNT must be at least 1")
+
+            if self.SHARDS_PER_NODE < 1:
+                raise ValueError("SHARDS_PER_NODE must be at least 1")
+
 
 
 CONFIG: Config = Config(**dotenv_values())

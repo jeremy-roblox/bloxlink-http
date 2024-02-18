@@ -54,7 +54,7 @@ class Bloxlink(yuyo.AsgiBot):
         """Current bot uptime."""
         return datetime.utcnow() - self.started_at
 
-    async def relay(self, channel: str, payload: Optional[dict] = None, timeout: int = 2) -> dict:
+    async def relay(self, channel: str, payload: Optional[dict] = None, timeout: int = 2, wait_for_all: bool = True) -> dict:
         """Relay a message over Redis to the gateway.
 
         Args:
@@ -69,6 +69,7 @@ class Bloxlink(yuyo.AsgiBot):
         Returns:
             dict: Response from the pubsub channel.
         """
+
         nonce = uuid.uuid4()
         reply_channel = f"REPLY:{nonce}"
 
@@ -77,7 +78,7 @@ class Bloxlink(yuyo.AsgiBot):
             await self.redis.publish(
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
-            return await self.redis_messages.get_message(reply_channel, timeout=timeout)
+            return await self.redis_messages.get_message(reply_channel, timeout=timeout, wait_for_all=wait_for_all)
         except RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
         except asyncio.TimeoutError as ex:

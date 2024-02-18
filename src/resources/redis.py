@@ -1,11 +1,14 @@
 import asyncio
 import logging
 import time
+import json
 from redis.asyncio import Redis  # pylint: disable=import-error
+from bloxlink_lib import create_task_log_exception, get_node_count
 
 from config import CONFIG
 
 redis: Redis = None
+
 
 def connect_redis():
     """Connect to Redis."""
@@ -48,12 +51,14 @@ class RedisMessageCollector:
     def __init__(self):
         self.redis = redis
         self.pubsub = self.redis.pubsub()
-        self._futures: dict[str, FutureMessage] = {}
-        self._listener_task = asyncio.get_event_loop().create_task(self._listen_for_message())
+        self._futures: dict[str, tuple[FutureMessage, bool, list[dict]]] = {}
+        self._listener_task = create_task_log_exception(self._listen_for_message())
 
     async def _listen_for_message(self):
         """Listen to messages over pubsub asynchronously"""
+
         self.logger.debug("Listening for messages.")
+
         while True:
             if not self.pubsub.subscribed:
                 # Lets other events in the event loop trigger
@@ -61,24 +66,29 @@ class RedisMessageCollector:
                 continue
 
             message = await self.pubsub.get_message(ignore_subscribe_messages=True, timeout=10)
+
             if not message:
-                await asyncio.sleep(0)
                 continue
 
             # Required to be converted from a byte array.
-            channel: str = message["channel"].decode("utf-8")
-            future = self._futures.get(channel, None)
-            if not future:
+            channel: str = message["channel"]
+            current_future = self._futures.get(channel, None)
+
+            if not current_future:
                 continue  # We are not waiting for this message
 
-            future.set_result(message)
+            future, wait_for_all, current_results = current_future
+
+            current_results.append(json.loads(message["data"]))
+
+            if not wait_for_all or len(current_results) == get_node_count():
+                future.set_result(current_results)
+
             self.logger.debug(
                 f"Fulfilled Future: {future} in {(time.time_ns() - future.created_at) / 1000000:.2f}ms"
             )
-            await self.pubsub.unsubscribe(channel)
-            self._futures.pop(channel)
 
-    async def get_message(self, channel: str, timeout: int = 2):
+    async def get_message(self, channel: str, timeout: int, wait_for_all: bool) -> dict:
         """Get a message from the given pubsub channel.
 
         Args:
@@ -89,26 +99,22 @@ class RedisMessageCollector:
         Raises:
             TimeoutError: When the channel cannot be subscribed to, or the timeout for a reply is reached.
         """
+
         future = self._futures.get(channel, None)
+
         if future:
             return await future
 
         future = FutureMessage()
-        self._futures[channel] = future
+        self._futures[channel] = (future, wait_for_all, [])
+
+        await self.pubsub.subscribe(channel)
 
         try:
-            await asyncio.wait_for(self.pubsub.subscribe(channel), timeout=2)
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"Subscription of channel: {channel} took too long!") from None
-
-        self.logger.debug(f"Waiting for {channel}")
-
-        try:
-            result = await asyncio.wait_for(future, timeout=timeout)
-            return result
-        except asyncio.TimeoutError:
-            # If the future is given a result, the channel is unsubscribed - but here, it is not.
+            return await asyncio.wait_for(future, timeout=timeout)
+        finally:
             await self.pubsub.unsubscribe(channel)
-            raise TimeoutError(f"No response was received on {channel}.") from None
+            self._futures.pop(channel, None)
+
 
 connect_redis()
