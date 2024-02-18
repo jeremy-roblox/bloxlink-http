@@ -1,11 +1,8 @@
 import asyncio
 import functools
-import importlib
 import json
-import logging
 import uuid
 from datetime import datetime, timedelta
-from inspect import iscoroutinefunction
 from typing import TYPE_CHECKING, Coroutine, Optional, Unpack
 
 import hikari
@@ -54,11 +51,12 @@ class Bloxlink(yuyo.AsgiBot):
         """Current bot uptime."""
         return datetime.utcnow() - self.started_at
 
-    async def relay(self, channel: str, payload: Optional[dict] = None, timeout: int = 2, wait_for_all: bool = True) -> dict:
+    async def relay[T](self, channel: str, model: T = None, payload: Optional[dict] = None, timeout: int = 2, wait_for_all: bool = True) -> list[T]:
         """Relay a message over Redis to the gateway.
 
         Args:
             channel (str): The pubsub channel to publish the message over.
+            model (T): The model to parse the response into.
             payload (Optional[dict]): The data to include in the message being sent. Defaults to None.
             timeout (int, optional): Timeout time for a reply in seconds. Defaults to 2 seconds.
 
@@ -67,22 +65,26 @@ class Bloxlink(yuyo.AsgiBot):
             TimeoutError: When the request has reached its timeout.
 
         Returns:
-            dict: Response from the pubsub channel.
+            list[T]: The list of responses from the gateway.
         """
 
         nonce = uuid.uuid4()
         reply_channel = f"REPLY:{nonce}"
+        model = model or dict
 
         try:
             await self.redis_messages.pubsub.subscribe(reply_channel)
             await self.redis.publish(
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
-            return await self.redis_messages.get_message(reply_channel, timeout=timeout, wait_for_all=wait_for_all)
+            return await self.redis_messages.get_message(reply_channel, timeout=timeout, wait_for_all=wait_for_all, model=model)
         except RedisError as ex:
             raise RuntimeError("Failed to publish or wait for response") from ex
-        except asyncio.TimeoutError as ex:
-            raise TimeoutError("No response was received.") from ex
+        except asyncio.TimeoutError:
+            future = self.redis_messages._futures.get(reply_channel, None)
+
+            if future:
+                return (self.redis_messages._futures.pop(reply_channel))[3]
 
     async def fetch_discord_member(self, guild_id: int, user_id: int, *fields) -> dict | hikari.Member | None:
         """Get a discord member of a guild, first from the gateway, then from a HTTP request.

@@ -3,7 +3,7 @@ import logging
 import time
 import json
 from redis.asyncio import Redis  # pylint: disable=import-error
-from bloxlink_lib import create_task_log_exception, get_node_count
+from bloxlink_lib import create_task_log_exception, get_node_count, BaseModel, parse_into
 
 from config import CONFIG
 
@@ -51,7 +51,7 @@ class RedisMessageCollector:
     def __init__(self):
         self.redis = redis
         self.pubsub = self.redis.pubsub()
-        self._futures: dict[str, tuple[FutureMessage, bool, list[dict]]] = {}
+        self._futures: dict[str, tuple[FutureMessage, bool, BaseModel | dict, list[dict]]] = {}
         self._listener_task = create_task_log_exception(self._listen_for_message())
 
     async def _listen_for_message(self):
@@ -77,18 +77,19 @@ class RedisMessageCollector:
             if not current_future:
                 continue  # We are not waiting for this message
 
-            future, wait_for_all, current_results = current_future
+            future, wait_for_all, model, current_results = current_future
 
-            current_results.append(json.loads(message["data"]))
+            current_results.append(parse_into(json.loads(message["data"]), model))
 
             if not wait_for_all or len(current_results) == get_node_count():
+                self._futures.pop(channel, None)
                 future.set_result(current_results)
 
             self.logger.debug(
                 f"Fulfilled Future: {future} in {(time.time_ns() - future.created_at) / 1000000:.2f}ms"
             )
 
-    async def get_message(self, channel: str, timeout: int, wait_for_all: bool) -> dict:
+    async def get_message[T](self, channel: str, timeout: int, wait_for_all: bool, model: T = None) -> list[T]:
         """Get a message from the given pubsub channel.
 
         Args:
@@ -101,12 +102,13 @@ class RedisMessageCollector:
         """
 
         future = self._futures.get(channel, None)
+        model = model or dict
 
         if future:
             return await future
 
         future = FutureMessage()
-        self._futures[channel] = (future, wait_for_all, [])
+        self._futures[channel] = (future, wait_for_all, model, [])
 
         await self.pubsub.subscribe(channel)
 
@@ -114,7 +116,6 @@ class RedisMessageCollector:
             return await asyncio.wait_for(future, timeout=timeout)
         finally:
             await self.pubsub.unsubscribe(channel)
-            self._futures.pop(channel, None)
 
 
 connect_redis()
