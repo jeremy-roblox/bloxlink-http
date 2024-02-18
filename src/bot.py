@@ -77,7 +77,7 @@ if __name__ == "__main__":
     for interaction_type in (hikari.CommandInteraction, hikari.ComponentInteraction, hikari.AutocompleteInteraction, hikari.ModalInteraction):
         bot.interaction_server.set_listener(interaction_type, handle_interaction)
 
-    load_modules(MODULES, "src/")
+    load_modules(*MODULES, starting_path="src/")
 
     uvicorn.run(
         webserver,
