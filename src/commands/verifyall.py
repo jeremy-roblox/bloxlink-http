@@ -11,6 +11,7 @@ from bloxlink_lib import BaseModel, parse_into
 from bloxlink_lib.database import redis
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, CommandCustomID, component_author_validation
+from resources.ui import ProgressBar
 
 logger = logging.getLogger("verify_all")
 CHUNK_LIMIT = 1000
@@ -25,8 +26,10 @@ class ProgressCustomID(CommandCustomID):
 
 class VerifyAllProgress(BaseModel):
     started: datetime
-    progress: int
-    total: int
+    members_processed: int
+    total_members: int
+    current_chunk: int
+    total_chunks: int
 
 
 
@@ -39,6 +42,7 @@ async def get_progress(ctx: CommandContext, custom_id: ProgressCustomID):
 
     if not progress:
         await response.send("No progress has been made yet.", ephemeral=True)
+        return
 
     parsed_progress = parse_into(progress, VerifyAllProgress)
 
@@ -46,7 +50,9 @@ async def get_progress(ctx: CommandContext, custom_id: ProgressCustomID):
         title="Progress Update",
         description=(
             f"Started: {parsed_progress.started}\n"
-            f"Chunks processed: {parsed_progress.progress}/{parsed_progress.total}"
+            f"Members processed: {parsed_progress.members_processed}/{parsed_progress.total_members}\n"
+            f"Chunks processed: {parsed_progress.current_chunk}/{parsed_progress.total_chunks}\n" +
+            "Progress: " + str(ProgressBar(progress=parsed_progress.members_processed, total=parsed_progress.total_members))
         )
     )
 
