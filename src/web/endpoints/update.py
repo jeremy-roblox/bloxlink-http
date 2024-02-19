@@ -5,16 +5,16 @@ from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
 from bloxlink_lib.database import fetch_guild_data
-from bloxlink_lib import GuildData, get_user_account, BaseModel
+from bloxlink_lib import GuildData, get_user_account, BaseModel, MemberSerializable
 
 from resources import binds
 from resources.bloxlink import instance as bloxlink
-from resources.exceptions import BloxlinkForbidden, Message
+from resources.exceptions import BloxlinkForbidden
 
 from ..decorators import authenticate
 
 
-class UpdateBody(BaseModel):
+class UpdateUsersPayload(BaseModel):
     """
     The expected content when a request from the gateway -> the server
     is made regarding updating a chunk of users.
@@ -27,10 +27,8 @@ class UpdateBody(BaseModel):
         the message saying the scan is complete.
     """
 
-    guild_id: str
-    channel_id: str
-    members: list
-    is_done: bool = False
+    guild_id: int
+    members: list[MemberSerializable]
 
 
 class MinimalMember(BaseModel): # TODO: remove this
@@ -62,24 +60,26 @@ class Update(APIController):
 
     @post("/users")
     @authenticate()
-    async def post_users(self, content: FromJSON[UpdateBody], _request: Request):
+    async def post_users(self, content: FromJSON[UpdateUsersPayload], _request: Request):
         """Endpoint to receive /verifyall user chunks from the gateway.
 
         Args:
-            content (FromJSON[UpdateBody]): Request data from the gateway.
-                See UpdateBody for expected JSON variables.
+            content (FromJSON[UpdateUsersPayload]): Request data from the gateway.
+                See UpdateUsersPayload for expected JSON variables.
         """
 
-        content: UpdateBody = content.value
+        content: UpdateUsersPayload = content.value
 
-        # Update users, send response only when this is done (or there is an issue?)
-        await _update_users(content)
+        # Update users, send response only when this is done
+        await process_update_members(content.members, content.guild_id)
 
-        # NOTE: We're currently waiting until this chunk is done before replying. This is likely not reliable
+        # TODO: We're currently waiting until this chunk is done before replying. This is likely not reliable
         # for the gateway to wait upon in the event of HTTP server reboots.
         # Either the gateway should TTL after some time frame, or we should reply with a 202 (accepted) as soon
         # as the request is received, with a way to check the status (like nonces?)
-        return ok(f"OK. Received {content}")
+        return ok({
+            "success": True
+        })
 
     @post("/join/{guild_id}/{user_id}")
     @authenticate()
@@ -133,41 +133,33 @@ class Update(APIController):
         return ok("Server does not have auto-update features enabled.")
 
 
-async def _update_users(content: UpdateBody):
-    members = content.members
-    guild_id = content.guild_id
-    channel_id = content.channel_id
-    success = True
+async def process_update_members(members: list[MemberSerializable], guild_id: str):
+    """Process a list of members to update from the gateway."""
 
     for member in members:
-        if member.get("is_bot", False):
+        if member.is_bot:
             continue
 
-        logging.debug(f"Updating member: {member['name']}")
+        logging.debug(f"Update endpoint: updating member: {member.username}")
 
         try:
-            roblox_account = await get_user_account(member["id"], guild_id=guild_id, raise_errors=False)
+            roblox_account = await get_user_account(member.id, guild_id=guild_id, raise_errors=False)
             await binds.apply_binds(member, guild_id, roblox_account, moderate_user=True)
         except BloxlinkForbidden:
             # bloxlink doesn't have permissions to give roles... might be good to
-            # stop after n attempts where this is received so that way we don't flood discord with
+            # TODO: stop after n attempts where this is received so that way we don't flood discord with
             # 403 codes.
             continue
 
-        except Message as ex:
-            # Binds API error.
-            logging.error(ex)
-            continue
+        # except RuntimeError as ex:
+        #     # Nickname API error.
+        #     success = False
+        #     logging.error(ex)
+        #     break
 
-        except RuntimeError as ex:
-            # Nickname API error.
-            success = False
-            logging.error(ex)
-            break
+    # if content.is_done and success:
+    #     # This is technically a lie since the gateway sends chunks of users, so the final chunk will likely
+    #     # be processed along with other chunks, so the bot could potentially not be "done" yet.
+    #     # Could be prevented with state tracking somehow? TBD
 
-    if content.is_done and success:
-        # This is technically a lie since the gateway sends chunks of users, so the final chunk will likely
-        # be processed along with other chunks, so the bot could potentially not be "done" yet.
-        # Could be prevented with state tracking somehow? TBD
-
-        await bloxlink.rest.create_message(channel_id, content="Your server has finished updating everyone!")
+    #     await bloxlink.rest.create_message(channel_id, content="Your server has finished updating everyone!")

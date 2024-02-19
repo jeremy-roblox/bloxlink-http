@@ -155,7 +155,7 @@ class Bloxlink(yuyo.AsgiBot):
             new_roles = list(set([r for r in member.role_ids if r not in remove_roles] + add_roles))
 
         args = {
-            "user": member,
+            "user": member.id,
             "guild": guild_id,
             "reason": reason or "",
         }
