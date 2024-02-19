@@ -3,9 +3,8 @@ from typing import Literal
 from datetime import timedelta
 import hikari
 from bloxlink_lib import BaseModel
-from bloxlink_lib.database import fetch_guild_data
+from bloxlink_lib.database import fetch_guild_data, redis
 from resources.bloxlink import instance as bloxlink
-from resources.redis import redis
 from config import CONFIG
 
 from .constants import SKU_TIERS
@@ -129,7 +128,7 @@ async def get_premium_status(
                 has_discord_billing = bool(entitlements)
                 redis_discord_billing_tier = SKU_TIERS[entitlements[0].sku_id] if has_discord_billing else None
 
-                await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", ex=timedelta(seconds=100).seconds)
+                await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", expire=timedelta(seconds=100))
 
             if has_discord_billing:
                 redis_discord_billing_tier = redis_discord_billing_tier.decode()

@@ -2,37 +2,8 @@ import asyncio
 import logging
 import time
 import json
-from redis.asyncio import Redis  # pylint: disable=import-error
 from bloxlink_lib import create_task_log_exception, get_node_count, BaseModel, parse_into
-
-from config import CONFIG
-
-redis: Redis = None
-
-
-def connect_redis():
-    """Connect to Redis."""
-
-    global redis # pylint: disable=global-statement
-
-    if CONFIG.REDIS_URL:
-        redis = Redis.from_url(
-            url=CONFIG.REDIS_URL,
-            retry_on_timeout=True,
-            decode_responses=True,
-            health_check_interval=30,
-        )
-    else:
-        redis = Redis(
-            host=CONFIG.REDIS_HOST,
-            port=CONFIG.REDIS_PORT,
-            password=CONFIG.REDIS_PASSWORD,
-            retry_on_timeout=True,
-            decode_responses=True,
-            health_check_interval=30,
-        )
-
-    # TODO: ping keepalive
+from bloxlink_lib.database import redis
 
 
 class FutureMessage(asyncio.Future[dict]):
@@ -49,8 +20,7 @@ class RedisMessageCollector:
     logger = logging.getLogger("redis.collector")
 
     def __init__(self):
-        self.redis = redis
-        self.pubsub = self.redis.pubsub()
+        self.pubsub = redis.pubsub()
         self._futures: dict[str, tuple[FutureMessage, bool, BaseModel | dict, list[dict]]] = {}
         self._listener_task = create_task_log_exception(self._listen_for_message())
 
@@ -116,6 +86,3 @@ class RedisMessageCollector:
             return await asyncio.wait_for(future, timeout=timeout)
         finally:
             await self.pubsub.unsubscribe(channel)
-
-
-connect_redis()

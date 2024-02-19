@@ -1,6 +1,7 @@
 from blacksheep import  Request, ok
 from blacksheep.server.controllers import APIController, get
 
+from bloxlink_lib.database import redis
 from resources.bloxlink import instance as bloxlink
 
 
@@ -14,6 +15,6 @@ class Health(APIController):
 
         # These will raise exceptions if they fail.
         await bloxlink.rest.fetch_application()
-        await bloxlink.redis.ping()
+        await redis.ping()
 
         return ok("OK. Service is healthy.")

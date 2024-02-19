@@ -3,8 +3,8 @@ from typing import TypedDict
 from pydantic import Field
 import hikari
 from bloxlink_lib import BaseModelArbitraryTypes
+from bloxlink_lib.database import redis
 from resources.ui.components import TextInput, get_custom_id, CommandCustomID
-from resources.redis import redis
 from resources import response
 
 
@@ -34,8 +34,8 @@ class Modal(BaseModelArbitraryTypes):
 
     builder: hikari.impl.InteractionModalBuilder | None
     custom_id: str
-    data: dict = None
-    command_options: dict = None
+    data: dict | None = None
+    command_options: dict | None = None
 
     async def submitted(self):
         """Returns whether the modal was submitted."""

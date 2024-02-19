@@ -3,13 +3,12 @@ from __future__ import annotations
 from datetime import timedelta
 
 from bloxlink_lib import RobloxUser, get_user
-from bloxlink_lib.database import fetch_guild_data
+from bloxlink_lib.database import fetch_guild_data, redis
 import hikari
 
 from resources.constants import VERIFY_URL, VERIFY_URL_GUILD
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 from resources.premium import get_premium_status
-from resources.redis import redis
 
 
 async def get_user_from_string(target: str) -> RobloxUser:
@@ -105,10 +104,10 @@ async def get_verification_link(
 
         # save where the user verified in
         # TODO: depreciated, remove
-        await redis.set(f"verifying-from:{user_id}", guild_id, ex=timedelta(hours=1).seconds)
+        await redis.set(f"verifying-from:{user_id}", guild_id, expire=timedelta(hours=1))
 
         if affiliate_enabled:
-            await redis.set(f"affiliate-verifying-from:{user_id}", guild_id, ex=timedelta(hours=1).seconds)
+            await redis.set(f"affiliate-verifying-from:{user_id}", guild_id, expire=timedelta(hours=1))
 
         if affiliate_enabled or premium_status.active:
             return VERIFY_URL_GUILD.format(guild_id=guild_id)

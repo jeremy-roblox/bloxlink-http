@@ -25,7 +25,8 @@ class ProgressCustomID(CommandCustomID):
     nonce: str
 
 class VerifyAllProgress(BaseModel):
-    started: datetime
+    started_at: datetime
+    ended_at: datetime = None
     members_processed: int
     total_members: int
     current_chunk: int
@@ -46,14 +47,19 @@ async def get_progress(ctx: CommandContext, custom_id: ProgressCustomID):
 
     parsed_progress = parse_into(progress, VerifyAllProgress)
 
+    fields = [
+        f"Started: <t:{int(parsed_progress.started_at.timestamp())}:R>",
+        f"Members processed: {parsed_progress.members_processed}/{parsed_progress.total_members}",
+        f"Chunks processed: {parsed_progress.current_chunk}/{parsed_progress.total_chunks}",
+        "Progress: " + str(ProgressBar(progress=parsed_progress.members_processed, total=parsed_progress.total_members))
+    ]
+
+    if parsed_progress.ended_at:
+        fields.insert(1, f"Ended: <t:{int(parsed_progress.ended_at.timestamp())}:R>")
+
     embed = hikari.Embed(
         title="Progress Update",
-        description=(
-            f"Started: {parsed_progress.started}\n"
-            f"Members processed: {parsed_progress.members_processed}/{parsed_progress.total_members}\n"
-            f"Chunks processed: {parsed_progress.current_chunk}/{parsed_progress.total_chunks}\n" +
-            "Progress: " + str(ProgressBar(progress=parsed_progress.members_processed, total=parsed_progress.total_members))
-        )
+        description="\n".join(fields)
     )
 
     await response.send(embed=embed, ephemeral=True)

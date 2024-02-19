@@ -10,7 +10,8 @@ import yuyo
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
 
-from resources.redis import RedisMessageCollector, redis
+from bloxlink_lib.database import redis
+from resources.redis import RedisMessageCollector
 from config import CONFIG
 
 instance: "Bloxlink" = None
@@ -23,8 +24,6 @@ if TYPE_CHECKING:
 
 class Bloxlink(yuyo.AsgiBot):
     """The Bloxlink bot."""
-
-    redis = redis
 
     def __init__(self, *args, **kwargs):
         """Initialize the bot & the MongoDB connection."""
@@ -74,7 +73,7 @@ class Bloxlink(yuyo.AsgiBot):
 
         try:
             await self.redis_messages.pubsub.subscribe(reply_channel)
-            await self.redis.publish(
+            await redis.publish(
                 channel, json.dumps({"nonce": str(nonce), "data": payload}).encode("utf-8")
             )
             return await self.redis_messages.get_message(reply_channel, timeout=timeout, wait_for_all=wait_for_all, model=model)

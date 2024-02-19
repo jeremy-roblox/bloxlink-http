@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
 from bloxlink_lib import BaseModelArbitraryTypes
+from bloxlink_lib.database import redis
 from resources.ui.components import parse_custom_id
 from resources.constants import DEVELOPERS, BOT_RELEASE
 from resources.exceptions import (
@@ -15,7 +16,6 @@ from resources.exceptions import (
     RobloxNotFound, RobloxDown, Message, BindException
 )
 from resources.ui.modals import ModalCustomID
-from resources.redis import redis
 from resources.premium import get_premium_status
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
 from config import CONFIG
@@ -359,7 +359,7 @@ async def handle_modal(interaction: hikari.ModalInteraction, response: Response)
         modal_data = {modal_component.custom_id: modal_component.value for modal_component in components}
 
         # save data from modal to redis
-        await redis.set(f"modal_data:{custom_id}", json.dumps(modal_data), ex=timedelta(hours=1).seconds)
+        await redis.set(f"modal_data:{custom_id}", modal_data, expire=timedelta(hours=1))
 
         # iterate through commands and find where
         # they called the modal from, and then execute the function again

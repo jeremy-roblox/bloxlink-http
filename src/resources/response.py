@@ -8,6 +8,7 @@ from datetime import timedelta
 import hikari
 from pydantic import Field
 from bloxlink_lib import BaseModel
+from bloxlink_lib.database import redis
 
 import resources.ui.components as Components
 from resources.bloxlink import instance as bloxlink
@@ -303,8 +304,8 @@ class Response:
 
         # we save the command options so we can re-execute the command correctly
         if modal.command_options:
-            await bloxlink.redis.set(
-                f"modal_command_options:{modal.custom_id}", json.dumps(modal.command_options), ex=timedelta(hours=1).seconds
+            await redis.set(
+                f"modal_command_options:{modal.custom_id}", modal.command_options, expire=timedelta(hours=1)
             )
 
         return modal.builder
@@ -640,7 +641,7 @@ class Prompt(Generic[T]):
     async def current_data(self, *, key_name: str = None, raise_exception: bool = True):
         """Get the data for the current page from Redis."""
 
-        redis_data = await bloxlink.redis.get(
+        redis_data = await redis.get(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}"
         )
 
@@ -661,10 +662,10 @@ class Prompt(Generic[T]):
         data = await self.current_data(raise_exception=False)
         data[component_custom_id] = Components.component_values_to_dict(interaction)
 
-        await bloxlink.redis.set(
+        await redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{interaction.user.id}",
-            json.dumps(data),
-            ex=timedelta(hours=1).seconds,
+            data,
+            expire=timedelta(hours=1),
         )
 
     async def save_stateful_data(self, ex: int = 3600, **save_data):
@@ -673,10 +674,10 @@ class Prompt(Generic[T]):
         data = await self.current_data(raise_exception=False) or {}
         data.update(save_data)
 
-        await bloxlink.redis.set(
+        await redis.set(
             f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
-            json.dumps(data),
-            ex=ex,
+            data,
+            expire=ex,
         )
 
     async def clear_data(self, *remove_data_keys: list[str]):
@@ -688,13 +689,13 @@ class Prompt(Generic[T]):
             for key in remove_data_keys:
                 data.pop(key, None)
 
-            await bloxlink.redis.set(
+            await redis.set(
                 f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}",
-                json.dumps(data),
-                ex=timedelta(hours=1).seconds,
+                data,
+                expire=timedelta(hours=1),
             )
         else:
-            await bloxlink.redis.delete(
+            await redis.delete(
                 f"prompt_data:{self.command_name}:{self.prompt_name}:{self.response.interaction.user.id}"
             )
 

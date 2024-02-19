@@ -6,6 +6,7 @@ from datetime import timedelta
 import hikari
 import uvicorn
 from bloxlink_lib import load_modules
+from bloxlink_lib.database import redis
 
 from config import CONFIG
 from resources.bloxlink import Bloxlink
@@ -21,7 +22,6 @@ bot = Bloxlink(
 # Load a few modules
 from resources.commands import handle_interaction, sync_commands
 from resources.constants import MODULES, BOT_RELEASE
-from resources.redis import redis
 from web.webserver import webserver
 
 
@@ -55,7 +55,7 @@ async def handle_start(_):
 
     # only sync commands once every hour unless the --sync-commands flag is passed
     if args.sync_commands or not await redis.get("synced_commands"):
-        await redis.set("synced_commands", "true", ex=timedelta(hours=1).seconds)
+        await redis.set("synced_commands", "true", expire=timedelta(hours=1))
         await sync_commands(bot)
     else:
         logging.info("Skipping command sync. Run with --sync-commands or -s to force sync.")
