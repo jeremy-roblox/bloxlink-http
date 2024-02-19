@@ -16,8 +16,8 @@ def authenticate():
         @wraps(handler)
         async def wrapped(*args, **kwargs):
             # In case we ever omit the server auth config, we forbid all requests.
-            if not CONFIG.SERVER_AUTH:
-                logging.error("No SERVER_AUTH was set! Blocking all requests.")
+            if not CONFIG.HTTP_BOT_AUTH:
+                logging.error("No HTTP_BOT_AUTH was set! Blocking all requests.")
                 return UNAUTHORIZED_RESPONSE
 
             # Find the Request typed argument. Will not work if the handler does not want the Request obj.
@@ -30,7 +30,7 @@ def authenticate():
                 if request.has_header(b"Authorization")
                 else None
             )
-            if auth_header != CONFIG.SERVER_AUTH:
+            if auth_header != CONFIG.HTTP_BOT_AUTH:
                 return UNAUTHORIZED_RESPONSE
 
             return ensure_response(await handler(*args, **kwargs))

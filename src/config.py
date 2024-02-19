@@ -18,7 +18,7 @@ class Config(BLOXLINK_CONFIG):
     #############################
     SERVER_HOST: str
     SERVER_PORT: int = Field(default=8010)
-    SERVER_AUTH: str
+    HTTP_BOT_AUTH: str
     #############################
 
     def model_post_init(self, __context):
