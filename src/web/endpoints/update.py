@@ -1,7 +1,6 @@
 import logging
 import asyncio
 
-from pydantic import Field
 from blacksheep import FromJSON, Request, ok, status_code
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
@@ -47,24 +46,6 @@ class MemberJoinPayload(BaseModel):
     """
 
     member: MemberSerializable
-
-
-class MinimalMember(BaseModel): # TODO: remove this
-    id: str
-    name: str
-    discriminator: int = None
-    avatar_url: str = None
-    is_bot: bool = None
-    created_at: str = None
-
-    activity: str = None
-    nickname: str = None
-    guild_id: str = None
-    guild_avatar: str = None
-    permissions: int = None
-    joined_at: str = None
-    roles: list = Field(default_factory=list)
-    is_owner: bool = None
 
 
 class Update(APIController):
@@ -176,16 +157,3 @@ async def process_update_members(members: list[MemberSerializable], guild_id: st
             continue
 
         await asyncio.sleep(1)
-
-        # except RuntimeError as ex:
-        #     # Nickname API error.
-        #     success = False
-        #     logging.error(ex)
-        #     break
-
-    # if content.is_done and success:
-    #     # This is technically a lie since the gateway sends chunks of users, so the final chunk will likely
-    #     # be processed along with other chunks, so the bot could potentially not be "done" yet.
-    #     # Could be prevented with state tracking somehow? TBD
-
-    #     await bloxlink.rest.create_message(channel_id, content="Your server has finished updating everyone!")
