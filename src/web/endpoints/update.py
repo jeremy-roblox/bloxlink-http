@@ -141,7 +141,7 @@ class Update(APIController):
 
             try:
                 dm_channel = await bloxlink.rest.create_dm_channel(user_id)
-                await dm_channel.send(embed=bot_response.embed, components=bot_response.action_rows)
+                await dm_channel.send(content=bot_response.content, embed=bot_response.embed, components=bot_response.action_rows)
             except ForbiddenError:
                 pass
 

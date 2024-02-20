@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Unpack
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict
-from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict, parse_template
+from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data, fetch_guild_data
 from pydantic import Field
 
 from resources import restriction
@@ -422,6 +422,7 @@ async def apply_binds(
 
     guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
     guild_roles = guild.roles
+    guild_data = await fetch_guild_data(guild_id, "verifiedDM")
 
     embed = hikari.Embed()
     components = []
@@ -476,8 +477,8 @@ async def apply_binds(
         roblox_user=roblox_account
     )
 
-    add_roles = update_payload.add_roles
-    remove_roles = update_payload.remove_roles
+    add_roles = [r for r in update_payload.add_roles if guild_roles.get(r)]
+    remove_roles = [r for r in update_payload.remove_roles if guild_roles.get(r)]
     nickname = update_payload.nickname
 
     if update_payload.missing_roles:
@@ -555,7 +556,14 @@ async def apply_binds(
         ]
 
     return InteractiveMessage(
-        content="To verify with Bloxlink, click the link below." if not roblox_account else None,
+        content="To verify with Bloxlink, click the link below." if not roblox_account else await parse_template(
+            guild_id=guild_id,
+            guild_name=guild.name,
+            member=member,
+            roblox_user=roblox_account,
+            template=guild_data.verifiedDM,
+            max_length=False
+        ),
         embed=embed,
         action_rows=components,
     )
