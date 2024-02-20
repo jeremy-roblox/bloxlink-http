@@ -187,6 +187,7 @@ class NewCommandArgs(TypedDict, total=False):
     pro_bypass: bool
     guild_ids: list[int]
     cooldown: timedelta
+    cooldown_key: str
 
 
 class CommandContext(BaseModelArbitraryTypes):

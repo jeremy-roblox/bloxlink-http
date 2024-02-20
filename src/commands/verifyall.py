@@ -123,7 +123,8 @@ async def cancel_progress(ctx: CommandContext, custom_id: ProgressCustomID):
         "verifyall:verifyall_progress_button": get_progress,
         "verifyall:verifyall_cancel_button": cancel_progress
     },
-    cooldown=timedelta(days=1)
+    cooldown=timedelta(days=1),
+    cooldown_key="cooldown:{guild_id}",
 )
 class VerifyallCommand(GenericCommand):
     """Update everyone in your server"""
