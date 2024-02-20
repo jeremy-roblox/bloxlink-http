@@ -5,8 +5,9 @@ from resources.constants import DEVELOPER_GUILDS
 
 
 @bloxlink.command(
-    developer_only=True,
-    guild_ids=DEVELOPER_GUILDS
+    developer_only=False,
+    permissions=hikari.Permissions.MANAGE_GUILD,
+    # guild_ids=DEVELOPER_GUILDS
 )
 class TestPremiumCommand(GenericCommand):
     """adds/remove premium from server"""

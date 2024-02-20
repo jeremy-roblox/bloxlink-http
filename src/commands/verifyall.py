@@ -1,29 +1,34 @@
 import json
-import logging
 from datetime import datetime, timedelta
 
 import hikari
 
-from resources.bloxlink import instance as bloxlink
-from resources.exceptions import Message
 from bloxlink_lib import BaseModel, parse_into
 from bloxlink_lib.database import redis
+
+from resources.bloxlink import instance as bloxlink
+from resources.exceptions import Message
 from resources.commands import CommandContext, GenericCommand
 from resources.ui.components import Button, CommandCustomID, component_author_validation
 from resources.ui import ProgressBar
 
-logger = logging.getLogger("verify_all")
-CHUNK_LIMIT = 1000
+CHUNK_LIMIT = 100
 
 
 class Response(BaseModel):
+    """Response from the verifyall endpoint"""
+
     success: bool
     nonce: str = None
 
 class ProgressCustomID(CommandCustomID):
+    """Custom ID for the progress button"""
+
     nonce: str
 
 class VerifyAllProgress(BaseModel):
+    """Progress of the verifyall scan"""
+
     started_at: datetime
     ended_at: datetime | None = None
     members_processed: int
@@ -35,6 +40,8 @@ class VerifyAllProgress(BaseModel):
 
 @component_author_validation(parse_into=ProgressCustomID, defer=False)
 async def get_progress(ctx: CommandContext, custom_id: ProgressCustomID):
+    """Get the progress of the verifyall scan"""
+
     nonce = custom_id.nonce
     progress: dict | None = json.loads(await redis.get(f"progress:{nonce}")) if await redis.exists(f"progress:{nonce}") else None
 
@@ -75,6 +82,8 @@ async def get_progress(ctx: CommandContext, custom_id: ProgressCustomID):
 
 @component_author_validation(parse_into=ProgressCustomID, defer=False)
 async def cancel_progress(ctx: CommandContext, custom_id: ProgressCustomID):
+    """Cancel the verifyall scan."""
+
     nonce = custom_id.nonce
     progress: dict | None = json.loads(await redis.get(f"progress:{nonce}")) if await redis.exists(f"progress:{nonce}") else None
 

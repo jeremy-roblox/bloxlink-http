@@ -6,10 +6,11 @@ import hikari
 
 @bloxlink.command(
     category="Miscellaneous",
-    developer_only=True,
+    developer_only=False,
     defer=True,
     defer_with_ephemeral=True,
-    guild_ids=DEVELOPER_GUILDS
+    permissions=hikari.Permissions.MANAGE_GUILD,
+    # guild_ids=DEVELOPER_GUILDS
 )
 class RolesCleanupCommand(GenericCommand):
     """clean up any roles without a color"""

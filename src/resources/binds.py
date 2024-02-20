@@ -572,6 +572,9 @@ async def apply_binds(
 async def confirm_account(member: hikari.Member, guild_id: hikari.Snowflake, response: Response, roblox_account: users.RobloxAccount | None):
     """Send a request for the user to confirm their account"""
 
+    if CONFIG.BOT_RELEASE == "LOCAL":
+        return
+
     if roblox_account:
         premium_status = await get_premium_status(guild_id=guild_id)
 

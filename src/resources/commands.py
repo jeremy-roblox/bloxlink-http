@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
-import humanize
 import re
-from typing import Callable, Type, TypedDict, Unpack, Awaitable
+from typing import Callable, Type, TypedDict, Unpack, Awaitable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
+import humanize
 from bloxlink_lib import BaseModelArbitraryTypes
 from bloxlink_lib.database import redis
 from resources.ui.components import parse_custom_id
@@ -19,11 +19,18 @@ from resources.exceptions import (
 from resources.ui.modals import ModalCustomID
 from resources.premium import get_premium_status
 from resources.response import Prompt, PromptCustomID, PromptPageData, Response
+from static.whitelist import WHITELISTED_GUILDS
 from config import CONFIG
+
+
+if TYPE_CHECKING:
+    from resources.bloxlink import Bloxlink
 
 command_name_pattern = re.compile("(.+)Command")
 
 slash_commands: dict[str, Command] = {}
+
+bloxlink: 'Bloxlink' = None
 
 
 class Command(BaseModelArbitraryTypes):
@@ -126,6 +133,13 @@ class Command(BaseModelArbitraryTypes):
 
             await redis.set(cooldown_key, "1", expire=self.cooldown)
 
+    async def assert_whitelisted(self, ctx: CommandContext):
+        """Check if the user is whitelisted to run this command."""
+
+        if ctx.guild_id and ctx.guild_id not in WHITELISTED_GUILDS:
+            await bloxlink.rest.leave_guild(ctx.guild_id)
+            raise CancelCommand()
+
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
 
@@ -134,6 +148,7 @@ class Command(BaseModelArbitraryTypes):
             subcommand_name (str, optional): Name of the subcommand to trigger. Defaults to None.
         """
 
+        await self.assert_whitelisted(ctx)
         await self.assert_permissions(ctx)
         await self.assert_cooldown(ctx)
 
@@ -575,6 +590,10 @@ async def sync_commands(bot: hikari.RESTBot):
     Args:
         bot (hikari.RESTBot): The bot object to publish slash commands for.
     """
+
+    global bloxlink # pylint: disable=global-statement
+
+    bloxlink = bot
 
     commands: list[hikari.PartialCommand] = []
     guild_commands: dict[int, list[hikari.PartialCommand]] = {}
