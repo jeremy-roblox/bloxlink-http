@@ -1,16 +1,14 @@
 import hikari
+from bloxlink_lib import VALID_BIND_TYPES, GuildBind, get_binds
 
-from bloxlink_lib import GuildBind, get_binds, VALID_BIND_TYPES
-
-from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.binds import generate_binds_embed
 from resources.bloxlink import instance as bloxlink
 from resources.commands import CommandContext, GenericCommand
-from resources.ui.components import component_author_validation
 from resources.pagination import Paginator, PaginatorCustomID
-from resources.binds import generate_binds_embed
+from resources.ui.autocomplete import bind_category_autocomplete, bind_id_autocomplete
+from resources.ui.components import component_author_validation
 
 MAX_BINDS_PER_PAGE = 10
-
 
 
 class ViewbindsCustomID(PaginatorCustomID):
@@ -43,7 +41,7 @@ async def embed_formatter(page_number: int, items: list[GuildBind], _guild_id: s
         return embed
 
     embed.description = (
-        "Use </bind:836429412810358807> to make a new bind, " # FIXME: command IDs
+        "Use </bind:836429412810358807> to make a new bind, "  # FIXME: command IDs
         "or </unbind:836429412810358805> to delete a bind."
     )
 
@@ -86,8 +84,9 @@ async def viewbinds_button(ctx: CommandContext, custom_id: ViewbindsCustomID):
         custom_id_format=ViewbindsCustomID(
             command_name="viewbinds",
             user_id=author_id,
-            category=category,
-            id=id_filter),
+            category=category.lower(),
+            id=id_filter,
+        ),
         item_filter=viewbinds_item_filter,
     )
 
@@ -134,7 +133,9 @@ class ViewBindsCommand(GenericCommand):
         guild_id = ctx.guild_id
         user_id = ctx.user.id
 
-        guild_binds = await get_binds(guild_id, bind_id=int(id_option) if id_option and id_option.isdigit() else None, category=category)
+        guild_binds = await get_binds(
+            guild_id, bind_id=int(id_option) if id_option and id_option.isdigit() else None, category=category
+        )
 
         paginator = Paginator(
             guild_id,
@@ -145,8 +146,9 @@ class ViewBindsCommand(GenericCommand):
             custom_id_format=ViewbindsCustomID(
                 command_name="viewbinds",
                 user_id=user_id,
-                category=category,
-                id=id_option),
+                category=category.lower(),
+                id=id_option,
+            ),
             item_filter=viewbinds_item_filter,
         )
 
