@@ -1,11 +1,12 @@
 import logging
+import asyncio
 
 from pydantic import Field
 from blacksheep import FromJSON, Request, ok
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
-from bloxlink_lib.database import fetch_guild_data
-from bloxlink_lib import GuildData, get_user_account, BaseModel, MemberSerializable
+from bloxlink_lib.database import fetch_guild_data, redis
+from bloxlink_lib import GuildData, get_user_account, BaseModel, MemberSerializable, RobloxDown
 
 from resources import binds
 from resources.bloxlink import instance as bloxlink
@@ -29,6 +30,7 @@ class UpdateUsersPayload(BaseModel):
 
     guild_id: int
     members: list[MemberSerializable]
+    nonce: str
 
 
 class MinimalMember(BaseModel): # TODO: remove this
@@ -71,7 +73,7 @@ class Update(APIController):
         content: UpdateUsersPayload = content.value
 
         # Update users, send response only when this is done
-        await process_update_members(content.members, content.guild_id)
+        await process_update_members(content.members, content.guild_id, content.nonce)
 
         # TODO: We're currently waiting until this chunk is done before replying. This is likely not reliable
         # for the gateway to wait upon in the event of HTTP server reboots.
@@ -133,10 +135,13 @@ class Update(APIController):
         return ok("Server does not have auto-update features enabled.")
 
 
-async def process_update_members(members: list[MemberSerializable], guild_id: str):
+async def process_update_members(members: list[MemberSerializable], guild_id: str, nonce: str):
     """Process a list of members to update from the gateway."""
 
     for member in members:
+        if await redis.get(f"progress:{nonce}:cancelled"):
+            raise asyncio.CancelledError
+
         if member.is_bot:
             continue
 
@@ -145,11 +150,13 @@ async def process_update_members(members: list[MemberSerializable], guild_id: st
         try:
             roblox_account = await get_user_account(member.id, guild_id=guild_id, raise_errors=False)
             await binds.apply_binds(member, guild_id, roblox_account, moderate_user=True)
-        except BloxlinkForbidden:
+        except (BloxlinkForbidden, RobloxDown):
             # bloxlink doesn't have permissions to give roles... might be good to
             # TODO: stop after n attempts where this is received so that way we don't flood discord with
             # 403 codes.
             continue
+
+        await asyncio.sleep(1)
 
         # except RuntimeError as ex:
         #     # Nickname API error.
