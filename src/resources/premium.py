@@ -131,7 +131,6 @@ async def get_premium_status(
                 await redis.set(redis_discord_billing_premium_key, redis_discord_billing_tier if has_discord_billing else "false", expire=timedelta(seconds=100))
 
             if has_discord_billing:
-                redis_discord_billing_tier = redis_discord_billing_tier.decode()
                 tier, term = get_user_facing_tier(redis_discord_billing_tier)
                 features = get_merged_features(premium_data, redis_discord_billing_tier)
 
