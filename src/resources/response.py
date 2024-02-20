@@ -293,6 +293,23 @@ class Response:
         if fetch_message:
             return await self.interaction.fetch_initial_response()
 
+    async def edit_message(self, content: str = None, embed: hikari.Embed = None, components: list[hikari.ActionRowComponent] = None):
+        """Edit the original message of the interaction."""
+
+        message = self.interaction.message
+
+        if not message:
+            raise ValueError("Cannot edit a message that doesn't exist.")
+
+        if embed:
+            message.embeds[0] = embed
+
+        if content:
+            message.content = content
+
+        await Components.set_components(message, components=components)
+
+
     async def send_modal(self, modal: 'modal.Modal'):
         """Send a modal response. This needs to be yielded."""
 
