@@ -2,11 +2,11 @@ import logging
 import asyncio
 
 from pydantic import Field
-from blacksheep import FromJSON, Request, ok
+from blacksheep import FromJSON, Request, ok, status_code
 from blacksheep.server.controllers import APIController, get, post
 from hikari import ForbiddenError
 from bloxlink_lib.database import fetch_guild_data, redis
-from bloxlink_lib import GuildData, get_user_account, BaseModel, MemberSerializable, RobloxDown
+from bloxlink_lib import get_user_account, BaseModel, MemberSerializable, RobloxDown, StatusCodes
 
 from resources import binds
 from resources.bloxlink import instance as bloxlink
@@ -31,6 +31,22 @@ class UpdateUsersPayload(BaseModel):
     guild_id: int
     members: list[MemberSerializable]
     nonce: str
+
+
+class MemberJoinPayload(BaseModel):
+    """
+    The expected content when a request from the gateway -> the server
+    is made regarding updating a chunk of users.
+
+    guild_id (str): ID of the guild were users should be updated.
+    channel_id (str): ID of the channel that the bot should send a message to when done.
+    members (list): List of cached members, each element should
+        represent a type reflecting a hikari.Member object (JSON representation?).
+    is_done (bool): Used to tell the server if it is done sending chunks for this session, so on complete send
+        the message saying the scan is complete.
+    """
+
+    member: MemberSerializable
 
 
 class MinimalMember(BaseModel): # TODO: remove this
@@ -89,7 +105,7 @@ class Update(APIController):
         self,
         guild_id: str,
         user_id: str,
-        user_data: FromJSON[MinimalMember],
+        content: FromJSON[MemberJoinPayload],
         _request: Request,
     ):
         """Endpoint to handle guild member join events from the gateway.
@@ -97,27 +113,25 @@ class Update(APIController):
         Args:
             guild_id (str): The guild ID the user joined.
             user_id (str): The ID of the user.
-            user_data (FromJSON[MinimalMember]): Additional user data from the gateway.
+            user_data (FromJSON[MemberSerializable]): Additional user data from the gateway.
         """
-        user_data: MinimalMember = user_data.value
-        guild_data: GuildData = await fetch_guild_data(
+
+        content: MemberJoinPayload = content.value
+        member = content.member
+
+        guild_data = await fetch_guild_data(
             guild_id, "autoRoles", "autoVerification", "highTrafficServer"
         )
 
         if guild_data.highTrafficServer:
-            return ok("High traffic server is enabled, user was not updated.")
+            return status_code(StatusCodes.FORBIDDEN, {
+                "error": "High traffic server is enabled, user was not updated."
+            })
 
         if guild_data.autoVerification or guild_data.autoRoles:
-            # print(user_data)
             roblox_account = await get_user_account(user_id, guild_id=guild_id, raise_errors=False)
             bot_response = await binds.apply_binds(
-                {
-                    "id": user_id,
-                    "role_ids": user_data.roles,
-                    "username": user_data.name,
-                    "nickname": user_data.nickname,
-                    "avatar_url": user_data.avatar_url,
-                },
+                member,
                 guild_id,
                 roblox_account,
                 moderate_user=True,
@@ -130,9 +144,13 @@ class Update(APIController):
             except ForbiddenError:
                 pass
 
-            return ok("User was updated in the server.")
+            return ok({
+                "success": True,
+            })
 
-        return ok("Server does not have auto-update features enabled.")
+        return status_code(StatusCodes.FORBIDDEN, {
+            "error": "This server has auto-roles disabled."
+        })
 
 
 async def process_update_members(members: list[MemberSerializable], guild_id: str, nonce: str):
