@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import humanize
 import re
-from typing import Callable, Type, TypedDict, Unpack
+from typing import Callable, Type, TypedDict, Unpack, Awaitable
 from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
@@ -46,6 +47,8 @@ class Command(BaseModelArbitraryTypes):
     premium: bool = False
     pro_bypass: bool = False
     guild_ids: list[int] = [] # if empty, it's global
+    cooldown: timedelta = None
+    cooldown_key: str = "cooldown:{guild_id}:{user_id}:{command_name}"
 
     async def assert_premium(self, interaction: hikari.CommandInteraction):
         if self.premium or BOT_RELEASE == "PRO":
@@ -83,6 +86,46 @@ class Command(BaseModelArbitraryTypes):
         if self.developer_only and not member.id in DEVELOPERS:
             raise BloxlinkForbidden("This command is only available to developers.", ephemeral=True)
 
+    async def assert_cooldown(self, ctx: CommandContext):
+        """Check if the user can execute this command based on its cooldown."""
+
+        user_id = ctx.user.id
+        guild_id = ctx.guild_id
+        command_name = self.name
+
+        if not self.cooldown:
+            return
+
+        cooldown_key = self.cooldown_key.format(
+            guild_id=guild_id,
+            user_id=user_id,
+            command_name=command_name,
+        )
+
+        seconds_left = await redis.ttl(cooldown_key)
+
+        if seconds_left and seconds_left > 0:
+            expiration_datetime = timedelta(seconds=seconds_left)
+            expiration_str = humanize.naturaldelta(expiration_datetime)
+
+            raise BloxlinkForbidden(f"You are on cooldown for this command. Please wait **{expiration_str}** before using it again.", ephemeral=True)
+
+    async def set_cooldown(self, ctx: CommandContext):
+        """Set the cooldown for the user."""
+
+        if self.cooldown:
+            user_id = ctx.user.id
+            guild_id = ctx.guild_id
+            command_name = self.name
+
+            cooldown_key = self.cooldown_key.format(
+                guild_id=guild_id,
+                user_id=user_id,
+                command_name=command_name,
+            )
+
+            await redis.set(cooldown_key, "1", expire=self.cooldown)
+
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
 
@@ -92,6 +135,7 @@ class Command(BaseModelArbitraryTypes):
         """
 
         await self.assert_permissions(ctx)
+        await self.assert_cooldown(ctx)
 
         generator_or_coroutine = self.subcommands[subcommand_name](ctx) if subcommand_name else self.fn(ctx)
 
@@ -101,6 +145,9 @@ class Command(BaseModelArbitraryTypes):
 
         else:
             yield await generator_or_coroutine
+
+        # command executed without raising exceptions, so we can set the cooldown
+        await self.set_cooldown(ctx)
 
 
 class GenericCommand(ABC):
@@ -131,7 +178,7 @@ class NewCommandArgs(TypedDict, total=False):
     options: list[hikari.commands.CommandOptions]
     subcommands: dict[str, Callable]
     rest_subcommands: list[hikari.CommandOption]
-    accepted_custom_ids: list[str]
+    accepted_custom_ids: dict[str, Awaitable]
     autocomplete_handlers: list[str]
     dm_enabled: bool
     prompts: list[Prompt]
@@ -139,6 +186,7 @@ class NewCommandArgs(TypedDict, total=False):
     premium: bool
     pro_bypass: bool
     guild_ids: list[int]
+    cooldown: timedelta
 
 
 class CommandContext(BaseModelArbitraryTypes):
@@ -204,6 +252,8 @@ async def handle_interaction(interaction: hikari.Interaction):
             correct_handler = handle_autocomplete
         case hikari.ModalInteraction():
             correct_handler = handle_modal
+        case _:
+            raise NotImplementedError()
 
     try:
         returned_already = False # we allow the command to keep executing but we will only return one response to Hikari

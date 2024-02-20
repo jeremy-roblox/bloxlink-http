@@ -25,6 +25,7 @@ python-dotenv = "^1.0.1"
 asgi_prometheus = "1.1.2"
 bloxlink-lib = {git = "https://github.com/bloxlink/bloxlink-lib"}
 pydantic = "^2.6.0"
+humanize = "^4.9.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
