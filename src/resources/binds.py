@@ -388,8 +388,9 @@ async def apply_binds(
     guild_id: hikari.Snowflake,
     roblox_account: users.RobloxAccount = None,
     *,
-    moderate_user=False,
-    update_embed_for_unverified=False,
+    moderate_user: bool=False,
+    update_embed_for_unverified: bool=False,
+    mention_roles: bool = True
 ) -> InteractiveMessage:
     """Apply bindings to a user, (apply the Verified & Unverified roles, nickname template, and custom bindings).
 
@@ -403,6 +404,8 @@ async def apply_binds(
         moderate_user (bool, optional): Check if any restrictions (age limit, group lock,
             ban evasion, alt detection) apply to this user. Defaults to False.
         update_embed_for_unverified (bool, optional): Should the embed be updated to show the roles added/removed
+            for unverified users? Defaults to False.
+        mention_roles (bool, optional): Whether the roles be mentioned in the embed. Otherwise, shows role names. Defaults to True.
 
     Raises:
         Message: Raised if there was an issue getting a server's bindings.
@@ -418,6 +421,7 @@ async def apply_binds(
         await roblox_account.sync(["groups"])
 
     guild: hikari.RESTGuild = await bloxlink.rest.fetch_guild(guild_id)
+    guild_roles = guild.roles
 
     embed = hikari.Embed()
     components = []
@@ -517,7 +521,7 @@ async def apply_binds(
         if add_roles:
             embed.add_field(
                 name="Added Roles",
-                value=", ".join(["<@&" + str(r) + ">" for r in add_roles]),
+                value=", ".join([(f"<@&{r}>") if mention_roles else guild_roles[r].name for r in add_roles]),
                 inline=True,
             )
 

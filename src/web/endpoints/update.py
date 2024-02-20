@@ -136,6 +136,7 @@ class Update(APIController):
                 roblox_account,
                 moderate_user=True,
                 update_embed_for_unverified=True,
+                mention_roles=False
             )
 
             try:
