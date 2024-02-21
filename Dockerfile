@@ -77,7 +77,7 @@ RUN --mount=type=cache,target=/root/.cache \
 WORKDIR /bot
 
 EXPOSE 8080
-CMD ["python", "src/bot.py"]
+CMD ["python", "bot.py"]
 
 
 ################################
@@ -89,4 +89,4 @@ ENV ENV=prod
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 COPY src /bot
 WORKDIR /bot
-CMD ["python", "src/bot.py"]
+CMD ["python", "bot.py"]
