@@ -366,7 +366,7 @@ async def calculate_bound_roles(guild: hikari.RESTGuild, member: hikari.Member |
     # Get user roles + nickname
     update_data, update_data_response = await fetch_typed(
         UpdateEndpointResponse,
-        f"{CONFIG.BIND_API_NEW}/binds/{guild.id}/{member.id}",
+        f"{CONFIG.BIND_API}/binds/{guild.id}/{member.id}",
         method="POST",
         headers={"Authorization": CONFIG.BIND_API_AUTH},
         body={

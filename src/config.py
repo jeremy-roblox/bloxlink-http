@@ -15,9 +15,8 @@ class Config(BLOXLINK_CONFIG):
     DISCORD_PUBLIC_KEY: str
     BOT_RELEASE: Literal["LOCAL", "MAIN", "PRO"] = "LOCAL"
     #############################
-    BIND_API: str
     BIND_API_AUTH: str
-    BIND_API_NEW: str
+    BIND_API: str
     #############################
     SERVER_HOST: str
     SERVER_PORT: int = Field(default=8010)
