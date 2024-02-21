@@ -87,6 +87,6 @@ CMD ["python", "src/bot.py"]
 FROM python-base as production
 ENV ENV=prod
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
-COPY ./ /bot
+COPY src /bot
 WORKDIR /bot
 CMD ["python", "src/bot.py"]

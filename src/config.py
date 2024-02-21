@@ -1,7 +1,10 @@
 from typing import Literal
-from dotenv import dotenv_values
+from os import getcwd, environ
+from dotenv import load_dotenv
 from pydantic import Field
 from bloxlink_lib import Config as BLOXLINK_CONFIG
+
+load_dotenv(f"{getcwd()}/.env")
 
 
 class Config(BLOXLINK_CONFIG):
@@ -31,4 +34,6 @@ class Config(BLOXLINK_CONFIG):
 
 
 
-CONFIG: Config = Config(**dotenv_values())
+CONFIG: Config = Config(
+    **{field:value for field, value in environ.items() if field in Config.model_fields}
+)
