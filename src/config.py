@@ -19,7 +19,7 @@ class Config(BLOXLINK_CONFIG):
     BIND_API: str
     #############################
     SERVER_HOST: str
-    SERVER_PORT: int = Field(default=8010)
+    PORT: int = Field(default=8010)
     HTTP_BOT_AUTH: str
     #############################
 
