@@ -32,7 +32,7 @@ class RedisMessageCollector:
         while True:
             if not self.pubsub.subscribed:
                 # Lets other events in the event loop trigger
-                await asyncio.sleep(0)
+                await asyncio.sleep(0.1)
                 continue
 
             message = await self.pubsub.get_message(ignore_subscribe_messages=True, timeout=10)
