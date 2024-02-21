@@ -18,7 +18,7 @@ async def after_start_print_routes(application: Application):
 async def root():
     """Returns a 200 OK when the webserver is live"""
 
-    return "The Bloxlink webserver is alive & responding."
+    return "The webserver is alive & responding."
 
 
 webserver.mount("/metrics", prom_webserver)
