@@ -74,7 +74,7 @@ RUN --mount=type=cache,target=/root/.cache \
     poetry install --with=dev --no-root
 
 # will become mountpoint of our code
-WORKDIR /bot
+WORKDIR /
 
 EXPOSE 8080
 CMD ["python", "bot.py"]
@@ -87,6 +87,6 @@ CMD ["python", "bot.py"]
 FROM python-base as production
 ENV ENV=prod
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
-COPY src /bot
-WORKDIR /bot
-CMD ["python", "bot.py"]
+COPY src /src
+WORKDIR /
+CMD ["python", "src/bot.py"]
