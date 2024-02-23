@@ -3,7 +3,7 @@ import asyncio
 
 from blacksheep import FromJSON, Request, ok, status_code
 from blacksheep.server.controllers import APIController, get, post
-from hikari import ForbiddenError
+import hikari
 from bloxlink_lib.database import fetch_guild_data, redis
 from bloxlink_lib import get_user_account, BaseModel, MemberSerializable, RobloxDown, StatusCodes
 
@@ -123,7 +123,7 @@ class Update(APIController):
             try:
                 dm_channel = await bloxlink.rest.create_dm_channel(user_id)
                 await dm_channel.send(content=bot_response.content, embed=bot_response.embed, components=bot_response.action_rows)
-            except ForbiddenError:
+            except hikari.BadRequestError:
                 pass
 
             return ok({
