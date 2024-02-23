@@ -24,6 +24,7 @@ async def get_user_from_string(target: str) -> RobloxUser:
     Returns:
         RobloxAccount: The synced RobloxAccount of the user requested.
     """
+
     account = None
 
     if target.isdigit():
@@ -33,17 +34,8 @@ async def get_user_from_string(target: str) -> RobloxUser:
             pass
 
     # Fallback to parse input as a username if the input was not a valid id.
-    if account is None:
-        try:
-            account = await get_user(roblox_username=target)
-        except RobloxNotFound as exc:
-            raise RobloxNotFound(
-                "The Roblox user you were searching for does not exist! "
-                "Please check the input you gave and try again!"
-            ) from exc
-
-    if account.id is None or account.username is None:
-        raise RobloxNotFound("The Roblox user you were searching for does not exist.")
+    if not account:
+        account = await get_user(roblox_username=target)
 
     return account
 

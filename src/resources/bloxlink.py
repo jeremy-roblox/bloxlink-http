@@ -96,18 +96,23 @@ class Bloxlink(yuyo.AsgiBot):
             dict | hikari.Member | None: User data as determined by the method of retrieval.
                 Dict from the relay. hikari.Member from a HTTP request. None if the user was not found.
         """
-        try:
-            res = await self.relay(
-                "CACHE_LOOKUP",
-                {
-                    "query": "guild.member",
-                    "data": {"guild_id": guild_id, "user_id": user_id},
-                    "fields": list(*fields),
-                },
-            )
 
-            return json.loads(res.get("data").decode("utf-8"))
-        except (RuntimeError, TimeoutError):
+        # TODO: implement this endpoint
+        try:
+            raise NotImplementedError()
+
+            # res = await self.relay(
+            #     "CACHE_LOOKUP",
+            #     {
+            #         "query": "guild.member",
+            #         "data": {"guild_id": guild_id, "user_id": user_id},
+            #         "fields": list(*fields),
+            #     },
+            # )
+
+            # return res
+
+        except (RuntimeError, TimeoutError, NotImplementedError):
             try:
                 return await self.rest.fetch_member(guild_id, user_id)
             except hikari.NotFoundError:
@@ -166,6 +171,8 @@ class Bloxlink(yuyo.AsgiBot):
         if nickname:
             args["nickname"] = nickname
 
+        print(args)
+
         return await self.rest.edit_member(**args)
 
     async def fetch_roles(self, guild_id: str | int, key_as_role_name: bool = False) -> dict[str, hikari.Role]:
@@ -206,8 +213,9 @@ class Bloxlink(yuyo.AsgiBot):
         Returns:
             list[str]: All the discord IDs linked to this roblox_id.
         """
+
         cursor = self.mongo.bloxlink["users"].find(
-            {"$or": [{"robloxID": roblox_id}, {"robloxAccounts.accounts": roblox_id}]},
+            {"$or": [{"robloxID": str(roblox_id)}, {"robloxAccounts.accounts": str(roblox_id)}]},
             {"_id": 1},
         )
 

@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from bloxlink_lib import get_binds, BaseModel
+from bloxlink_lib import get_binds, BaseModel, RobloxUser
 from resources.api.roblox import users
 from resources.exceptions import RobloxAPIError, RobloxNotFound
 
@@ -18,8 +18,9 @@ class AutocompleteOption(BaseModel):
 async def bind_category_autocomplete(ctx: 'CommandContext'):
     """Autocomplete for a bind category input based upon the binds the user has."""
 
-    guild_data = await get_binds(ctx.guild_id)
-    bind_types = set(bind.type for bind in guild_data)
+    binds = await get_binds(ctx.guild_id)
+    print(binds)
+    bind_types = set(bind.type for bind in binds)
 
     return ctx.response.send_autocomplete([AutocompleteOption(name=x, value=x.lower()) for x in bind_types])
 
@@ -59,22 +60,23 @@ async def roblox_lookup_autocomplete(ctx: 'CommandContext'):
     """Return a matching roblox user from a user's input."""
 
     interaction = ctx.interaction
-
-    # Makes sure that we get the correct command input in a generic way
-    option = next(x for x in interaction.options if x.is_focused)
-
+    option = next(x for x in interaction.options if x.is_focused) # Makes sure that we get the correct command input in a generic way
     user_input = str(option.value)
+
+    user: RobloxUser = None
+    result_list: list[str] = []
+
     if not user_input:
         return interaction.build_response([])
 
-    user = None
     try:
         user = await users.get_user_from_string(user_input)
     except (RobloxNotFound, RobloxAPIError):
         pass
 
-    result_list = []
-    if user is not None:
-        result_list.append(AutocompleteOption(f"{user.username} ({user.id})", str(user.id)))
+    if user:
+        result_list.append(AutocompleteOption(name=f"{user.username} ({user.id})", value=str(user.id)))
+    else:
+        result_list.append(AutocompleteOption(name="No user found. Please double check the username or ID.", value="no_user"))
 
     return ctx.response.send_autocomplete(result_list)

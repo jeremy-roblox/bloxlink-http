@@ -374,7 +374,7 @@ sentry-sdk = "^1.40.5"
 type = "git"
 url = "https://github.com/bloxlink/bloxlink-lib"
 reference = "HEAD"
-resolved_reference = "3cd9d33cc505b3735955acaa9320f6df3968c201"
+resolved_reference = "ac40ee33d23bae9e03ac6d75d176c6d7f9dabe2a"
 
 [[package]]
 name = "certifi"
@@ -800,7 +800,7 @@ speedups = ["aiohttp[speedups] (>=3.9,<4.0)", "ciso8601 (>=2.3,<3.0)", "orjson (
 type = "git"
 url = "https://github.com/hikari-py/hikari.git"
 reference = "refs/pull/1803/merge"
-resolved_reference = "a53088f46d879a00863d89ded2cf802c7295be9b"
+resolved_reference = "786a282ab527d6830aea3ae01aaab59b1af79934"
 
 [[package]]
 name = "hikari-yuyo"

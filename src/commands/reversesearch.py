@@ -1,6 +1,7 @@
 import hikari
 from hikari.commands import CommandOption, OptionType
 
+from bloxlink_lib import RobloxUser
 from resources.api.roblox import users
 from resources.ui.autocomplete import roblox_lookup_autocomplete
 from resources.bloxlink import instance as bloxlink
@@ -32,18 +33,24 @@ class ReverseSearchCommand(GenericCommand):
         guild = ctx.guild_id
         target = ctx.options["user"]
 
-        account = await users.get_user_from_string(target)
+        results: list[str] = []
+        account: RobloxUser = None
+        discord_ids: list[str] = []
 
-        if account.id is None or account.username is None:
+        if target == "no_user":
             raise RobloxNotFound("The Roblox user you were searching for does not exist.")
 
-        results = []
+        account = await users.get_user_from_string(target)
 
-        id_list = await bloxlink.reverse_lookup(account.id)
-        for user_id in id_list:
-            user = await bloxlink.fetch_discord_member(guild, user_id, "id")
+        if not account:
+            raise RobloxNotFound("The Roblox user you were searching for does not exist.")
 
-            if user is None:
+        discord_ids = await bloxlink.reverse_lookup(account.id)
+
+        for discord_id in discord_ids:
+            user = await bloxlink.fetch_discord_member(guild, discord_id, "id")
+
+            if not user:
                 continue
 
             if isinstance(user, hikari.Member):
@@ -57,6 +64,6 @@ class ReverseSearchCommand(GenericCommand):
             title=f"Reverse Search for {account.username}",
             description="\n".join(results) if results else "No results found.",
         )
-        embed.set_thumbnail(account.avatar)
+        embed.set_thumbnail(account.avatar_url)
 
-        await ctx.response.send_first(embed=embed)
+        await ctx.response.send(embed=embed)
