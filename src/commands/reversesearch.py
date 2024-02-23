@@ -64,6 +64,7 @@ class ReverseSearchCommand(GenericCommand):
             title=f"Reverse Search for {account.username}",
             description="\n".join(results) if results else "No results found.",
         )
-        embed.set_thumbnail(account.avatar_url)
+        if account.avatar_url:
+            embed.set_thumbnail(account.avatar_url)
 
         await ctx.response.send(embed=embed)
