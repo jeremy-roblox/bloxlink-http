@@ -18,7 +18,8 @@ class StatsResponse(BaseModel):
 
 @bloxlink.command(
     category="Miscellaneous",
-    defer=True
+    defer=True,
+    developer_only=True
 )
 class StatsCommand(GenericCommand):
     """view Bloxlink information"""
