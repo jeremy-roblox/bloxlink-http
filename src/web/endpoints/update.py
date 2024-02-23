@@ -111,20 +111,29 @@ class Update(APIController):
 
         if guild_data.autoVerification or guild_data.autoRoles:
             roblox_account = await get_user_account(user_id, guild_id=guild_id, raise_errors=False)
-            bot_response = await binds.apply_binds(
-                member,
-                guild_id,
-                roblox_account,
-                moderate_user=True,
-                update_embed_for_unverified=True,
-                mention_roles=False
-            )
+
+            try:
+                bot_response = await binds.apply_binds(
+                    member,
+                    guild_id,
+                    roblox_account,
+                    moderate_user=True,
+                    update_embed_for_unverified=True,
+                    mention_roles=False
+                )
+
+            except BloxlinkForbidden:
+                return status_code(StatusCodes.FORBIDDEN, {
+                    "error": "Bloxlink does not have permissions to give roles."
+                })
 
             try:
                 dm_channel = await bloxlink.rest.create_dm_channel(user_id)
                 await dm_channel.send(content=bot_response.content, embed=bot_response.embed, components=bot_response.action_rows)
             except hikari.BadRequestError:
-                pass
+                return status_code(StatusCodes.FORBIDDEN, {
+                    "error": "Bloxlink can't DM this user."
+                })
 
             return ok({
                 "success": True,
