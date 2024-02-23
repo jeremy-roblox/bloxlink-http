@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         webserver,
-        host=env.get("HOST", CONFIG.SERVER_HOST),
+        host=env.get("HOST", CONFIG.HOST),
         port=env.get("PORT", CONFIG.PORT),
         log_config=None,
     )
