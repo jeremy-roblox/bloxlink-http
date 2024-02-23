@@ -503,8 +503,8 @@ async def apply_binds(
                                     remove_roles=remove_roles,
                                     nickname=nickname if member.nickname != update_payload.nickname else None)
         except hikari.ForbiddenError:
-            if CONFIG.BOT_RELEASE != "LOCAL":
-                raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+            # if CONFIG.BOT_RELEASE != "LOCAL":
+            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
     # Build response embed
     if roblox_account or update_embed_for_unverified or CONFIG.BOT_RELEASE == "LOCAL":
