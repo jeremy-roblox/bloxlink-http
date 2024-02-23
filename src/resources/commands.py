@@ -631,11 +631,14 @@ async def sync_commands(bot: hikari.RESTBot):
 
     if guild_commands:
         for guild_id, commands in guild_commands.items():
-            await bot.rest.set_application_commands(
-                application=CONFIG.DISCORD_APPLICATION_ID,
-                commands=commands,
-                guild=guild_id
-            )
+            try:
+                await bot.rest.set_application_commands(
+                    application=CONFIG.DISCORD_APPLICATION_ID,
+                    commands=commands,
+                    guild=guild_id
+                )
+            except hikari.HTTPResponseError:
+                logging.warning(f"Failed to register guild commands for guild {guild_id}.")
 
 
     logging.info(f"Registered {len(slash_commands)} slash commands.")
