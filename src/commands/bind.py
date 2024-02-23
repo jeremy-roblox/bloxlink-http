@@ -881,7 +881,7 @@ class BindCommand(GenericCommand):
         options=[
             CommandOption(
                 type=OptionType.INTEGER,
-                name="asset_id",
+                name="catalogAsset_id",
                 description="What is your asset ID?",
                 is_required=True,
             )
