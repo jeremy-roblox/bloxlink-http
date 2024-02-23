@@ -227,7 +227,7 @@ class CommandContext(BaseModelArbitraryTypes):
     member: hikari.InteractionMember
     user: hikari.User
     resolved: hikari.ResolvedOptionData | None
-    options: dict[str, str | int] | None
+    options: dict[str, str | int] = {}
 
     interaction: hikari.CommandInteraction | hikari.ModalInteraction | hikari.ComponentInteraction | hikari.AutocompleteInteraction
 
@@ -673,7 +673,7 @@ def build_context(
         options=(
             options or {o.name: o.value for o in interaction.options}
             if getattr(interaction, "options", None)
-            else None
+            else {}
         ),
         interaction=interaction,
         response=response or Response(interaction),
