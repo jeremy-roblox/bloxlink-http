@@ -524,7 +524,12 @@ class SetupPrompt(Prompt):
                 pending_db_changes = {}
 
                 if to_change.get("groupID"):
-                    await create_bind(self.guild_id, bind_type="group", bind_id=group_id)
+                    await create_bind(
+                        self.guild_id,
+                        bind_type="group",
+                        bind_id=group_id,
+                        dynamic_roles=True
+                    )
 
                 if to_change.get("nicknameTemplate"):
                     pending_db_changes["nicknameTemplate"] = to_change["nicknameTemplate"][0]
