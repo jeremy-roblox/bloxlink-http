@@ -368,12 +368,13 @@ python-dateutil = "^2.8.2"
 python-dotenv = "^1.0.1"
 redis = "^5.0.1"
 requests = "^2.31.0"
+sentry-sdk = "^1.40.5"
 
 [package.source]
 type = "git"
 url = "https://github.com/bloxlink/bloxlink-lib"
 reference = "HEAD"
-resolved_reference = "300d647d998ead669c740c0e0831f9e3a7edb477"
+resolved_reference = "7272e9679b8a31fefbe04698ac1e8b319c06f9c9"
 
 [[package]]
 name = "certifi"
