@@ -137,8 +137,7 @@ class Command(BaseModelArbitraryTypes):
         """Check if the user is whitelisted to run this command."""
 
         if ctx.guild_id and ctx.guild_id not in WHITELISTED_GUILDS:
-            await bloxlink.rest.leave_guild(ctx.guild_id)
-            raise CancelCommand()
+            raise BloxlinkForbidden("This command is not available in this server.", ephemeral=True)
 
     async def execute(self, ctx: CommandContext, subcommand_name: str = None):
         """Execute a command (or its subcommand)
