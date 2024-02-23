@@ -22,6 +22,7 @@ class Config(BLOXLINK_CONFIG):
     PORT: int = Field(default=8010)
     HTTP_BOT_AUTH: str
     #############################
+    ROBLOX_INFO_SERVER: str
 
 
 CONFIG: Config = Config(
