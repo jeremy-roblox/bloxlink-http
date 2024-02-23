@@ -296,6 +296,7 @@ async def handle_interaction(interaction: hikari.Interaction):
         )
     except RobloxNotFound as message:
         logging.exception(message)
+        capture_exception(ex)
         await response.send(
             str(message) or "This Roblox entity does not exist! Please check the ID and try again.",
             ephemeral=message.ephemeral,
@@ -312,6 +313,7 @@ async def handle_interaction(interaction: hikari.Interaction):
         pass
     except Exception as ex: # pylint: disable=broad-except
         logging.exception(ex)
+        capture_exception(ex)
         await response.send(
             "An unexpected error occurred while processing this command. "
             "Please try again in a few minutes.",
