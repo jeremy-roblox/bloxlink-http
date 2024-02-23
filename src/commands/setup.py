@@ -178,9 +178,6 @@ class SetupPrompt(Prompt):
                         "nickname_submit": {
                             "is_disabled": False,
                         },
-                        "nickname_skip": {
-                            "is_disabled": True,
-                        },
                     }
                 )
 
