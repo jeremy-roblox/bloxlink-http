@@ -547,10 +547,7 @@ def parse_custom_id[T](T: Type[T], custom_id: str, **kwargs) -> T:
     """
     # Split the custom_id into parts
     parts = custom_id.split(':')
-    print(parts)
-
     attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
-    print(attrs_parts)
 
     for field_name, value in dict(attrs_parts).items():
         if value == "":
@@ -623,15 +620,11 @@ def set_custom_id_field[T: BaseModel](T: Type[T], custom_id: str, **kwargs) -> s
     """
     # Split the existing custom_id into parts
     parts = custom_id.split(':')
-    print(parts)
-
     attrs_parts: dict[str, str] = {field_tuple[0]: parts[index] for index, field_tuple in enumerate(T.model_fields_index(T))}
 
     for field_name, value in dict(attrs_parts).items():
         if value == "":
             del attrs_parts[field_name]
-
-    print(attrs_parts)
 
     # Create an instance of the attrs dataclass with the default field values
     custom_id_instance = T(**attrs_parts)

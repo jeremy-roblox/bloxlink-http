@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 import hikari
 import humanize
+from sentry_sdk import capture_exception
 from bloxlink_lib import BaseModelArbitraryTypes
 from bloxlink_lib.database import redis
 from resources.ui.components import parse_custom_id
