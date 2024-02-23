@@ -21,7 +21,7 @@ bot = Bloxlink(
 
 # Load a few modules
 from resources.commands import handle_interaction, sync_commands
-from resources.constants import MODULES, BOT_RELEASE
+from resources.constants import MODULES
 from web.webserver import webserver
 
 
@@ -60,7 +60,7 @@ async def handle_start(_):
     else:
         logging.info("Skipping command sync. Run with --sync-commands or -s to force sync.")
 
-    if BOT_RELEASE == "LOCAL" and args.clear_redis:
+    if CONFIG.BOT_RELEASE == "LOCAL" and args.clear_redis:
         await redis.flushall()
         logging.info("Cleared redis. Run with --clear-redis or -c to force clear.")
 

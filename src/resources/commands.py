@@ -12,7 +12,7 @@ from sentry_sdk import capture_exception
 from bloxlink_lib import BaseModelArbitraryTypes
 from bloxlink_lib.database import redis
 from resources.ui.components import parse_custom_id
-from resources.constants import DEVELOPERS, BOT_RELEASE
+from resources.constants import DEVELOPERS
 from resources.exceptions import (
     BloxlinkForbidden, CancelCommand, PremiumRequired, UserNotVerified,
     RobloxNotFound, RobloxDown, Message, BindException
@@ -59,10 +59,10 @@ class Command(BaseModelArbitraryTypes):
     cooldown_key: str = "cooldown:{guild_id}:{user_id}:{command_name}"
 
     async def assert_premium(self, interaction: hikari.CommandInteraction):
-        if self.premium or BOT_RELEASE == "PRO":
+        if self.premium or CONFIG.BOT_RELEASE == "PRO":
             premium_status = await get_premium_status(guild_id=interaction.guild_id, interaction=interaction)
 
-            if not self.pro_bypass and ((BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
+            if not self.pro_bypass and ((CONFIG.BOT_RELEASE == "PRO" and premium_status.tier != "pro") or (self.premium and not premium_status.active)):
                 raise PremiumRequired()
 
     async def assert_permissions(self, ctx: CommandContext):
@@ -79,7 +79,7 @@ class Command(BaseModelArbitraryTypes):
 
         member = ctx.member
 
-        if member.id in DEVELOPERS and BOT_RELEASE != "LOCAL":
+        if member.id in DEVELOPERS and CONFIG.BOT_RELEASE != "LOCAL":
             return True
 
         if (member.permissions & self.permissions) != self.permissions:
