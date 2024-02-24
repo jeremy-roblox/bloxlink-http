@@ -9,7 +9,7 @@ from datetime import timedelta
 import hikari
 import humanize
 from bloxlink_lib import BaseModelArbitraryTypes
-from bloxlink_lib.database import redis
+from bloxlink_lib.database import redis, fetch_guild_data, update_guild_data
 from resources.ui.components import parse_custom_id
 from resources.constants import DEVELOPERS
 from resources.exceptions import (
@@ -378,6 +378,11 @@ async def handle_command(
         options=command_options,
         subcommand_name=subcommand_name,
     )
+
+    guild_data = await fetch_guild_data(ctx.guild_id, "hasBot")
+
+    if not guild_data.hasBot:
+        await update_guild_data(ctx.guild_id, hasBot=True)
 
     async for command_response in command.execute(ctx, subcommand_name=subcommand_name):
         if command_response:
