@@ -109,6 +109,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                     title=json_response.get("title"),
                     url=json_response.get("titleURL"),
                     color=json_response.get("color") or "#f1e970",
+                    description=json_response.get("description")
                 )
 
                 custom_embed.set_author(name=roblox_account.username, icon=roblox_account.avatar_url)
@@ -124,8 +125,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                     if isinstance(field, dict) and "name" in field and "value" in field:
                         custom_embed.add_field(name=field["name"], value=str(field["value"]), inline=field.get("inline", False))
 
-                total_length = custom_embed.total_length()
-                if 0 < total_length <= 2500:
+                if 0 < custom_embed.total_length() <= 2500:
                     embeds.append(custom_embed)
 
     return embeds
