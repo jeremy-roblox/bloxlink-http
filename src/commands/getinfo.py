@@ -57,6 +57,6 @@ class GetInfoCommand(GenericCommand):
 
             raise UserNotVerified("This user is not verified with Bloxlink!") from None
 
-        info_embed = await users.format_embed(roblox_account, target_user)
+        info_embeds = await users.format_embed(roblox_account, target_user, ctx.guild_id)
 
-        await ctx.response.send(embed=info_embed)
+        await ctx.response.send(embeds=info_embeds)

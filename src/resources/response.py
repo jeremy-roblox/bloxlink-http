@@ -223,6 +223,9 @@ class Response:
             # allows for empty embeds
             embed = None
 
+        if embed:
+            kwargs["embeds"] = [embed]
+
         if channel and channel_id:
             raise ValueError("Cannot specify both channel and channel_id.")
 
@@ -231,7 +234,6 @@ class Response:
 
         if channel:
             return await channel.send(content,
-                                      embed=embed,
                                       components=components,
                                       mentions_everyone=False,
                                       role_mentions=False,
@@ -240,7 +242,6 @@ class Response:
         if channel_id:
             return await (await bloxlink.rest.fetch_channel(channel_id)).send(
                 content,
-                embed=embed,
                 components=components,
                 mentions_everyone=False,
                 role_mentions=False,
@@ -257,12 +258,11 @@ class Response:
             kwargs.pop("flags", None)  # edit_initial_response doesn't support ephemeral
 
             return await self.interaction.edit_initial_response(
-                content, embed=embed, components=components, **kwargs
+                content, components=components, **kwargs
             )
 
         if self.responded:
             return await self.interaction.execute(content,
-                                                  embed=embed,
                                                   components=components,
                                                   mentions_everyone=False,
                                                   role_mentions=False,
@@ -273,7 +273,6 @@ class Response:
         if edit_original:
             return await self.interaction.edit_initial_response(
                 content,
-                embed=embed,
                 components=components,
                 mentions_everyone=False,
                 role_mentions=False,
@@ -283,7 +282,6 @@ class Response:
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
             content,
-            embed=embed,
             components=components,
             mentions_everyone=False,
             role_mentions=False,

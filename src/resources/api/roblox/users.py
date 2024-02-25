@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from bloxlink_lib import RobloxUser, get_user
+from bloxlink_lib import RobloxUser, get_user, fetch, StatusCodes
 from bloxlink_lib.database import fetch_guild_data, redis
 import hikari
 
@@ -40,7 +40,7 @@ async def get_user_from_string(target: str) -> RobloxUser:
     return account
 
 
-async def format_embed(roblox_account: RobloxUser, user: hikari.User = None) -> hikari.Embed:
+async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, guild_id: int = None) -> list[hikari.Embed]:
     """Create an embed displaying information about a user.
 
     Args:
@@ -53,10 +53,13 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None) -> 
 
     await roblox_account.sync()
 
+    embeds: list[hikari.Embed] = []
+
     embed = hikari.Embed(
         title=str(user) if user else roblox_account.display_name,
         url=roblox_account.profile_link,
     )
+    embeds.append(embed)
 
     embed.add_field(name="Username", value=f"@{roblox_account.username}", inline=True)
     embed.add_field(name="ID", value=str(roblox_account.id), inline=True)
@@ -69,7 +72,56 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None) -> 
     if roblox_account.avatar:
         embed.set_thumbnail(roblox_account.avatar_url)
 
-    return embed
+    if guild_id:
+        guild_data = await fetch_guild_data(guild_id, "webhooks")
+        webhooks = guild_data.webhooks
+
+        if webhooks and webhooks.userInfo:
+            userinfo_webhook = webhooks.userInfo
+
+            json_response, response = await fetch(
+                "POST",
+                userinfo_webhook.url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": webhooks.authentication
+                },
+                body={
+                    userinfo_webhook.fieldMapping.discordID: user.id if user else None,
+                    userinfo_webhook.fieldMapping.robloxID: roblox_account.id,
+                    userinfo_webhook.fieldMapping.guildID: guild_id,
+                    userinfo_webhook.fieldMapping.robloxUsername: roblox_account.username,
+                    userinfo_webhook.fieldMapping.discordUsername: user.username,
+                },
+                raise_on_failure=False
+            )
+
+            # json_response["title"] = "Flicker 💡"
+            # json_response["titleURL"] = "https://www.roblox.com/games/1324061305/Flicker"
+            # json_response["color"] = "#f1e970"
+            # json_response["fields"] = [
+            #     {"name": "Wins", "value": 0, "inline": True},
+            # ]
+
+            if response.status == StatusCodes.OK and json_response.get("fields"):
+                custom_embed = hikari.Embed(
+                    title=json_response.get("title"),
+                    url=json_response.get("titleURL"),
+                    color=json_response.get("color")
+                )
+
+                custom_embed.set_author(name=roblox_account.username, icon=roblox_account.avatar_url)
+                custom_embed.set_footer(text="The information above is not endorsed by Bloxlink.")
+
+                for field in json_response.get("fields", []):
+                    if isinstance(field, dict) and "name" in field and "value" in field:
+                        custom_embed.add_field(name=field["name"], value=str(field["value"]), inline=field.get("inline", False))
+
+                total_length = custom_embed.total_length()
+                if 0 < total_length <= 2500:
+                    embeds.append(custom_embed)
+
+    return embeds
 
 
 async def get_verification_link(
