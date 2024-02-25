@@ -98,6 +98,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
 
             # json_response["title"] = "Flicker 💡"
             # json_response["titleURL"] = "https://www.roblox.com/games/1324061305/Flicker"
+            # json_response["bannerImage"] = "https://tr.rbxcdn.com/df747bb093b7c8613694577ae729307a/768/432/Image/Png"
             # json_response["color"] = "#f1e970"
             # json_response["fields"] = [
             #     {"name": "Wins", "value": 0, "inline": True},
@@ -107,11 +108,17 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                 custom_embed = hikari.Embed(
                     title=json_response.get("title"),
                     url=json_response.get("titleURL"),
-                    color=json_response.get("color") or "#f1e970"
+                    color=json_response.get("color") or "#f1e970",
                 )
 
                 custom_embed.set_author(name=roblox_account.username, icon=roblox_account.avatar_url)
                 custom_embed.set_footer(text="The information above is not endorsed by Bloxlink.")
+
+                if json_response.get("bannerImage"):
+                    custom_embed.set_image(json_response["bannerImage"])
+
+                if json_response.get("thumbnailImage"):
+                    custom_embed.set_thumbnail(json_response["bannerImage"])
 
                 for field in json_response.get("fields", []):
                     if isinstance(field, dict) and "name" in field and "value" in field:
