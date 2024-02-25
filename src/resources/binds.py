@@ -508,8 +508,7 @@ async def apply_binds(
             await bloxlink.edit_user(member=member,
                                     guild_id=guild_id,
                                     add_roles=add_roles,
-                                    remove_roles=remove_roles,
-                                    nickname=None)
+                                    remove_roles=remove_roles)
         except hikari.ForbiddenError:
             raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
 
