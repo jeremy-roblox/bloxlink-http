@@ -118,7 +118,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                     custom_embed.set_image(json_response["bannerImage"])
 
                 if json_response.get("thumbnailImage"):
-                    custom_embed.set_thumbnail(json_response["bannerImage"])
+                    custom_embed.set_thumbnail(json_response["thumbnailImage"])
 
                 for field in json_response.get("fields", []):
                     if isinstance(field, dict) and "name" in field and "value" in field:
