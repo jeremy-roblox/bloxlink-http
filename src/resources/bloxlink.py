@@ -10,6 +10,7 @@ import yuyo
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import RedisError
 
+from bloxlink_lib import SnowflakeSet
 from bloxlink_lib.database import redis
 from resources.redis import RedisMessageCollector
 from config import CONFIG
@@ -145,19 +146,19 @@ class Bloxlink(yuyo.AsgiBot):
         member: hikari.Member,
         guild_id: str | int,
         *,
-        add_roles: list[int] = None,
-        remove_roles: list[int] = None,
+        add_roles: list[int] | SnowflakeSet = None,
+        remove_roles: list[int] | SnowflakeSet = None,
         reason: str = "",
         nickname: str = None,
     ) -> hikari.Member:
         """Edits the guild-bound member."""
 
-        remove_roles = remove_roles or []
-        add_roles = add_roles or []
-        new_roles: list[int] = []
+        remove_roles = SnowflakeSet(remove_roles or [])
+        add_roles = SnowflakeSet(add_roles or [])
+        new_roles = SnowflakeSet()
 
         if add_roles or remove_roles:
-            new_roles = list(set([r for r in member.role_ids if r not in remove_roles] + add_roles))
+            new_roles.update(SnowflakeSet(member.role_ids).union(add_roles).difference(remove_roles))
 
         args = {
             "user": member.id,
@@ -166,12 +167,10 @@ class Bloxlink(yuyo.AsgiBot):
         }
 
         if new_roles:
-            args["roles"] = new_roles
+            args["roles"] = list(new_roles)
 
         if nickname:
             args["nickname"] = nickname
-
-        print(args)
 
         return await self.rest.edit_member(**args)
 

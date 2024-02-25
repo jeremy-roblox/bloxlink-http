@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Unpack
 
 from datetime import timedelta
 import hikari
-from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict, parse_template
+from bloxlink_lib import MemberSerializable, GuildSerializable, fetch_typed, StatusCodes, GuildBind, get_binds, BaseModel, create_entity, count_binds, VALID_BIND_TYPES, BindCriteriaDict, parse_template, SnowflakeSet
 from bloxlink_lib.database import fetch_user_data, update_user_data, update_guild_data, fetch_guild_data
 from pydantic import Field
 
@@ -16,7 +16,7 @@ from resources.constants import LIMITS, ORANGE_COLOR
 from resources.exceptions import Message, RobloxNotFound, BindConflictError, BindException, PremiumRequired, BloxlinkForbidden
 from resources.ui.embeds import InteractiveMessage
 from resources.premium import get_premium_status
-from resources.ui.components import Button
+from resources.ui.components import Button, Component
 from config import CONFIG
 
 if TYPE_CHECKING:
@@ -417,6 +417,11 @@ async def apply_binds(
             will be shown, depending on if the user is restricted or not.
     """
 
+    if member.is_bot:
+        return InteractiveMessage(embed_description=(
+            "Sorry, bots cannot be updated."
+        ))
+
     if roblox_account and roblox_account.groups is None:
         await roblox_account.sync(["groups"])
 
@@ -425,11 +430,11 @@ async def apply_binds(
     guild_data = await fetch_guild_data(guild_id, "verifiedDM")
 
     embed = hikari.Embed()
-    components = []
-    warnings = []
+    components: list[Component] = []
+    warnings: list[str] = []
 
-    add_roles: list[int] = None
-    remove_roles: list[int] = None
+    add_roles = SnowflakeSet(type="role", str_reference=guild_roles if not mention_roles else None)
+    remove_roles = SnowflakeSet(type="role", str_reference=guild_roles if not mention_roles else None)
     nickname: str = None
 
     # Check restrictions
@@ -477,8 +482,8 @@ async def apply_binds(
         roblox_user=roblox_account
     )
 
-    add_roles = [r for r in update_payload.add_roles if guild_roles.get(r)]
-    remove_roles = [r for r in update_payload.remove_roles if guild_roles.get(r)]
+    add_roles.update(update_payload.add_roles)
+    remove_roles.update(update_payload.remove_roles)
     nickname = update_payload.nickname
 
     if update_payload.missing_roles:
@@ -487,24 +492,34 @@ async def apply_binds(
                 new_role: hikari.Role = await bloxlink.rest.create_role(
                     guild_id, name=role_name, reason="Creating missing role"
                 )
-                add_roles.append(new_role.id)
+                add_roles.add(new_role.id)
+                guild_roles[new_role.id] = new_role # so str_reference can be updated
 
             except hikari.ForbiddenError:
                 return InteractiveMessage(embed_description=(
                     "I don't have permission to create roles on this server."
                 ))
 
-    # Apply roles to user
-    if add_roles or remove_roles or nickname != member.nickname:
+    # Apply roles and nickname to the user
+    # We do roles and nickname separately so if the nickname fails, the roles still apply.
+    # (It would take more HTTP requests to fetch the top roles of both the user and the bot)
+    if add_roles or remove_roles:
         try:
             await bloxlink.edit_user(member=member,
                                     guild_id=guild_id,
                                     add_roles=add_roles,
                                     remove_roles=remove_roles,
-                                    nickname=nickname if member.nickname != update_payload.nickname else None)
+                                    nickname=None)
         except hikari.ForbiddenError:
-            if CONFIG.BOT_RELEASE != "LOCAL":
-                raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+            raise BloxlinkForbidden("I don't have permission to add roles to this user.") from None
+
+    if nickname and guild.owner_id != member.id:
+        try:
+            await bloxlink.edit_user(member=member,
+                                    guild_id=guild_id,
+                                    nickname=nickname)
+        except hikari.ForbiddenError:
+            warnings.append("I don't have permission to change this user's nickname.")
 
     # Build response embed
     if roblox_account or update_embed_for_unverified or CONFIG.BOT_RELEASE == "LOCAL":
@@ -522,14 +537,14 @@ async def apply_binds(
         if add_roles:
             embed.add_field(
                 name="Added Roles",
-                value=", ".join([(f"<@&{r}>") if mention_roles else guild_roles[r].name for r in add_roles]),
+                value=str(add_roles),
                 inline=True,
             )
 
         if remove_roles:
             embed.add_field(
                 name="Removed Roles",
-                value=",".join(["<@&" + str(r) + ">" for r in remove_roles]),
+                value=str(remove_roles),
                 inline=True,
             )
 

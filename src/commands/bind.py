@@ -881,7 +881,7 @@ class BindCommand(GenericCommand):
         options=[
             CommandOption(
                 type=OptionType.INTEGER,
-                name="catalogAsset_id",
+                name="asset_id",
                 description="What is your asset ID?",
                 is_required=True,
             )
@@ -935,11 +935,11 @@ class BindCommand(GenericCommand):
         """
         match cmd_type:
             case "catalogAsset" | "badge" | "gamepass":
-                input_id = ctx.options[f"{cmd_type}_id"]
+                input_id = ctx.options[f"{cmd_type}_id" if cmd_type != "catalogAsset" else "asset_id"]
 
                 try:
                     match cmd_type:
-                        case "catalogAsset":
+                        case "asset":
                             await get_catalog_asset(input_id)
                         case "badge":
                             await get_badge(input_id)
@@ -954,6 +954,6 @@ class BindCommand(GenericCommand):
                     GenericBindPrompt,
                     custom_id_data={
                         "entity_id": input_id,
-                        "entity_type": cmd_type,
+                        "entity_type": cmd_type if cmd_type != "asset" else "catalogAsset",
                     },
                 )
