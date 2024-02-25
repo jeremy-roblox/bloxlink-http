@@ -107,7 +107,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                 custom_embed = hikari.Embed(
                     title=json_response.get("title"),
                     url=json_response.get("titleURL"),
-                    color=json_response.get("color")
+                    color=json_response.get("color") or "#f1e970"
                 )
 
                 custom_embed.set_author(name=roblox_account.username, icon=roblox_account.avatar_url)
