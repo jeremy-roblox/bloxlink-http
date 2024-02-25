@@ -91,7 +91,7 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                     userinfo_webhook.fieldMapping.robloxID: roblox_account.id,
                     userinfo_webhook.fieldMapping.guildID: guild_id,
                     userinfo_webhook.fieldMapping.robloxUsername: roblox_account.username,
-                    userinfo_webhook.fieldMapping.discordUsername: user.username,
+                    userinfo_webhook.fieldMapping.discordUsername: user.username if user else None,
                 },
                 raise_on_failure=False
             )
