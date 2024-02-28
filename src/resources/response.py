@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import hikari
 from pydantic import Field
-from bloxlink_lib import BaseModel
+from bloxlink_lib import BaseModel, UNDEFINED
 from bloxlink_lib.database import redis
 
 import resources.ui.components as Components
@@ -747,7 +747,7 @@ class Prompt(Generic[T]):
 
         return await self.run_page(hash_=hash_, changing_page=True).__anext__()
 
-    async def finish(self, *, disable_components=True):
+    async def finish(self, *, disable_components=True, delete_message=False):
         """Finish the prompt."""
 
         await self.clear_data()
@@ -808,7 +808,7 @@ class Prompt(Generic[T]):
             components=built_page.action_rows,
         )
 
-    async def edit_page(self, components=None, **new_page_data):
+    async def edit_page(self, components=UNDEFINED, content=None, embed=UNDEFINED, **new_page_data):
         """Edit the current page."""
 
         hash_ = uuid.uuid4().hex
@@ -837,6 +837,7 @@ class Prompt(Generic[T]):
         await bloxlink.rest.edit_message(
             self.response.interaction.channel_id,
             self.custom_id.prompt_message_id,
-            embed=built_page.embed,
-            components=built_page.action_rows,
+            content=content,
+            embed=built_page.embed if embed is UNDEFINED else embed,
+            components=built_page.action_rows if components is UNDEFINED else components,
         )

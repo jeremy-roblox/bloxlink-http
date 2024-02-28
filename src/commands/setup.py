@@ -469,7 +469,9 @@ class SetupPrompt(Prompt):
                     verified_role = verified_role[1]
 
             if create_verified_role:
-                verified_role = await bloxlink.rest.create_role(self.guild_id, name="Verified")
+                # verifiedRole might be null but there might be a role named Verified
+                guild_roles = await bloxlink.rest.fetch_roles(self.guild_id)
+                verified_role = find(lambda r: r.name == "Verified", guild_roles) or await bloxlink.rest.create_role(self.guild_id, name="Verified")
                 await update_guild_data(self.guild_id, verifiedRole=str(verified_role.id))
 
             to_change["verifiedRoleName"] = (
@@ -548,8 +550,7 @@ class SetupPrompt(Prompt):
                 if pending_db_changes:
                     await update_guild_data(self.guild_id, **pending_db_changes)
 
-                await self.response.send("Successfully saved the configuration to your server.")
-                await self.finish()
+                await self.edit_page(content="Successfully saved the configuration to your server.", embed=None, components=None)
 
             case "setup_cancel":
                 yield await self.finish()
