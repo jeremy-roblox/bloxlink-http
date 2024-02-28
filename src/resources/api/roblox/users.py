@@ -96,14 +96,6 @@ async def format_embed(roblox_account: RobloxUser, user: hikari.User = None, gui
                 raise_on_failure=False
             )
 
-            # json_response["title"] = "Flicker 💡"
-            # json_response["titleURL"] = "https://www.roblox.com/games/1324061305/Flicker"
-            # json_response["bannerImage"] = "https://tr.rbxcdn.com/df747bb093b7c8613694577ae729307a/768/432/Image/Png"
-            # json_response["color"] = "#f1e970"
-            # json_response["fields"] = [
-            #     {"name": "Wins", "value": 0, "inline": True},
-            # ]
-
             if response.status == StatusCodes.OK and json_response.get("fields"):
                 custom_embed = hikari.Embed(
                     title=json_response.get("title"),
