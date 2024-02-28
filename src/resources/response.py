@@ -747,7 +747,7 @@ class Prompt(Generic[T]):
 
         return await self.run_page(hash_=hash_, changing_page=True).__anext__()
 
-    async def finish(self, *, disable_components=True, delete_message=False):
+    async def finish(self, *, disable_components=True):
         """Finish the prompt."""
 
         await self.clear_data()
